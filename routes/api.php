@@ -20,3 +20,5 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 Route::get('supply/part-category', [SupplyController::class, 'getCategoryByPSN']);
+Route::get('supply/part-line', [SupplyController::class, 'getLineByPSNandCategory']);
+Route::get('supply/outstanding-upload', [SupplyController::class, 'getOutstandingUpload']);
