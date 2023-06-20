@@ -293,7 +293,13 @@ class SupplyController extends Controller
     function getOutstandingUpload(Request $request)
     {
         $RSFinal = $this->OutstandingUpload(['doc' => $request->doc, 'category' => $request->category, 'line' => $request->line]);
-        return ['data' => $RSFinal];
+        $RSFinal2 = [];
+        foreach($RSFinal as $r){
+            if ($r['ISOK'] == 1) {
+                $RSFinal2[] = $r;               
+            }
+        }
+        return ['data' => $RSFinal2];
     }
 
     function getLineByPSNandCategory(Request $request)
