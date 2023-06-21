@@ -340,4 +340,24 @@ class SupplyController extends Controller
         }
         return ['status' => $result, 'WorkOrder' => $WorkOrder];
     }
+
+    function isPartInDocumentExist(Request $request)
+    {
+        $RSSPL = DB::table("SPL_TBL")->select(DB::raw("RTRIM(MITM_SPTNO) MITM_SPTNO"), "SPL_RACKNO")
+            ->leftJoin("MITM_TBL", "SPL_ITMCD", "=", "MITM_ITMCD")
+            ->where("SPL_DOC", $request->doc)
+            ->where("SPL_CAT", $request->category)
+            ->where("SPL_LINE", $request->line)
+            ->where("SPL_ITMCD", $request->item)->get();
+        $result = [];
+        if (count($RSSPL) > 0) {
+            foreach ($RSSPL as $r) {
+                $result[] = ["cd" => 1, "msg" => "Go ahead", "ref" => $r->MITM_SPTNO, "rackno" => $r->SPL_RACKNO];
+                break;
+            }
+        } else {
+            $result[] = ["cd" => 0, "msg" => "Data not found in PSN"];
+        }
+        return ['data' => $result];
+    }
 }

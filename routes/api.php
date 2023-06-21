@@ -28,6 +28,7 @@ Route::get('supply/part-category', [SupplyController::class, 'getCategoryByPSN']
 Route::get('supply/part-line', [SupplyController::class, 'getLineByPSNandCategory']);
 Route::get('supply/outstanding-upload', [SupplyController::class, 'getOutstandingUpload']);
 Route::get('supply/validate-document', [SupplyController::class, 'isDocumentExist']);
+Route::get('supply/validate-item', [SupplyController::class, 'isPartInDocumentExist']);
 
 # Terkait Return Part
 Route::get('return/counted', [ReturnController::class, 'getCountedPart']);
