@@ -320,8 +320,24 @@ class SupplyController extends Controller
 
     function isDocumentExist(Request $request)
     {
-        $DocumentCount = DB::table("SPL_TBL")->where("SPL_DOC", $request->doc)->count();
-        $result[] = $DocumentCount > 0 ? ["cd" => 1, "msg" => "GO AHEAD"] : ["cd" => 0, "msg" => "Trans No not found"];
-        return ['status' => $result];
+        $whereExtension = [];
+        if (isset($request->category)) {
+            $whereExtension[] = ["SPL_CAT", "=", $request->category];
+        }
+        if (isset($request->line)) {
+            $whereExtension[] = ["SPL_LINE", "=", $request->line];
+        }
+        $DocumentCount = DB::table("SPL_TBL")->where("SPL_DOC", $request->doc)->where($whereExtension)->count();
+        $WorkOrder = [];
+        if ($DocumentCount > 0) {
+            if (isset($request->line)) {
+                $WorkOrder = strtoupper(substr($request->doc, 0, 3)) == "PR-" ? [["PPSN1_WONO" => "_"]]
+                    : DB::select("exec xsp_megapsnhead_nofr ?, ?", [$request->doc, $request->line]);
+            }
+            $result[] =  ["cd" => 1, "msg" => "GO AHEAD"];
+        } else {
+            $result[] = ["cd" => 0, "msg" => "Trans No not found"];
+        }
+        return ['status' => $result, 'WorkOrder' => $WorkOrder];
     }
 }
