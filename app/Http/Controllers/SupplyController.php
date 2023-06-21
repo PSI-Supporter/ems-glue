@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\PartSupply;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 class SupplyController extends Controller
 {
@@ -294,9 +295,9 @@ class SupplyController extends Controller
     {
         $RSFinal = $this->OutstandingUpload(['doc' => $request->doc, 'category' => $request->category, 'line' => $request->line]);
         $RSFinal2 = [];
-        foreach($RSFinal as $r){
+        foreach ($RSFinal as $r) {
             if ($r['ISOK'] == 1) {
-                $RSFinal2[] = $r;               
+                $RSFinal2[] = $r;
             }
         }
         return ['data' => $RSFinal2];
@@ -315,5 +316,12 @@ class SupplyController extends Controller
             $result[] = ["cd" => 0, "msg" => "Data not found"];
         }
         return ['data' => $RSPSNLine, 'status' => $result];
+    }
+
+    function isDocumentExist(Request $request)
+    {
+        $DocumentCount = DB::table("SPL_TBL")->where("SPL_DOC", $request->doc)->count();
+        $result[] = $DocumentCount > 0 ? ["cd" => 1, "msg" => "GO AHEAD"] : ["cd" => 0, "msg" => "Trans No not found"];
+        return ['status' => $result];
     }
 }
