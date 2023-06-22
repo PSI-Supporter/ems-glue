@@ -348,7 +348,8 @@ class SupplyController extends Controller
             ->where("SPL_DOC", $request->doc)
             ->where("SPL_CAT", $request->category)
             ->where("SPL_LINE", $request->line)
-            ->where("SPL_ITMCD", $request->item)->get();
+            ->where("SPL_ITMCD", $request->item)
+            ->get();
         $result = [];
         if (count($RSSPL) > 0) {
             foreach ($RSSPL as $r) {
@@ -359,5 +360,24 @@ class SupplyController extends Controller
             $result[] = ["cd" => 0, "msg" => "Data not found in PSN"];
         }
         return ['data' => $result];
+    }
+
+    function isPartAlreadySuppliedInDocument(Request $request)
+    {
+        $SuppliedPartCount = DB::table("SPLSCN_TBL")
+            ->where("SPLSCN_DOC", $request->doc)
+            ->where("SPLSCN_CAT", $request->category)
+            ->where("SPLSCN_LINE", $request->line)
+            ->where("SPLSCN_ITMCD", $request->item)
+            ->where("SPLSCN_LOTNO", $request->lotNumber)
+            ->where("SPLSCN_QTY", $request->qty)
+            ->count();
+        $result = [];
+        if ($SuppliedPartCount > 0) {
+            $result[] = ["cd" => 1, "msg" => "GO AHEAD"];
+        } else {
+            $result[] = ["cd" => 0, "msg" => "Lot No not found $request->lotNumber"];
+        }
+        return ['status' => $result];
     }
 }
