@@ -34,4 +34,5 @@ Route::post('supply/validate-supplied-item', [SupplyController::class, 'isPartAl
 # Terkait Return Part
 Route::get('return/counted', [ReturnController::class, 'getCountedPart']);
 Route::post('return', [ReturnController::class, 'save']);
+Route::delete('return/items/{id}', [ReturnController::class, 'delete']);
 Route::post('return/alternative-saving', [ReturnController::class, 'saveAlternative']);

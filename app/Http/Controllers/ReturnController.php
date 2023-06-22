@@ -183,4 +183,13 @@ class ReturnController extends Controller
             die('{"status":' . json_encode($myar) . '}');
         }
     }
+
+    function delete(Request $request)
+    {
+        $affectedRow = PartReturned::where("RETSCN_ID", $request->id)
+        ->where(DB::raw("COALESCE(RETSCN_SAVED,'0')"), '0')
+        ->delete();
+        $result[] = $affectedRow > 0 ? ["cd" => "1", "msg" => "Deleted successfully"] : ["cd" => "0", "msg" => "could not be deleted, please refresh the page"];
+        return ['status' => $result];
+    }
 }
