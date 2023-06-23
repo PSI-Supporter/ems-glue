@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\C3LC;
+use App\Models\ITH;
 use App\Models\PartReturned;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -294,5 +295,141 @@ class ReturnController extends Controller
             $result[] = ['cd' => '00', 'msg' => 'It seems You are using wrong menu or function'];
         }
         return ['status' => $result];
+    }
+
+    function resume(Request $request)
+    {
+        $data = [];
+        if (isset($request->output)) {
+            # data to be upploaded to MEGA Per PSN
+            $data = DB::table("RETSCN_TBL")->select("RETSCN_ITMCD", DB::raw("CONVERT(bigint,SUM(RETSCN_QTYAFT)) RETQTY"))
+                ->where("RETSCN_SPLDOC", $request->doc)
+                ->where(DB::raw("ISNULL(RETSCN_HOLD,'0')"), "0")
+                ->groupBy("RETSCN_ITMCD")
+                ->get();
+        } else {
+            # data of Supplied Part Vs Returned Part Per PSN
+            $data = DB::select("EXEC sp_splvssupvsret_psnonly ?", [$request->doc]);
+        }
+        return ['data' => $data];
+    }
+
+    function confirm(Request $request)
+    {
+        if (!is_array($request->item)) {
+            return ['message' => 'there is no part code returned'];
+        }
+        $ttlitem = count($request->item);
+        $cwh_out = '';
+        $thetime = '07:01:00';
+        if ($ttlitem > 0) {
+            $rsbg = substr($request->doc, 0, 3) == "PR-" ? DB::table("SPL_TBL")->select(DB::raw("RTRIM(SPL_BG) PPSN1_BSGRP"))
+                ->where("SPL_DOC", $request->doc)->groupBy("SPL_BG")->get()
+                : DB::table("XPPSN1")->select(DB::raw("RTRIM(PPSN1_BSGRP) PPSN1_BSGRP"))
+                ->where("PPSN1_PSNNO", $request->doc)->groupBy("PPSN1_BSGRP")->get();
+            $rsbg = json_decode(json_encode($rsbg), true);
+            foreach ($rsbg as $r) {
+                switch ($r['PPSN1_BSGRP']) {
+                    case 'PSI1PPZIEP':
+                        $cwh_inc = 'ARWH1';
+                        $cwh_out = 'PLANT1';
+                        break;
+                    case 'PSI2PPZADI':
+                        $cwh_inc = 'ARWH2';
+                        $cwh_out = 'PLANT2';
+                        break;
+                    case 'PSI2PPZINS':
+                        $cwh_inc = 'NRWH2';
+                        $cwh_out = 'PLANT_NA';
+                        break;
+                    case 'PSI2PPZOMC':
+                        $cwh_inc = 'NRWH2';
+                        $cwh_out = 'PLANT_NA';
+                        break;
+                    case 'PSI2PPZOMI':
+                        $cwh_inc = 'ARWH2';
+                        $cwh_out = 'PLANT2';
+                        break;
+                    case 'PSI2PPZSSI':
+                        $cwh_inc = 'NRWH2';
+                        $cwh_out = 'PLANT_NA';
+                        break;
+                    case 'PSI2PPZSTY':
+                        $cwh_inc = 'ARWH2';
+                        $cwh_out = 'PLANT2';
+                        break;
+                    case 'PSI2PPZTDI':
+                        $cwh_inc = 'ARWH2';
+                        $cwh_out = 'PLANT2';
+                        break;
+                }
+            }
+            $thelupdt = $request->dateConfirm . " " . $thetime;
+            $_affectedRowTemp = 0;
+            $_affectedRowITH = 0;
+            for ($b = 0; $b < $ttlitem; $b++) {
+                $RSSub = DB::table("SPL_TBL")
+                    ->select("SPL_DOC", "SPL_ITMCD", DB::raw("MAX(SPL_RACKNO) SPL_RACKNO"))
+                    ->where("SPL_DOC", $request->doc)
+                    ->groupBy(["SPL_DOC", "SPL_ITMCD"]);
+                $RSCountedPart = DB::table("RETSCN_TBL AS a")
+                    ->select(DB::raw("a.*,b.*, RTRIM(MITM_SPTNO) MITM_SPTNO, RTRIM(ISNULL(RETSCN_HOLD,'0'))  FLG_HOLD,ISNULL(SPL_RACKNO,'') SPL_RACKNO"))
+                    ->join("MMADE_TBL AS b", "a.RETSCN_CNTRYID", "=", "MMADE_CD")
+                    ->join("MITM_TBL", "a.RETSCN_ITMCD", "=", "MITM_ITMCD")
+                    ->leftJoinSub($RSSub, "dt", function ($join) {
+                        $join->on("RETSCN_ITMCD", "=", "SPL_ITMCD")
+                            ->on("RETSCN_SPLDOC", "=", "SPL_DOC");
+                    })
+                    ->where("RETSCN_SPLDOC", $request->doc)
+                    ->where("RETSCN_ITMCD", $request->item[$b])
+                    ->where(DB::raw("ISNULL(RETSCN_HOLD,'0')"), '0')
+                    ->get();
+                $RSCountedPart = json_decode(json_encode($RSCountedPart), true);
+                foreach ($RSCountedPart as $r) {
+                    $fieldsToBeUpdated = [
+                        'RETSCN_SAVED' => '1',
+                        'RETSCN_CNFRMDT' => $request->dateConfirm,
+                        'RETSCN_LUPDT' => date('Y-m-d H:i:s')
+                    ];
+                    $affectedRow = PartReturned::where("RETSCN_ID", $r['RETSCN_ID'])
+                        ->whereNull("RETSCN_SAVED")
+                        ->where(DB::raw("ISNULL(RETSCN_HOLD,'0')"), "!=", '1')
+                        ->update($fieldsToBeUpdated, ['timestamps' => false]);
+                    $_affectedRowTemp += $affectedRow;
+                    if ($affectedRow > 0) {
+                        $ithdoc = $request->doc . '|' . trim($r['RETSCN_CAT']) . '|' . trim($r['RETSCN_LINE']) . '|' . trim($r['RETSCN_FEDR']);
+                        $datas = [
+                            'ITH_ITMCD' => $request->item[$b],
+                            'ITH_DATE' => $request->dateConfirm,
+                            'ITH_FORM' => 'INC-RET',
+                            'ITH_DOC' => $ithdoc,
+                            'ITH_QTY' => $r['RETSCN_QTYAFT'],
+                            'ITH_WH' => $cwh_inc,
+                            'ITH_REMARK' => $r['RETSCN_ID'],
+                            'ITH_LUPDT' => $thelupdt,
+                            'ITH_USRID' => $request->userId
+                        ];
+                        $affectedRow = ITH::insert($datas);
+                        $_affectedRowITH += $affectedRow;
+                        $datas = [
+                            'ITH_ITMCD' => $request->item[$b],
+                            'ITH_DATE' => $request->dateConfirm,
+                            'ITH_FORM' => 'OUT-RET',
+                            'ITH_DOC' => $ithdoc,
+                            'ITH_QTY' => -$r['RETSCN_QTYAFT'],
+                            'ITH_WH' => $cwh_out,
+                            'ITH_REMARK' => $r['RETSCN_ID'],
+                            'ITH_LUPDT' => $thelupdt,
+                            'ITH_USRID' => $request->userId
+                        ];
+                        $affectedRow = ITH::insert($datas);
+                        $_affectedRowITH += $affectedRow;
+                    }
+                }
+            }
+            return ['message' => $_affectedRowTemp > 0 ||  $_affectedRowITH > 0  ? 'confirmed' : 'already confirmed', '_affectedRowTemp' => $_affectedRowTemp, '_affectedRowITH' => $_affectedRowITH];
+        } else {
+            return ['message' => 'no data'];
+        }
     }
 }

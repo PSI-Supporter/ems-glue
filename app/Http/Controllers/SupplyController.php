@@ -329,16 +329,38 @@ class SupplyController extends Controller
         }
         $DocumentCount = DB::table("SPL_TBL")->where("SPL_DOC", $request->doc)->where($whereExtension)->count();
         $WorkOrder = [];
+        $RSKittingReferenceDocument = [];
         if ($DocumentCount > 0) {
             if (isset($request->line)) {
                 $WorkOrder = strtoupper(substr($request->doc, 0, 3)) == "PR-" ? [["PPSN1_WONO" => "_"]]
                     : DB::select("exec xsp_megapsnhead_nofr ?, ?", [$request->doc, $request->line]);
+            } else {
+                if (substr($request->doc, 0, 3) == "PR-") {
+                    # jika dokumen part req maka WO nya blank (_)
+                    $WorkOrder = [["PPSN1_WONO" => "_"]];
+
+                    # cari referensi dokumen kitting
+                    $RSKittingReferenceDocument = DB::table("SPL_TBL")->select("SPL_REFDOCNO", DB::raw("MAX(SPL_REFDOCCAT) REFDOCCAT"))
+                        ->where("SPL_DOC", $request->doc)
+                        ->groupBy("SPL_REFDOCNO")->get();
+                } else {
+                    $WorkOrder = DB::table("XPPSN1")->select("PPSN1_WONO")
+                        ->where("PPSN1_PSNNO", $request->doc)
+                        ->groupBy("PPSN1_WONO")->get();
+
+                    # cari referensi dokumen kitting
+                    $RSKittingReferenceDocument = DB::table("SPL_TBL")->select(DB::raw("SPL_DOC SPL_REFDOCNO,MAX(SPL_REFDOCCAT) REFDOCCAT"))
+                        ->where("SPL_REFDOCNO", $request->doc)
+                        ->groupBy("SPL_DOC")->get();
+
+                    $result[] = ["cd" => 1, "msg" => "Go ahead"];
+                }
             }
             $result[] =  ["cd" => 1, "msg" => "GO AHEAD"];
         } else {
             $result[] = ["cd" => 0, "msg" => "Trans No not found"];
         }
-        return ['status' => $result, 'WorkOrder' => $WorkOrder];
+        return ['status' => $result, 'WorkOrder' => $WorkOrder, 'dataReff' => $RSKittingReferenceDocument];
     }
 
     function isPartInDocumentExist(Request $request)
