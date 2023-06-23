@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\C3LC;
 use App\Models\PartReturned;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -187,9 +188,111 @@ class ReturnController extends Controller
     function delete(Request $request)
     {
         $affectedRow = PartReturned::where("RETSCN_ID", $request->id)
-        ->where(DB::raw("COALESCE(RETSCN_SAVED,'0')"), '0')
-        ->delete();
+            ->where(DB::raw("COALESCE(RETSCN_SAVED,'0')"), '0')
+            ->delete();
         $result[] = $affectedRow > 0 ? ["cd" => "1", "msg" => "Deleted successfully"] : ["cd" => "0", "msg" => "could not be deleted, please refresh the page"];
+        return ['status' => $result];
+    }
+
+    function setPartStatus(Request $request)
+    {
+        $affectedRow = PartReturned::where("RETSCN_ID", $request->id)->whereNull("RETSCN_SAVED")
+            ->update(["RETSCN_HOLD" => $request->status], ['timestamps' => false]);
+        $result[] = $affectedRow > 0 ? ["cd" => 1, "msg" => "OK"] : ["cd" => 0, "msg" => "Could not Hold/Release"];
+        return ['status' => $result];
+    }
+
+    function saveByCombining(Request $request)
+    {
+        $result = [];
+        if (is_array($request->item)) {
+            $DocumentCount = DB::table("SPL_TBL")
+                ->where("SPL_DOC", $request->doc)
+                ->where("SPL_CAT", $request->category)
+                ->where("SPL_LINE", $request->line)
+                ->where("SPL_ITMCD", $request->item[0])->count();
+            if ($DocumentCount > 0) {
+                $ttldata = count($request->item);
+                if ($ttldata === 1) {
+                    return ['status' => [['cd' => '00', 'msg' => 'at least two record should be sent']]];
+                }
+                $isItemlotOK = true;
+                $C3Data = [];
+
+                $lotasHome = $request->lotNumber[0];
+                if ($request->qtyAfter > $request->qtyBefore[0] && $request->lotNumber[0] != $request->lotNumber[1]) {
+                    $lotasHome = substr($request->lotNumber[0], 0, 10);
+                    $lotasHome .= '#C';
+                }
+                #PREPARE NEW ROW ID
+                $mlastid = $this->getLastIdOfReturnRecord();
+                $mlastid++;
+                $newid = date('Ymd') . $mlastid;
+                #END
+                for ($i = 0; $i < $ttldata; $i++) {
+                    $ttldata_psnscan = DB::table("SPLSCN_TBL")
+                        ->where('SPLSCN_DOC', $request->doc)
+                        ->where('SPLSCN_CAT', $request->category)
+                        ->where('SPLSCN_LINE', $request->line)
+                        ->where('SPLSCN_ITMCD', $request->item[$i])
+                        ->where('SPLSCN_LOTNO', $request->lotNumber[$i])->count();
+                    if ($ttldata_psnscan == 0) {
+                        $isItemlotOK = false;
+                        break;
+                    }
+                    $C3Data[] = [
+                        'C3LC_ITMCD' => $request->item[0], 'C3LC_NLOTNO' => $lotasHome, 'C3LC_NQTY' => $request->qtyAfter, 'C3LC_LOTNO' => $request->lotNumber[$i], 'C3LC_QTY' => $request->qtyBefore[$i], 'C3LC_REFF' => $newid, 'C3LC_LINE' => $i,  'C3LC_USRID' => $request->userId, 'C3LC_LUPTD' => date('Y-m-d H:i:s')
+                    ];
+                }
+
+                if ($isItemlotOK) {
+                    $RSBalncePerItem = DB::select("EXEC sp_getreturnbalance_peritem ?, ?, ?,  ?", [$request->doc, $request->line, $request->category,  $request->item[0]]);
+                    $RSBalncePerItem = json_decode(json_encode($RSBalncePerItem), true);
+                    $RSBalncePerItem = count($RSBalncePerItem) > 0 ? reset($RSBalncePerItem) : ['BALQTY' => 0];
+
+                    if ($RSBalncePerItem['BALQTY'] >= $request->qtyAfter) {
+                        #GET FR , ORDERNO
+                        $RSSPLSCN = DB::table("SPLSCN_TBL")
+                            ->select(DB::raw("SPLSCN_ID,SPLSCN_DOC,SPLSCN_CAT,SPLSCN_LINE,RTRIM(SPLSCN_FEDR) SPLSCN_FEDR,SPLSCN_ORDERNO,UPPER(SPLSCN_ITMCD) SPLSCN_ITMCD,SPLSCN_LOTNO,SPLSCN_SAVED,
+                        SPLSCN_QTY,SPLSCN_LUPDT,SPLSCN_USRID,SPLSCN_EXPORTED"))
+                            ->where('SPLSCN_DOC', $request->doc)
+                            ->where('SPLSCN_CAT', $request->category)
+                            ->where('SPLSCN_LINE', $request->line)
+                            ->where('SPLSCN_ITMCD', $request->item[0])
+                            ->where('SPLSCN_LOTNO', $request->lotNumber[0])
+                            ->where('SPLSCN_QTY', $request->qtyBefore[0])
+                            ->get();
+                        #END
+                        $RSSPLSCN = json_decode(json_encode($RSSPLSCN), true);
+                        if (count($RSSPLSCN) > 0) {
+                            if (count($C3Data) > 1) {
+                                C3LC::insert($C3Data);
+                            }
+                            $rsbefore = reset($RSSPLSCN);
+                            $datas = [
+                                'RETSCN_ID' =>  $newid, 'RETSCN_SPLDOC' => $request->doc, 'RETSCN_CAT' => $request->category, 'RETSCN_LINE' => $request->line, 'RETSCN_FEDR' => $rsbefore['SPLSCN_FEDR'], 'RETSCN_ORDERNO' => $rsbefore['SPLSCN_ORDERNO'],
+                                'RETSCN_ITMCD' => $request->item[0], 'RETSCN_LOT' => $lotasHome, 'RETSCN_QTYBEF' => $request->qtyBefore[0], 'RETSCN_QTYAFT' => $request->qtyAfter, 'RETSCN_CNTRYID' => $request->countryId,
+                                'RETSCN_ROHS' => $request->roHs, 'RETSCN_LUPDT' => date('Y-m-d H:i:s'), 'RETSCN_USRID' => $request->userId
+                            ];
+                            $toret = PartReturned::insert($datas);
+                            if ($toret > 0) {
+                                $result[] = ['cd' => '11', 'msg' => 'Saved', 'lotno' => $lotasHome];
+                            }
+                        } else {
+                            $result[] = ['cd' => '00', 'msg' => 'could not get FR and ORDER NO', '$C3Data' => $C3Data];
+                        }
+                    } else {
+                        $result[] = ['cd' => '00', 'msg' => 'Balance Qty < Return Qty'];
+                    }
+                } else {
+                    $result[] = ['cd' => '00', 'msg' => 'PSN and Item Lot does not match'];
+                }
+            } else {
+                $result[] = ['cd' => '00', 'msg' => 'PSN and Item does not match'];
+            }
+        } else {
+            $result[] = ['cd' => '00', 'msg' => 'It seems You are using wrong menu or function'];
+        }
         return ['status' => $result];
     }
 }

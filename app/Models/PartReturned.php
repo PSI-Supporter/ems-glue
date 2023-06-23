@@ -12,4 +12,5 @@ class PartReturned extends Model
     protected $fillable = [
         'RETSCN_ID', 'RETSCN_SPLDOC', 'RETSCN_CAT', 'RETSCN_LINE', 'RETSCN_FEDR', 'RETSCN_ORDERNO', 'RETSCN_ITMCD', 'RETSCN_LOT', 'RETSCN_QTYBEF', 'RETSCN_QTYAFT', 'RETSCN_CNTRYID', 'RETSCN_ROHS', 'RETSCN_LUPDT', 'RETSCN_USRID'
     ];
+    public $timestamps = false;
 }
