@@ -300,18 +300,37 @@ class ReturnController extends Controller
     function resume(Request $request)
     {
         $data = [];
-        if (isset($request->output)) {
-            # data to be upploaded to MEGA Per PSN
-            $data = DB::table("RETSCN_TBL")->select("RETSCN_ITMCD", DB::raw("CONVERT(bigint,SUM(RETSCN_QTYAFT)) RETQTY"))
-                ->where("RETSCN_SPLDOC", $request->doc)
-                ->where(DB::raw("ISNULL(RETSCN_HOLD,'0')"), "0")
-                ->groupBy("RETSCN_ITMCD")
-                ->get();
+        $result = [];
+        if (isset($request->doc)) {
+            if (isset($request->output)) {
+                # data to be upploaded to MEGA Per PSN
+                $data = DB::table("RETSCN_TBL")->select("RETSCN_ITMCD", DB::raw("CONVERT(bigint,SUM(RETSCN_QTYAFT)) RETQTY"))
+                    ->where("RETSCN_SPLDOC", $request->doc)
+                    ->where(DB::raw("ISNULL(RETSCN_HOLD,'0')"), "0")
+                    ->groupBy("RETSCN_ITMCD")
+                    ->get();
+            } else {
+                # data of Supplied Part Vs Returned Part Per PSN
+                $data = DB::select("EXEC sp_splvssupvsret_psnonly ?", [$request->doc]);
+            }
         } else {
-            # data of Supplied Part Vs Returned Part Per PSN
-            $data = DB::select("EXEC sp_splvssupvsret_psnonly ?", [$request->doc]);
+            $RSSub = DB::table("v_ith_tblc")->select(DB::raw("ITH_DATEC RETSCN_DATE,SUBSTRING(ITH_DOC,1,19) RETSCN_SPLDOC, ITH_ITMCD RETSCN_ITMCD,SUM(ITH_QTY) RTNQTY"))
+                ->where("ITH_FORM", 'INC-RET')
+                ->where("ITH_DOC", "LIKE", "%PR-%")
+                ->where("ITH_DATEC", ">=", $request->dateFrom)
+                ->where("ITH_DATEC", "<=", $request->dateTo)
+                ->groupByRaw("ITH_DATEC,SUBSTRING(ITH_DOC,1,19), ITH_ITMCD");
+            $RSSub2 = DB::table("SPL_TBL")->select(DB::raw("SPL_DOC,SPL_ITMCD,MAX(SPL_REFDOCNO) SPL_REFDOCNO"))
+                ->where("SPL_DOC", "LIKE", "PR-%")
+                ->groupBy(['SPL_DOC', 'SPL_ITMCD']);
+            $data = DB::query()->fromSub($RSSub, "V1")->select(DB::raw("V1.*,UPPER(SPL_REFDOCNO) REFFDOC"))
+                ->leftJoinSub($RSSub2, "V2", function ($join) {
+                    $join->on("RETSCN_SPLDOC", "=", "SPL_DOC")->on("RETSCN_ITMCD", "=", "SPL_ITMCD");
+                })
+                ->orderByRaw('1,2,3')->get();
+            $result[] = count($data) ? ['cd' => 1, 'msg' => 'Go ahead'] : ['cd' => 0, 'msg' => 'Not found'];
         }
-        return ['data' => $data];
+        return ['data' => $data, 'status' => $result];
     }
 
     function confirm(Request $request)
