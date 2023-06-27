@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\C3LC;
 use App\Models\ITH;
 use App\Models\PartReturned;
+use App\Models\RETRM;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -140,6 +141,16 @@ class ReturnController extends Controller
         $RSLastCountedPart = DB::table("RETSCN_TBL")->select(DB::raw("substring(RETSCN_ID, 9, 20) lastNumber"))
             ->whereDate("RETSCN_LUPDT", date('Y-m-d'))
             ->orderBy(DB::raw("convert(bigint,SUBSTRING(RETSCN_ID,9,11))"), "DESC")
+            ->take(1)
+            ->first();
+        $mlastid = $RSLastCountedPart->lastNumber;
+        return $mlastid;
+    }
+
+    private function getLastIdOfReturnWithoutPSNRecord()
+    {
+        $RSLastCountedPart = DB::table("RETRM_TBL")->select(DB::raw("ISNULL(MAX(CONVERT(INT,SUBSTRING(RETRM_DOC,9,4))),0) lastNumber"))
+            ->whereDate("RETRM_CREATEDAT", date('Y-m-d'))
             ->take(1)
             ->first();
         $mlastid = $RSLastCountedPart->lastNumber;
@@ -450,5 +461,241 @@ class ReturnController extends Controller
         } else {
             return ['message' => 'no data'];
         }
+    }
+
+    function reportReturnWithoutPSN(Request $request)
+    {
+        $RSSub = DB::table("ITMLOC_TBL")->selectRaw("ITMLOC_ITM,MAX(ITMLOC_LOC) ITMLOC_LOC,MAX(ITMLOC_BG) ITMLOC_BG")
+            ->groupBy("ITMLOC_ITM");
+        $RS = DB::table("RETRM_TBL")->select(DB::raw("RETRM_TBL.*,ITMLOC_LOC,RTRIM(MITM_SPTNO) SPTNO,RTRIM(MITM_ITMD1) ITMD1"))
+            ->leftJoinSub($RSSub, "VLOC", function ($join) {
+                $join->on("RETRM_ITMCD", "=", "ITMLOC_ITM");
+            })->leftJoin("MITM_TBL", "RETRM_ITMCD", "=", "MITM_ITMCD")
+            ->whereDate("RETRM_CREATEDAT", ">=", $request->dateFrom)
+            ->whereDate("RETRM_CREATEDAT", "<=", $request->dateTo)
+            ->where("ITMLOC_BG", $request->businessGroup)
+            ->where("RETRM_ITMCD", "like", "%{$request->item}%")
+            ->get();
+        return ['data' => $RS];
+    }
+
+    function returnWithoutPSN(Request $request)
+    {
+        $AMONTHPATRN = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'X', 'Y', 'Z'];
+        $currentDateTime = date('Y-m-d H:i:s');
+        $currentDate = date('Y-m-d');
+        $_year = substr(date('Y'), -2);
+        $_month = (int)date('m');
+        $_day = date('d');
+        $cwh_inc = '';
+        $cwh_out = '';
+        $result = [];
+        $rsbg = DB::table("SPL_TBL")->selectRaw("RTRIM(SPL_BG) SPL_BG")
+            ->where("SPL_ITMCD", $request->item)
+            ->groupBy("SPL_BG")->get();
+        $rsbg = json_decode(json_encode($rsbg), true);
+        foreach ($rsbg as $r) {
+            switch ($r['SPL_BG']) {
+                case 'PSI1PPZIEP':
+                    $cwh_inc = 'ARWH1';
+                    $cwh_out = 'PLANT1';
+                    break;
+                case 'PSI2PPZADI':
+                    $cwh_inc = 'ARWH2';
+                    $cwh_out = 'PLANT2';
+                    break;
+                case 'PSI2PPZINS':
+                    $cwh_inc = 'NRWH2';
+                    $cwh_out = 'PLANT_NA';
+                    break;
+                case 'PSI2PPZOMC':
+                    $cwh_inc = 'NRWH2';
+                    $cwh_out = 'PLANT_NA';
+                    break;
+                case 'PSI2PPZOMI':
+                    $cwh_inc = 'ARWH2';
+                    $cwh_out = 'PLANT2';
+                    break;
+                case 'PSI2PPZSSI':
+                    $cwh_inc = 'NRWH2';
+                    $cwh_out = 'PLANT_NA';
+                    break;
+                case 'PSI2PPZSTY':
+                    $cwh_inc = 'ARWH2';
+                    $cwh_out = 'PLANT2';
+                    break;
+                case 'PSI2PPZTDI':
+                    $cwh_inc = 'ARWH2';
+                    $cwh_out = 'PLANT2';
+                    break;
+            }
+            break;
+        }
+        if (DB::table("RETRM_TBL")
+            ->where("RETRM_ITMCD", $request->item)
+            ->where("RETRM_OLDQTY", $request->qtyBefore)
+            ->where("RETRM_LOTNUM", $request->lotNumber)
+            ->whereDate("RETRM_CREATEDAT", $currentDate)->count()
+        ) {
+            $result[] = ['cd' => '0', 'msg' => 'it was already returned'];
+        } else {
+            $lastNumber = $this->getLastIdOfReturnWithoutPSNRecord() + 1;
+            $doc = "RWP" . $_year . $AMONTHPATRN[($_month - 1)] . $_day . $lastNumber;
+            $data = [
+                'RETRM_DOC' => $doc, 'RETRM_LINE' => 1, 'RETRM_ITMCD' => $request->item, 'RETRM_OLDQTY' => $request->qtyBefore, 'RETRM_NEWQTY' => $request->qtyAfter, 'RETRM_LOTNUM' => $request->lotNumber, 'RETRM_CREATEDAT' => $currentDateTime, 'RETRM_USRID' => $request->userId
+            ];
+            $rv = RETRM::insert($data);
+
+            $datab = [
+                'ITH_ITMCD' => $request->item,
+                'ITH_WH' =>  $cwh_inc,
+                'ITH_DOC' => $doc,
+                'ITH_DATE' => $currentDate,
+                'ITH_FORM' => 'INCRTN-NO-PSN',
+                'ITH_QTY' => $request->qtyAfter,
+                'ITH_REMARK' => $request->lotNumber,
+                'ITH_USRID' =>  $request->userId,
+                'ITH_LUPDT' =>  date('Y-m-d H:i:s')
+            ];
+            ITH::insert($datab);
+
+            $datab = [
+                'ITH_ITMCD' => $request->item,
+                'ITH_WH' =>  $cwh_out,
+                'ITH_DOC' => $doc,
+                'ITH_DATE' => $currentDate,
+                'ITH_FORM' => 'OUTRTN-NO-PSN',
+                'ITH_QTY' => -1 * $request->qtyAfter,
+                'ITH_REMARK' => $request->lotNumber,
+                'ITH_USRID' =>  $request->userId,
+                'ITH_LUPDT' =>  date('Y-m-d H:i:s')
+            ];
+            ITH::insert($datab);
+            $result[] = $rv > 0 ? ['cd' => '1', 'msg' => 'OK'] : ['cd' => '0', 'msg' => 'could not be saved'];
+        }
+        return ['status' => $result];
+    }
+
+    function cancelReturnWithoutPSN(Request $request)
+    {
+        $currentDate = date('Y-m-d');
+        $idscan = $request->id;
+        $itemcd = $request->item;
+        $rs = RETRM::select("*")->where("RETRM_DOC", $idscan)->get();
+        $rs = json_decode(json_encode($rs), true);
+
+        $rsbg = DB::table("SPL_TBL")->selectRaw("RTRIM(SPL_BG) SPL_BG")
+            ->where("SPL_ITMCD", $request->item)
+            ->groupBy("SPL_BG")->get();
+        $rsbg = json_decode(json_encode($rsbg), true);
+
+        $cwh_inc = '';
+        $cwh_out = '';
+        foreach ($rsbg as $r) {
+            switch ($r['SPL_BG']) {
+                case 'PSI1PPZIEP':
+                    $cwh_inc = 'ARWH1';
+                    $cwh_out = 'PLANT1';
+                    break;
+                case 'PSI2PPZADI':
+                    $cwh_inc = 'ARWH2';
+                    $cwh_out = 'PLANT2';
+                    break;
+                case 'PSI2PPZINS':
+                    $cwh_inc = 'NRWH2';
+                    $cwh_out = 'PLANT_NA';
+                    break;
+                case 'PSI2PPZOMC':
+                    $cwh_inc = 'NRWH2';
+                    $cwh_out = 'PLANT_NA';
+                    break;
+                case 'PSI2PPZOMI':
+                    $cwh_inc = 'ARWH2';
+                    $cwh_out = 'PLANT2';
+                    break;
+                case 'PSI2PPZSSI':
+                    $cwh_inc = 'NRWH2';
+                    $cwh_out = 'PLANT_NA';
+                    break;
+                case 'PSI2PPZSTY':
+                    $cwh_inc = 'ARWH2';
+                    $cwh_out = 'PLANT2';
+                    break;
+                case 'PSI2PPZTDI':
+                    $cwh_inc = 'ARWH2';
+                    $cwh_out = 'PLANT2';
+                    break;
+            }
+            break;
+        }
+        $myar = [];
+        if (count($rs) > 0) {
+            if (DB::table("ITH_TBL")->where("ITH_DOC", $idscan)->count() > 0) {
+                $newqty = 0;
+                $lotnum = "";
+                foreach ($rs as $r) {
+                    $newqty = $r['RETRM_NEWQTY'];
+                    $lotnum = $r['RETRM_LOTNUM'];
+                }
+                $txMonth = $txYear = null;
+                $rsTransaction = RETRM::selectRaw("YEAR(RETRM_CREATEDAT) TXYEAR, MONTH(RETRM_CREATEDAT) TXMONTH")
+                    ->where("RETRM_DOC", $idscan)->get();
+                $rsTransaction = json_decode(json_encode($rsTransaction), true);
+
+                foreach ($rsTransaction as $r) {
+                    $txMonth = $r['TXMONTH'];
+                    $txYear = $r['TXYEAR'];
+                }
+                if (
+                    DB::connection('sqlsrv_it_inventory')->table('RPSAL_INVENTORY')
+                    ->where("INV_MONTH", $txMonth)
+                    ->where("INV_YEAR", $txYear)
+                    ->where("INV_ITMNUM", $itemcd)->count() > 0
+                ) {
+                    $myar[] = ['cd' => '0', 'msg' => 'Could not be canceled because it was already uploaded to IT Inventory'];
+                } else {
+                    if (RETRM::where('RETRM_DOC', $idscan)
+                        ->where('RETRM_ITMCD', $itemcd)->delete()
+                    ) {
+                        $datab = [
+                            'ITH_ITMCD' => $itemcd,
+                            'ITH_WH' =>  $cwh_inc,
+                            'ITH_DOC' => $idscan,
+                            'ITH_DATE' => $currentDate,
+                            'ITH_FORM' => 'CANCEL-INCRTN-NO-PSN',
+                            'ITH_QTY' => -1 * $newqty,
+                            'ITH_REMARK' => $lotnum,
+                            'ITH_LUPDT' => date('Y-m-d H:i:s'),
+                            'ITH_USRID' =>  $request->userId
+                        ];
+                        ITH::insert($datab);
+                        $datab = [
+                            'ITH_ITMCD' => $itemcd,
+                            'ITH_WH' =>  $cwh_out,
+                            'ITH_DOC' => $idscan,
+                            'ITH_DATE' => $currentDate,
+                            'ITH_FORM' => 'CANCEL-OUTRTN-NO-PSN',
+                            'ITH_QTY' => $newqty,
+                            'ITH_REMARK' => $lotnum,
+                            'ITH_LUPDT' => date('Y-m-d H:i:s'),
+                            'ITH_USRID' => $request->userId
+                        ];
+                        ITH::insert($datab);
+                        $myar[] = ['cd' => '1', 'msg' => 'OK'];
+                    } else {
+                        $myar[] = ['cd' => '1', 'msg' => 'OK.'];
+                    }
+                }
+            } else {
+                if (RETRM::where("RETRM_DOC", $idscan)->where("RETRM_ITMCD", $itemcd)) {
+                    $myar[] = ['cd' => '1', 'msg' => 'ok'];
+                } else {
+                    $myar[] = ['cd' => '0', 'msg' => 'could not delete, try reopen the menu'];
+                }
+            }
+        } else {
+            $myar[] = ['cd' => '0', 'msg' => 'not ok'];
+        }
+        return ['status' => $myar, 'data' => $rs];
     }
 }

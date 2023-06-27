@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\BusinessGroupController;
 use App\Http\Controllers\CountryController;
+use App\Http\Controllers\ItemController;
 use App\Http\Controllers\ReturnController;
 use App\Http\Controllers\SupplyController;
 use Illuminate\Http\Request;
@@ -40,3 +42,15 @@ Route::delete('return/items/{id}', [ReturnController::class, 'delete']);
 Route::post('return/alternative-saving', [ReturnController::class, 'saveAlternative']);
 Route::post('return/combine', [ReturnController::class, 'saveByCombining']);
 Route::post('return/confirm', [ReturnController::class, 'confirm']);
+Route::post('return/without-psn', [ReturnController::class, 'returnWithoutPSN']);
+Route::delete('return/without-psn/{id}', [ReturnController::class, 'cancelReturnWithoutPSN']);
+
+# Terkait Item Master
+Route::get('item/{id}/location', [ItemController::class, 'loadById']);
+
+
+# Terkait laporan
+Route::get("report/return-without-psn", [ReturnController::class, 'reportReturnWithoutPSN']);
+
+# Terkait Business Group
+Route::get("business-group", [BusinessGroupController::class, 'getAll']);
