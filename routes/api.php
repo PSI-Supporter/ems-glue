@@ -3,6 +3,7 @@
 use App\Http\Controllers\BusinessGroupController;
 use App\Http\Controllers\CountryController;
 use App\Http\Controllers\ItemController;
+use App\Http\Controllers\LabelController;
 use App\Http\Controllers\ReturnController;
 use App\Http\Controllers\SupplyController;
 use Illuminate\Http\Request;
@@ -48,6 +49,8 @@ Route::delete('return/without-psn/{id}', [ReturnController::class, 'cancelReturn
 # Terkait Item Master
 Route::get('item/{id}/location', [ItemController::class, 'loadById']);
 
+# Terkait Label Raw Material
+Route::post('label/combine-raw-material', [LabelController::class, 'combineRMLabel']);
 
 # Terkait laporan
 Route::get("report/return-without-psn", [ReturnController::class, 'reportReturnWithoutPSN']);
