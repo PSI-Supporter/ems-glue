@@ -8,5 +8,5 @@ use Illuminate\Database\Eloquent\Model;
 class PartSupply extends Model
 {
     use HasFactory;
-    protected $table = 'SPL_TBL';
+    protected $table = 'SPLSCN_TBL';
 }

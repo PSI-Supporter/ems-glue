@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\PartSupply;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
 
 class SupplyController extends Controller
 {
@@ -22,7 +21,8 @@ class SupplyController extends Controller
             ->where("SPLSCN_DOC", $data['doc'])
             ->where("SPLSCN_SAVED", '1')
             ->where($whereExtension)
-            ->get()->toArray();
+            ->get();
+        $RSPartSupply = json_decode(json_encode($RSPartSupply), true);
         $RSBase = DB::table('XPPSN2')->select(
             'PPSN2_FR',
             DB::raw('RTRIM(PPSN2_MC) PPSN2_MC, RTRIM(PPSN2_MCZ) PPSN2_MCZ, UPPER(RTRIM(PPSN2_SUBPN)) PPSN2_SUBPN, 0 TTLSCN,RTRIM(PPSN2_PROCD) PPSN2_PROCD'),
