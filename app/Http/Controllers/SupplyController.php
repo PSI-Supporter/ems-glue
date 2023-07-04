@@ -21,6 +21,7 @@ class SupplyController extends Controller
             ->where("SPLSCN_DOC", $data['doc'])
             ->where("SPLSCN_SAVED", '1')
             ->where($whereExtension)
+            ->orderByRaw('SPLSCN_FEDR ASC,SPLSCN_LUPDT ASC')
             ->get();
         $RSPartSupply = json_decode(json_encode($RSPartSupply), true);
         $RSBase = DB::table('XPPSN2')->select(
