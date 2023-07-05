@@ -403,4 +403,49 @@ class SupplyController extends Controller
         }
         return ['status' => $result];
     }
+
+    function getOutstandingScan(Request $request)
+    {
+        $RSSub1 = DB::table("SPL_TBL")->selectRaw("RTRIM(SPL_MC) SPL_MC, RTRIM(SPL_ORDERNO) SPL_ORDERNO, RTRIM(SPL_ITMCD) SPL_ITMCD, RTRIM(MITM_SPTNO) MITM_SPTNO, SPL_MS, SUM(SPL_QTYREQ) REQQT, 0 PLOTQT")
+            ->leftJoin("MITM_TBL", "SPL_ITMCD", "=", "MITM_ITMCD")
+            ->where("SPL_DOC", $request->doc)
+            ->where("SPL_CAT", $request->category)
+            ->groupBy('SPL_MC', 'SPL_ORDERNO', 'SPL_ITMCD', 'MITM_SPTNO', 'SPL_MS')->get();
+        $RSSub1 = json_decode(json_encode($RSSub1), true);
+        $RSSub2 = DB::table("SPLSCN_TBL")->selectRaw("RTRIM(SPLSCN_ITMCD) SPLSCN_ITMCD, SUM(SPLSCN_QTY) ACTQT")
+            ->where("SPLSCN_DOC", $request->doc)
+            ->where("SPLSCN_CAT", $request->category)
+            ->groupBy("SPLSCN_ITMCD")->get();
+        $RSSub2 = json_decode(json_encode($RSSub2), true);
+        $RS = [];
+        foreach ($RSSub1 as &$r) {
+            foreach ($RSSub2 as &$s) {
+                if ($r['SPL_ITMCD'] == $s['SPLSCN_ITMCD']) {
+                    $_currentReq = $r['REQQT'] - $r['PLOTQT'];
+                    if ($_currentReq > 0) {
+                        if ($_currentReq > $s['ACTQT']) {
+                            $r['PLOTQT'] += $s['ACTQT'];
+                            $s['ACTQT'] = 0;
+                        } else {
+                            $r['PLOTQT'] += $_currentReq;
+                            $s['ACTQT'] -= $_currentReq;
+                        }
+                        if ($r['REQQT'] == $r['PLOTQT']) {
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+            }
+            unset($s);
+        }
+        unset($r);
+        foreach ($RSSub1 as $r) {
+            if ($r['REQQT'] > $r['PLOTQT']) {
+                $RS[] = $r;
+            }
+        }
+        return ['data' => $RS];
+    }
 }
