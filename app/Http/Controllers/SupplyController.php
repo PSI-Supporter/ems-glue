@@ -406,11 +406,11 @@ class SupplyController extends Controller
 
     function getOutstandingScan(Request $request)
     {
-        $RSSub1 = DB::table("SPL_TBL")->selectRaw("RTRIM(SPL_MC) SPL_MC, RTRIM(SPL_ORDERNO) SPL_ORDERNO, RTRIM(SPL_ITMCD) SPL_ITMCD, RTRIM(MITM_SPTNO) MITM_SPTNO, SPL_MS, SUM(SPL_QTYREQ) REQQT, 0 PLOTQT")
+        $RSSub1 = DB::table("SPL_TBL")->selectRaw("RTRIM(SPL_MC) SPL_MC, RTRIM(SPL_ORDERNO) SPL_ORDERNO, RTRIM(SPL_ITMCD) SPL_ITMCD, RTRIM(MITM_SPTNO) MITM_SPTNO, SPL_MS,SPL_QTYUSE, SUM(SPL_QTYREQ) REQQT, 0 PLOTQT")
             ->leftJoin("MITM_TBL", "SPL_ITMCD", "=", "MITM_ITMCD")
             ->where("SPL_DOC", $request->doc)
             ->where("SPL_CAT", $request->category)
-            ->groupBy('SPL_MC', 'SPL_ORDERNO', 'SPL_ITMCD', 'MITM_SPTNO', 'SPL_MS')->get();
+            ->groupBy('SPL_MC', 'SPL_ORDERNO', 'SPL_ITMCD', 'MITM_SPTNO', 'SPL_MS', 'SPL_QTYUSE')->get();
         $RSSub1 = json_decode(json_encode($RSSub1), true);
         $RSSub2 = DB::table("SPLSCN_TBL")->selectRaw("RTRIM(SPLSCN_ITMCD) SPLSCN_ITMCD, SUM(SPLSCN_QTY) ACTQT")
             ->where("SPLSCN_DOC", $request->doc)
