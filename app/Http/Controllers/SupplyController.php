@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ITH;
 use App\Models\PartSupply;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -447,5 +448,104 @@ class SupplyController extends Controller
             }
         }
         return ['data' => $RS];
+    }
+
+    function fixTransactionBySuppplyNumber(Request $request)
+    {
+        $RSSub1 = DB::table('SPLSCN_TBL')->selectRaw("SPLSCN_ITMCD, CONVERT(DATE, MAX(SPLSCN_LUPDT)) SCANDT,max(SPLSCN_LUPDT) SPLSCN_LUPDT, SUM(SPLSCN_QTY) SCNQT, CONCAT(SPLSCN_DOC, '|',SPLSCN_CAT,'|',SPLSCN_LINE,'|',SPLSCN_FEDR) DOC, MAX(SPLSCN_USRID) SPLSCN_USRID")
+            ->where("SPLSCN_DOC", "like", "%" . $request->doc . "%")->where('SPLSCN_SAVED', '1')
+            ->groupByRaw("SPLSCN_ITMCD,SPLSCN_DOC,SPLSCN_CAT,SPLSCN_LINE,SPLSCN_FEDR");
+        $RSSub2 = DB::table("ITH_TBL")->selectRaw("ITH_DOC,ITH_ITMCD,SUM(ITH_QTY) TQT")
+            ->where("ITH_DOC", "LIKE", "%" . $request->doc . "%")->whereIn("ITH_FORM", ["OUT-WH-RM", "CANCELING-RM-PSN-IN"])
+            ->groupBy("ITH_DOC", "ITH_ITMCD");
+        $data = DB::query()->fromSub($RSSub1, "V1")->selectRaw("V1.*,TQT,SCNQT+ISNULL(TQT,0) BALQT")
+            ->leftJoinSub($RSSub2, "V2", function ($join) {
+                $join->on("DOC", "=", "ITH_DOC")->on("SPLSCN_ITMCD", "=", "ITH_ITMCD");
+            })->whereRaw("SCNQT+ISNULL(TQT,0)!=0")->orderBy("DOC")
+            ->get();
+        $RSTobeSaved = [];
+        $documents = [];
+        $sampleDoc = '';
+        $WHOut = $WHInc = NULL;
+        $affectedRows = 0;
+        if (count($data) > 0) {
+            $data = json_decode(json_encode($data), true);
+            # ambil sample
+            foreach ($data as $r) {
+                $sampleDoc = substr($r['DOC'], 0, 19);
+                if (!in_array($sampleDoc, $documents)) {
+                    $documents[] = $sampleDoc;
+                }
+            }
+
+            $RSSPL = DB::table("SPL_TBL")->select("SPL_BG")->where("SPL_DOC", $sampleDoc)->first();
+            switch ($RSSPL->SPL_BG) {
+                case 'PSI1PPZIEP':
+                    $WHOut = 'ARWH1';
+                    $WHInc = 'PLANT1';
+                    break;
+                case 'PSI2PPZADI':
+                    $WHOut = 'ARWH2';
+                    $WHInc = 'PLANT2';
+                    break;
+                case 'PSI2PPZINS':
+                    $WHOut = 'NRWH2';
+                    $WHInc = 'PLANT_NA';
+                    break;
+                case 'PSI2PPZOMC':
+                    $WHOut = 'NRWH2';
+                    $WHInc = 'PLANT_NA';
+                    break;
+                case 'PSI2PPZOMI':
+                    $WHOut = 'ARWH2';
+                    $WHInc = 'PLANT2';
+                    break;
+                case 'PSI2PPZSSI':
+                    $WHOut = 'NRWH2';
+                    $WHInc = 'PLANT_NA';
+                    break;
+                case 'PSI2PPZSTY':
+                    $WHOut = 'ARWH2';
+                    $WHInc = 'PLANT2';
+                    break;
+                case 'PSI2PPZTDI':
+                    $WHOut = 'ARWH2';
+                    $WHInc = 'PLANT2';
+                    break;
+            }
+            foreach ($data as $d) {
+                $RSTobeSaved[] = [
+                    'ITH_ITMCD' => $d['SPLSCN_ITMCD'],
+                    'ITH_DATE' => $d['SCANDT'],
+                    'ITH_FORM' => 'OUT-WH-RM',
+                    'ITH_DOC' => $d['DOC'],
+                    'ITH_QTY' => $d['BALQT'] * -1,
+                    'ITH_WH' => $WHOut,
+                    'ITH_REMARK' => 'Fix',
+                    'ITH_USRID' => $d['SPLSCN_USRID'],
+                    'ITH_LUPDT' => $d['SPLSCN_LUPDT'],
+                ];
+                $RSTobeSaved[] = [
+                    'ITH_ITMCD' => $d['SPLSCN_ITMCD'],
+                    'ITH_DATE' => $d['SCANDT'],
+                    'ITH_FORM' => 'INC-PRD-RM',
+                    'ITH_DOC' => $d['DOC'],
+                    'ITH_QTY' => $d['BALQT'],
+                    'ITH_WH' => $WHInc,
+                    'ITH_REMARK' => 'Fix',
+                    'ITH_USRID' => $d['SPLSCN_USRID'],
+                    'ITH_LUPDT' => $d['SPLSCN_LUPDT'],
+                ];
+            }
+
+            if (count($RSTobeSaved) > 1) {
+                if (strtoupper($request->save) === 'Y') {
+                    $affectedRows = ITH::insert($RSTobeSaved);
+                }
+            }
+        }
+        return [
+            'data' => $data, '$documents' => $documents, 'affectedRows' => $affectedRows
+        ];
     }
 }

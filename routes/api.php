@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\BusinessGroupController;
 use App\Http\Controllers\CountryController;
+use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\LabelController;
 use App\Http\Controllers\ReturnController;
@@ -34,6 +35,7 @@ Route::get('supply/outstanding-scan', [SupplyController::class, 'getOutstandingS
 Route::get('supply/validate-document', [SupplyController::class, 'isDocumentExist']);
 Route::get('supply/validate-item', [SupplyController::class, 'isPartInDocumentExist']);
 Route::post('supply/validate-supplied-item', [SupplyController::class, 'isPartAlreadySuppliedInDocument']);
+Route::post('supply/fix-transaction', [SupplyController::class, 'fixTransactionBySuppplyNumber']);
 
 # Terkait Return Part
 Route::get('return/counted', [ReturnController::class, 'getCountedPart']);
@@ -58,3 +60,6 @@ Route::get("report/return-without-psn", [ReturnController::class, 'reportReturnW
 
 # Terkait Business Group
 Route::get("business-group", [BusinessGroupController::class, 'getAll']);
+
+# Terkait Pabean
+Route::get('pabean/outgoing-status', [DeliveryController::class, 'getPabeanStatus']);
