@@ -23,13 +23,14 @@ class ItemController extends Controller
         $Items = DB::table('MITM_TBL')->select('MITM_ITMCD', 'MITM_ITMD1')
             ->where('MITM_ITMD1', 'LIKE', '%' . $searchValue . '%')
             ->get();
-        return $Items;
+        return ['data' => $Items];
     }
 
-    function formItem(Request $request){
+    function formItem(Request $request)
+    {
         $searchValue = $request->itemName;
         $Items = DB::table('MITM_TBL')->select('MITM_ITMCD', 'MITM_ITMD1')
-            ->where('MITM_ITMD1', 'LIKE', '%'.$searchValue.'%')
+            ->where('MITM_ITMD1', 'LIKE', '%' . $searchValue . '%')
             ->get();
         return view('form_item', ['items' => $Items]);
     }
