@@ -16,4 +16,21 @@ class ItemController extends Controller
         $result[] = count($RS) ? ['cd' => '1', 'msg' => 'found'] : ['cd' => '0', 'msg' => 'not found'];
         return ['data' => $RS, 'status' => $result];
     }
+
+    function loadItems(Request $request)
+    {
+        $searchValue = $request->itemName;
+        $Items = DB::table('MITM_TBL')->select('MITM_ITMCD', 'MITM_ITMD1')
+            ->where('MITM_ITMD1', 'LIKE', '%' . $searchValue . '%')
+            ->get();
+        return $Items;
+    }
+
+    function formItem(Request $request){
+        $searchValue = $request->itemName;
+        $Items = DB::table('MITM_TBL')->select('MITM_ITMCD', 'MITM_ITMD1')
+            ->where('MITM_ITMD1', 'LIKE', '%'.$searchValue.'%')
+            ->get();
+        return view('form_item', ['items' => $Items]);
+    }
 }
