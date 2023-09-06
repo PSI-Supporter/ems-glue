@@ -66,6 +66,6 @@ class ItemController extends Controller
         $searchValue = $request->transName;
         $Trans = DB::table('MSTTRANS_TBL')->select('MSTTRANS_ID', 'MSTTRANS_TYPE', 'MSTTRANS_LUPDT', 'MSTTRANS_USRID')
         ->get();
-        return view('form_truk', ['trans' => $Trans]);
+        return view('form_truk', ['Trans' => $Trans]);
     }
 }

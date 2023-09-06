@@ -33,7 +33,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach
+                            
                         </tbody>
                     </table>
                 </div>
