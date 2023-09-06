@@ -21,3 +21,8 @@ Route::get('/', function () {
 Route::get('/items', [ItemController::class, 'loadItems']);
 Route::get('/form-item', [ItemController::class, 'formItem']);
 
+Route::get('/trans', [ItemController::class, 'loadTrans']);
+Route::get('/form-trans', [ItemController::class, 'formTrans']);
+
+Route::get('/truk', [ItemController::class, 'loadTruk']);
+Route::get('/form-truk', [ItemController::class, 'formTruk']);

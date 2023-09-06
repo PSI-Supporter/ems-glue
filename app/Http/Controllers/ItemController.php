@@ -34,4 +34,38 @@ class ItemController extends Controller
             ->get();
         return view('form_item', ['items' => $Items]);
     }
+
+    function loadTrans(Request $request)
+    {
+        $searchValue = $request->transName;
+        $Trans = DB::table('MSTTRANS_TBL')->select('MSTTRANS_ID', 'MSTTRANS_TYPE', 'MSTTRANS_LUPDT', 'MSTTRANS_USRID')
+            ->where('MSTTRANS_TYPE', 'LIKE', '%' . $searchValue . '%')
+            ->get();
+        return ['data' => $Trans];
+    }
+
+    function formTrans(Request $request)
+    {
+        $searchValue = $request->transName;
+        $Trans = DB::table('MSTTRANS_TBL')->select('MSTTRANS_ID', 'MSTTRANS_TYPE', 'MSTTRANS_LUPDT', 'MSTTRANS_USRID')
+        ->where('MSTTRANS_TYPE', 'LIKE', '%' . $searchValue . '%')
+        ->get();
+        return view('form_trans', ['trans' => $Trans]);
+    }
+
+    function loadTruk(Request $request)
+    {
+        $searchValue = $request->transName;
+        $Trans = DB::table('MSTTRANS_TBL')->select('MSTTRANS_ID', 'MSTTRANS_TYPE', 'MSTTRANS_LUPDT', 'MSTTRANS_USRID')
+            ->get();
+        return ['data' => $Trans];
+    }
+
+    function formTruk(Request $request)
+    {
+        $searchValue = $request->transName;
+        $Trans = DB::table('MSTTRANS_TBL')->select('MSTTRANS_ID', 'MSTTRANS_TYPE', 'MSTTRANS_LUPDT', 'MSTTRANS_USRID')
+        ->get();
+        return view('form_truk', ['trans' => $Trans]);
+    }
 }
