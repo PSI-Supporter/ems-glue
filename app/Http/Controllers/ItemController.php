@@ -68,4 +68,33 @@ class ItemController extends Controller
         ->get();
         return view('form_truk', ['Trans' => $Trans]);
     }
+
+    public function searchFGExim(Request $request)
+    # searchfg_exim
+    {
+        $search = $request->insearch;
+        $searchby = $request->insearchby;
+        $rs = [];
+        switch ($searchby) {
+            case 'itemcd':
+                $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
+                , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
+                ->where('MITM_ITMCD', 'LIKE', '%' . $search . '%')
+                ->get()->toArray();
+                break;
+            case 'itemnm':
+                $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
+                , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
+                ->where('MITM_ITMD1', 'LIKE', '%' . $search . '%')
+                ->get()->toArray();
+                break;
+        }
+        $rs = json_decode(json_encode($rs), true);
+        foreach ($rs as &$r) {
+            $r['MITM_NWG'] = substr($r['MITM_NWG'], 0, 1) == '.' ? '0' . $r['MITM_NWG'] : $r['MITM_NWG'];
+            $r['MITM_GWG'] = substr($r['MITM_GWG'], 0, 1) == '.' ? '0' . $r['MITM_GWG'] : $r['MITM_GWG'];
+        }
+        unset($r);
+        die('{"data": ' . json_encode($rs) . '}');
+}
 }
