@@ -69,6 +69,95 @@ class ItemController extends Controller
         return view('form_truk', ['Trans' => $Trans]);
     }
 
+
+
+    public function search(request $request)
+    # search
+    {
+        $cid = $request->cid;
+        $csrchkey = $request->csrchby;
+        $rs = [];
+        switch ($csrchkey) {
+            case 'itemcd':
+                $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
+                , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
+                ->where('MITM_ITMCD', 'LIKE', '%' . $scid . '%')
+                ->get()->toArray();
+                break;
+            case 'itemnm':
+                $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
+                , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
+                ->where('MITM_ITMD1', 'LIKE', '%' . $cid . '%')
+                ->get()->toArray();
+                break;
+            case 'spt':
+                $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
+                , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
+                ->where('MITM_SPTNO', 'LIKE', '%' . $cid . '%')
+                ->get()->toArray();
+                break;
+        }
+        echo json_encode($rs);
+    }
+
+    public function searchItemLocation( request $request)
+    #search_itemlocation
+    {
+        $cid =$request->cid;
+        $csrchkey = $request->csrchby;
+        $rs = [];
+        switch ($csrchkey) {
+            case 'itemcd':
+                $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
+                , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
+                ->where('MITM_ITMCD', 'LIKE', '%' . $scid . '%')
+                ->get()->toArray();
+                break;
+            case 'itemnm':
+                $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
+                , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
+                ->where('MITM_ITMD1', 'LIKE', '%' . $cid . '%')
+                ->get()->toArray();
+                break;
+            case 'spt':
+                $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
+                , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
+                ->where('MITM_SPTNO', 'LIKE', '%' . $cid . '%')
+                ->get()->toArray();
+                break;
+        }
+        echo json_encode($rs);
+    }
+
+    public function searchFG(request $request)
+    # searchfg
+    {
+        $cid =$request->cid;
+        $csrchkey = $request->csrchby;
+        $rs = array();
+        switch ($csrchkey) {
+            case 'itemcd':
+                $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
+                , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
+                ->where('MITM_ITMCD', 'LIKE', '%' . $scid . '%')
+                ->get()->toArray();
+                break;
+            case 'itemnm':
+                $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
+                , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
+                ->where('MITM_ITMD1', 'LIKE', '%' . $cid . '%')
+                ->get()->toArray();
+                break;
+            case 'spt':
+                $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
+                , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
+                ->where('MITM_SPTNO', 'LIKE', '%' . $cid . '%')
+                ->get()->toArray();
+                break;
+        }
+        echo json_encode($rs);
+    }
+
     public function searchFGExim(Request $request)
     # searchfg_exim
     {
