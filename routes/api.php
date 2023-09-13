@@ -51,7 +51,13 @@ Route::delete('return/without-psn/{id}', [ReturnController::class, 'cancelReturn
 
 # Terkait Item Master
 Route::get('item/{id}/location', [ItemController::class, 'loadById']);
-Route::get('item/search', [ItemController::class, 'searchFGExim']);
+Route::get('item/search', [ItemController::class, 'search']);
+Route::get('item/searchItmLoc', [ItemController::class, 'searchItemLocation']);
+Route::get('item/searchFG', [ItemController::class, 'searchFG']);
+Route::get('item/searchFGExim', [ItemController::class, 'searchFGExim']);
+Route::get('item/searchRMExim', [ItemController::class, 'searchRMExim']);
+Route::get('item/searchRMXls', [ItemController::class, 'searchRMEximXls']);
+Route::get('item/searchFGXls', [ItemController::class, 'searchFGEximXls']);
 
 # Terkait Label Raw Material
 Route::post('label/combine-raw-material', [LabelController::class, 'combineRMLabel']);
