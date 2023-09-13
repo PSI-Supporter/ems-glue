@@ -4,6 +4,10 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
+
 
 class ItemController extends Controller
 {
@@ -81,7 +85,7 @@ class ItemController extends Controller
             case 'itemcd':
                 $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
                 , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
-                ->where('MITM_ITMCD', 'LIKE', '%' . $scid . '%')
+                ->where('MITM_ITMCD', 'LIKE', '%' . $cid . '%')
                 ->get()->toArray();
                 break;
             case 'itemnm':
@@ -110,7 +114,7 @@ class ItemController extends Controller
             case 'itemcd':
                 $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
                 , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
-                ->where('MITM_ITMCD', 'LIKE', '%' . $scid . '%')
+                ->where('MITM_ITMCD', 'LIKE', '%' . $cid . '%')
                 ->get()->toArray();
                 break;
             case 'itemnm':
@@ -139,7 +143,7 @@ class ItemController extends Controller
             case 'itemcd':
                 $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
                 , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
-                ->where('MITM_ITMCD', 'LIKE', '%' . $scid . '%')
+                ->where('MITM_ITMCD', 'LIKE', '%' . $cid . '%')
                 ->get()->toArray();
                 break;
             case 'itemnm':
@@ -246,27 +250,27 @@ public function searchRMExim(Request $request)
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('master_hscode');
-        $sheet->setCellValueByColumnAndRow(1, 1, 'Item Code');
-        $sheet->setCellValueByColumnAndRow(2, 1, 'Item Name');
-        $sheet->setCellValueByColumnAndRow(3, 1, 'HS Code');
-        $sheet->setCellValueByColumnAndRow(4, 1, 'Net Weight');
-        $sheet->setCellValueByColumnAndRow(5, 1, 'Gross Weight');
-        $sheet->setCellValueByColumnAndRow(6, 1, 'BM');
-        $sheet->setCellValueByColumnAndRow(7, 1, 'PPN');
-        $sheet->setCellValueByColumnAndRow(8, 1, 'PPH');
+        $sheet->setCellValue('A1', 'Item Code');
+        $sheet->setCellValue('B1', 'Item Name');
+        $sheet->setCellValue('C1', 'HS Code');
+        $sheet->setCellValue('D1', 'Net Weight');
+        $sheet->setCellValue('E1', 'Gross Weight');
+        $sheet->setCellValue('F1', 'BM');
+        $sheet->setCellValue('G1', 'PPN');
+        $sheet->setCellValue('H1', 'PPH');
         $n = 2;
         $rs = json_decode(json_encode($rs), true);
         foreach ($rs as &$r) {
             $r['MITM_NWG'] = substr($r['MITM_NWG'], 0, 1) == '.' ? '0' . $r['MITM_NWG'] : $r['MITM_NWG'];
             $r['MITM_GWG'] = substr($r['MITM_GWG'], 0, 1) == '.' ? '0' . $r['MITM_GWG'] : $r['MITM_GWG'];
-            $sheet->setCellValueByColumnAndRow(1, $n, $r['MITM_ITMCD']);
-            $sheet->setCellValueByColumnAndRow(2, $n, $r['MITM_ITMD1']);
-            $sheet->setCellValueByColumnAndRow(3, $n, $r['MITM_HSCD']);
-            $sheet->setCellValueByColumnAndRow(4, $n, $r['MITM_NWG']);
-            $sheet->setCellValueByColumnAndRow(5, $n, $r['MITM_GWG']);
-            $sheet->setCellValueByColumnAndRow(6, $n, $r['MITM_BM']);
-            $sheet->setCellValueByColumnAndRow(7, $n, $r['MITM_PPN']);
-            $sheet->setCellValueByColumnAndRow(8, $n, $r['MITM_PPH']);
+            $sheet->setCellValue('A'. $n, $r['MITM_ITMCD']);
+            $sheet->setCellValue('B'. $n, $r['MITM_ITMD1']);
+            $sheet->setCellValue('C'. $n, $r['MITM_HSCD']);
+            $sheet->setCellValue('D'. $n, $r['MITM_NWG']);
+            $sheet->setCellValue('E'. $n, $r['MITM_GWG']);
+            $sheet->setCellValue('F'. $n, $r['MITM_BM']);
+            $sheet->setCellValue('G'. $n, $r['MITM_PPN']);
+            $sheet->setCellValue('H'. $n, $r['MITM_PPH']);
             $n++;
         }
         unset($r);
@@ -275,7 +279,7 @@ public function searchRMExim(Request $request)
         }
         $sheet->getStyle('A1:A' . $n)->getAlignment()->setHorizontal('left');
         $stringjudul = "master hscode";
-        $writer = new Xlsx($spreadsheet);
+        $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
         $filename = $stringjudul; //save our workbook as this file name
 
         header('Content-Type: application/vnd.ms-excel');
@@ -313,27 +317,27 @@ public function searchRMExim(Request $request)
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('master_hscode');
-        $sheet->setCellValueByColumnAndRow(1, 1, 'Item Code');
-        $sheet->setCellValueByColumnAndRow(2, 1, 'Item Name');
-        $sheet->setCellValueByColumnAndRow(3, 1, 'HS Code');
-        $sheet->setCellValueByColumnAndRow(4, 1, 'Net Weight');
-        $sheet->setCellValueByColumnAndRow(5, 1, 'Gross Weight');
-        $sheet->setCellValueByColumnAndRow(6, 1, 'BM');
-        $sheet->setCellValueByColumnAndRow(7, 1, 'PPN');
-        $sheet->setCellValueByColumnAndRow(8, 1, 'PPH');
+        $sheet->setCellValue('A1', 'Item Code');
+        $sheet->setCellValue('B1', 'Item Name');
+        $sheet->setCellValue('C1', 'HS Code');
+        $sheet->setCellValue('D1', 'Net Weight');
+        $sheet->setCellValue('E1', 'Gross Weight');
+        $sheet->setCellValue('F1', 'BM');
+        $sheet->setCellValue('G1', 'PPN');
+        $sheet->setCellValue('H1', 'PPH');
         $n = 2;
         $rs = json_decode(json_encode($rs), true);
         foreach ($rs as &$r) {
             $r['MITM_NWG'] = substr($r['MITM_NWG'], 0, 1) == '.' ? '0' . $r['MITM_NWG'] : $r['MITM_NWG'];
             $r['MITM_GWG'] = substr($r['MITM_GWG'], 0, 1) == '.' ? '0' . $r['MITM_GWG'] : $r['MITM_GWG'];
-            $sheet->setCellValueByColumnAndRow(1, $n, $r['MITM_ITMCD']);
-            $sheet->setCellValueByColumnAndRow(2, $n, $r['MITM_ITMD1']);
-            $sheet->setCellValueByColumnAndRow(3, $n, $r['MITM_HSCD']);
-            $sheet->setCellValueByColumnAndRow(4, $n, $r['MITM_NWG']);
-            $sheet->setCellValueByColumnAndRow(5, $n, $r['MITM_GWG']);
-            $sheet->setCellValueByColumnAndRow(6, $n, $r['MITM_BM']);
-            $sheet->setCellValueByColumnAndRow(7, $n, $r['MITM_PPN']);
-            $sheet->setCellValueByColumnAndRow(8, $n, $r['MITM_PPH']);
+            $sheet->setCellValue('A'. $n, $r['MITM_ITMCD']);
+            $sheet->setCellValue('B'. $n, $r['MITM_ITMD1']);
+            $sheet->setCellValue('C'. $n, $r['MITM_HSCD']);
+            $sheet->setCellValue('D'. $n, $r['MITM_NWG']);
+            $sheet->setCellValue('E'. $n, $r['MITM_GWG']);
+            $sheet->setCellValue('F'. $n, $r['MITM_BM']);
+            $sheet->setCellValue('G'. $n, $r['MITM_PPN']);
+            $sheet->setCellValue('H'. $n, $r['MITM_PPH']);
             $n++;
         }
         unset($r);
@@ -342,7 +346,7 @@ public function searchRMExim(Request $request)
         }
         $sheet->getStyle('A1:A' . $n)->getAlignment()->setHorizontal('left');
         $stringjudul = "master hscode fg";
-        $writer = new Xlsx($spreadsheet);
+        $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
         $filename = $stringjudul; //save our workbook as this file name
 
         header('Content-Type: application/vnd.ms-excel');
@@ -351,4 +355,5 @@ public function searchRMExim(Request $request)
         $writer->save('php://output');
 
     }
+    
 }
