@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\ItemController;
 use Illuminate\Support\Facades\Route;
 
@@ -26,3 +27,12 @@ Route::get('/form-trans', [ItemController::class, 'formTrans']);
 
 Route::get('/truk', [ItemController::class, 'loadTruk']);
 Route::get('/form-truk', [ItemController::class, 'formTruk']);
+Route::get('/tambahtruk', [ItemController::class, 'tambahtruk']);
+Route::post('/simpanTruk', [ItemController::class, 'simpanTruk']);
+Route::get('/ubahTruk/{MSTTRANS_ID}', [ItemController::class, 'ubahTruk']);
+Route::post('/updateTruk', [ItemController::class, 'updateTruk']);
+
+#Untuk Inventory
+Route::get('/Inv', [InventoryController::class, 'loadInventory']);
+Route::get('/form-inv', [InventoryController::class, 'formInventory']);
+Route::get('/export', [InventoryController::class, 'exportInv']);
