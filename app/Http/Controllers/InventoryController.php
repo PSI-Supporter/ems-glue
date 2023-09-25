@@ -75,4 +75,6 @@ class InventoryController extends Controller
             }
             $this->ExportExcel($data_array);
         }
+
+        
 }

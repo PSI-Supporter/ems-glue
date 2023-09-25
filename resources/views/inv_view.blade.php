@@ -35,14 +35,12 @@
                                         </thead>
                                         <tbody>
                                         @php $no = 1 @endphp
-                                        @if(!empty($Inv) && $Inv->count())
+                                  
                                         @php ($loc = null) @endphp
                                             @foreach ($Inv as $inv)
-                                            @php
-                                            
-                                            @endphp
-                                                @if ($loop->index > 0 && $loc !== $inv->cLoc)
-                                                    @include ('subtotal', compact('inv', 'loc'))
+                                        
+                                                @if ($loop->index > 0 && $loc != $inv->cLoc)
+                                                    @include('subtotal', compact('inv', 'loc'))
                                                     @endif
                                                     <tr>
                                                         @if ($loc == $inv->cLoc)
@@ -52,21 +50,17 @@
                                                     <td>{{ $no++ }}</td>
                                                     <td>{{ $inv->cLoc}}</td>
                                                     @endif
-                                                    
                                                     <td>{{ $inv->cAssyNo }}</td>
                                                     <td>{{ $inv->cModel }}</td>
                                                     <td>{{ $inv->cQty }}</td>
                                                     <td>{{ $inv->BOX }}</td>
                                                     <td>{{ $inv->Total }}</td>
                                                     @if ($loop->last)
-                                                        @include('subtotal', compact('inv', 'loc'))
+                                                       @include ('subtotal', compact('inv', 'loc'))
                                                     @endif
                                                 @endforeach
-                                        @else
-                                            <tr>
-                                                <td colspan="10">There are no data.</td>
-                                            </tr>
-                                        @endif
+                                       
+                                       
                                         </tbody>
                                     </table>
                                     {!! $Inv->links('pagination::bootstrap-4') !!}
