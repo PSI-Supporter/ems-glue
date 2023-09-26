@@ -66,7 +66,7 @@ class InventoryController extends Controller
             ->orderBy('cLoc', 'ASC')
             ->orderBy('cAssyNo', 'ASC')
             ->get();
-        $data_array[] = array("cLoc", "cAssyNo", "cModel", "cQty", "BOX", "Total");
+        $data_array[] = array("Loc", "Part Code", "Part Name", "QTY", "BOX", "Total");
         $locBefore = NULL;
         $cdBefore = NULL;
         $totalBox = 0;
