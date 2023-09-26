@@ -28,6 +28,8 @@ class InventoryController extends Controller
         $Inv = DB::table('WMS_Inv')
         ->select('cLoc', 'cAssyNo', 'cModel', 'cQty', DB::raw("COUNT(*) as BOX"), DB::raw("SUM(cQty) as Total"))
         ->groupBy('cLoc','cAssyNo','cModel','cQty')
+        ->orderBy('cLoc', 'ASC')
+        ->orderBy('cAssyNo', 'ASC')
         ->paginate(20);
         return view('inv_view', ['Inv' => $Inv]);
     }
@@ -60,13 +62,29 @@ class InventoryController extends Controller
             $data = DB::table('WMS_Inv')
             ->select('cLoc', 'cAssyNo', 'cModel', 'cQty', DB::raw("COUNT(*) as BOX"),DB::raw("SUM(cQty) as Total"))
             ->groupBy('cLoc','cAssyNo','cModel','cQty')
+            ->orderBy('cLoc', 'ASC')
+            ->orderBy('cAssyNo', 'ASC')
             ->get();
             $data_array [] = array("cLoc","cAssyNo","cModel","cQty","BOX", "Total");
+            $locBefore = NULL;
+            $cdBefore =NULL;
             foreach($data as $data_item)
             {
+                if ($locBefore != $data_item->cLoc){
+                    $locBefore = $data_item->cLoc;
+                    $fixLoc = $data_item->cLoc;
+                } else { 
+                    $fixLoc = NULL;}
+                 
+                    if ($cdBefore != $data_item->cAssyNo){
+                        $cdBefore = $data_item->cAssyNo;
+                        $fixCd = $data_item->cAssyNo;
+                    } else { 
+                        $fixCd = NULL;}
+
                 $data_array[] = array(
-                    'Loc' =>$data_item->cLoc,
-                    'Part Code' => $data_item->cAssyNo,
+                    'Loc' =>$fixLoc,
+                    'Part Code' => $fixCd,
                     'Part Name' => $data_item->cModel,
                     'QTY' => $data_item->cQty,
                     'BOX' => $data_item->BOX,
