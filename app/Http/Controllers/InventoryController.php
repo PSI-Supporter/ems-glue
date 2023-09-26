@@ -71,23 +71,33 @@ class InventoryController extends Controller
         $cdBefore = NULL;
         $totalBox = 0;
         $totalQty = 0;
+        $firstDifferent = NULL;
         foreach ($data as $data_item) {
-            $arrayTotal = [];
-            $totalQty += $data_item->Total;
-            $totalBox += $data_item->BOX;
+
             if ($locBefore != $data_item->cLoc) {
+                if ($firstDifferent) {
+                    $data_array[] = array(
+                        'Loc' => NULL,
+                        'Part Code' => NULL,
+                        'Part Name' => NULL,
+                        'QTY' => 'Total',
+                        'BOX' => $totalBox,
+                        'Total' => $totalQty
+                    );
+                } else {
+                    $firstDifferent = true;
+                }
+
+                $totalQty = $data_item->Total;
+                $totalBox = $data_item->BOX;
+
                 $locBefore = $data_item->cLoc;
                 $fixLoc = $data_item->cLoc;
-                $arrayTotal = array(
-                    'Loc' => NULL,
-                    'Part Code' => NULL,
-                    'Part Name' => NULL,
-                    'QTY' => 'Total',
-                    'BOX' => $totalBox,
-                    'Total' => $totalQty
-                );
             } else {
                 $fixLoc = NULL;
+
+                $totalQty += $data_item->Total;
+                $totalBox += $data_item->BOX;
             }
 
             if ($cdBefore != $data_item->cAssyNo) {
@@ -105,9 +115,7 @@ class InventoryController extends Controller
                 'BOX' => $data_item->BOX,
                 'Total' => $data_item->Total
             );
-            if (!empty($arrayTotal)) {
-                $data_array[] = $arrayTotal;
-            }
+           
         }
         $this->ExportExcel($data_array);
     }
