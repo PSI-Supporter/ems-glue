@@ -115,6 +115,17 @@ class InventoryController extends Controller
                 'BOX' => $data_item->BOX,
                 'Total' => $data_item->Total
             );
+            if($data->last() == $data_item)
+            {
+                $data_array[] = array(
+                    'Loc' => NULL,
+                    'Part Code' => NULL,
+                    'Part Name' => NULL,
+                    'QTY' => 'Total',
+                    'BOX' => $totalBox,
+                    'Total' => $totalQty
+                );
+            }
            
         }
         $this->ExportExcel($data_array);
