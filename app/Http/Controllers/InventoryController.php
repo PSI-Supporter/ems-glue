@@ -4,10 +4,13 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Http\RedirectResponse;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Reader\Exception;
 use PhpOffice\PhpSpreadsheet\Writer\Xls;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 
 class InventoryController extends Controller
 {
@@ -115,8 +118,7 @@ class InventoryController extends Controller
                 'BOX' => $data_item->BOX,
                 'Total' => $data_item->Total
             );
-            if($data->last() == $data_item)
-            {
+            if ($data->last() == $data_item) {
                 $data_array[] = array(
                     'Loc' => NULL,
                     'Part Code' => NULL,
@@ -126,8 +128,28 @@ class InventoryController extends Controller
                     'Total' => $totalQty
                 );
             }
-           
         }
         $this->ExportExcel($data_array);
+    }
+    public function up()
+    {
+        Schema::create('inventory_pappers', function (Blueprint $table) {
+            $table->id();
+            $table->string('nomor_urut');
+            $table->string('item_code');
+            $table->string('item_qty');
+            $table->string('item_box');
+            $table->timestamps();
+        });
+    }
+    public function store(Request $request)
+    {
+        $inventory_pappers = new InventoryController;
+        $inventory_pappers->nomor_urut = $request->input('No');
+        $inventory_pappers->item_code = $request->input('cAssyNo');
+        $inventory_pappers->item_qty = $request->input('cQty');
+        $inventory_pappers->item_box = $request->input('BOX');
+        $inventory_pappers->save();
+        return redirect()->back()->with('status','inventory Added Successfully');
     }
 }
