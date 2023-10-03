@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\InventoryPapper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\RedirectResponse;
@@ -9,8 +10,6 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Reader\Exception;
 use PhpOffice\PhpSpreadsheet\Writer\Xls;
 use PhpOffice\PhpSpreadsheet\IOFactory;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 
 class InventoryController extends Controller
 {
@@ -69,17 +68,19 @@ class InventoryController extends Controller
             ->orderBy('cLoc', 'ASC')
             ->orderBy('cAssyNo', 'ASC')
             ->get();
-        $data_array[] = array("Loc.", "Part Code", "Part Name", "QTY", "BOX", "Total");
+        $data_array[] = array("No", "Loc.", "Part Code", "Part Name", "QTY", "BOX", "Total");
         $locBefore = NULL;
         $cdBefore = NULL;
         $totalBox = 0;
         $totalQty = 0;
         $firstDifferent = NULL;
+        $no = 1;
         foreach ($data as $data_item) {
 
             if ($locBefore != $data_item->cLoc) {
                 if ($firstDifferent) {
                     $data_array[] = array(
+                        'No' => $no++,
                         'Loc' => NULL,
                         'Part Code' => NULL,
                         'Part Name' => NULL,
@@ -93,7 +94,7 @@ class InventoryController extends Controller
 
                 $totalQty = $data_item->Total;
                 $totalBox = $data_item->BOX;
-
+                $no++;
                 $locBefore = $data_item->cLoc;
                 $fixLoc = $data_item->cLoc;
             } else {
@@ -111,6 +112,7 @@ class InventoryController extends Controller
             }
 
             $data_array[] = array(
+                'No' => $no++,
                 'Loc' => $fixLoc,
                 'Part Code' => $fixCd,
                 'Part Name' => $data_item->cModel,
@@ -120,6 +122,7 @@ class InventoryController extends Controller
             );
             if ($data->last() == $data_item) {
                 $data_array[] = array(
+                    'No' => $no++,
                     'Loc' => NULL,
                     'Part Code' => NULL,
                     'Part Name' => NULL,
@@ -129,27 +132,18 @@ class InventoryController extends Controller
                 );
             }
         }
+
+
+        $InsertData = [];
+        foreach ($data_array as $r) {
+            $InsertData[] = [
+                'nomor_urut' => $r['No'],
+                'item_code' => $r['Part Code'],
+                'item_qty' => $r['QTY'],
+                'item_box' => $r['BOX']
+            ];
+        }
+        InventoryPapper::insert($InsertData);
         $this->ExportExcel($data_array);
-    }
-    public function up()
-    {
-        Schema::create('inventory_pappers', function (Blueprint $table) {
-            $table->id();
-            $table->string('nomor_urut');
-            $table->string('item_code');
-            $table->string('item_qty');
-            $table->string('item_box');
-            $table->timestamps();
-        });
-    }
-    public function store(Request $request)
-    {
-        $inventory_pappers = new InventoryController;
-        $inventory_pappers->nomor_urut = $request->input('No');
-        $inventory_pappers->item_code = $request->input('cAssyNo');
-        $inventory_pappers->item_qty = $request->input('cQty');
-        $inventory_pappers->item_box = $request->input('BOX');
-        $inventory_pappers->save();
-        return redirect()->back()->with('status','inventory Added Successfully');
     }
 }
