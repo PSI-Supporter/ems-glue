@@ -20,7 +20,7 @@ class InventoryController extends Controller
         $Inv = DB::table('WMS_Inv')
             ->select('cLoc', 'cAssyNo', 'cModel', 'cQty', DB::raw("COUNT(*) as BOX"), DB::raw("SUM(cQty) as Total"))
             ->groupBy('cLoc', 'cAssyNo', 'cModel', 'cQty')
-            ->paginate(20);
+            ->paginate(200);
         return ['data' => $Inv];
     }
 
@@ -32,7 +32,7 @@ class InventoryController extends Controller
             ->groupBy('cLoc', 'cAssyNo', 'cModel', 'cQty')
             ->orderBy('cLoc', 'ASC')
             ->orderBy('cAssyNo', 'ASC')
-            ->paginate(20);
+            ->paginate(200);
         return view('inv_view', ['Inv' => $Inv]);
     }
 
@@ -64,23 +64,28 @@ class InventoryController extends Controller
     {
         $data = DB::table('WMS_Inv')
             ->select('cLoc', 'cAssyNo', 'cModel', 'cQty', DB::raw("COUNT(*) as BOX"), DB::raw("SUM(cQty) as Total"))
-            ->groupBy('cLoc', 'cAssyNo', 'cModel', 'cQty')
-            ->orderBy('cLoc', 'ASC')
+            ->groupBy('cAssyNo', 'cLoc', 'cModel', 'cQty')
             ->orderBy('cAssyNo', 'ASC')
+            ->orderBy('cLoc', 'ASC')
             ->get();
-        $data_array[] = array("No", "Loc.", "Part Code", "Part Name", "QTY", "BOX", "Total");
+        $data = json_decode(json_encode($data), true);
+        $data_array = array();
         $locBefore = NULL;
         $cdBefore = NULL;
         $totalBox = 0;
         $totalQty = 0;
         $firstDifferent = NULL;
-        $no = 1;
+        $i = 0;
+        $TotData = count($data);
+
+        //untuk ekspor ke excel
+
         foreach ($data as $data_item) {
 
-            if ($locBefore != $data_item->cLoc) {
+            if ($locBefore != $data_item['cAssyNo']) {
                 if ($firstDifferent) {
                     $data_array[] = array(
-                        'No' => $no++,
+                        'No' => NULL,
                         'Loc' => NULL,
                         'Part Code' => NULL,
                         'Part Name' => NULL,
@@ -92,37 +97,36 @@ class InventoryController extends Controller
                     $firstDifferent = true;
                 }
 
-                $totalQty = $data_item->Total;
-                $totalBox = $data_item->BOX;
-                $no++;
-                $locBefore = $data_item->cLoc;
-                $fixLoc = $data_item->cLoc;
+                $totalQty = $data_item['Total'];
+                $totalBox = $data_item['BOX'];
+                $locBefore = $data_item['cAssyNo'];
+                $fixLoc = $data_item['cLoc'];
             } else {
                 $fixLoc = NULL;
-
-                $totalQty += $data_item->Total;
-                $totalBox += $data_item->BOX;
+                $totalQty += $data_item['Total'];
+                $totalBox += $data_item['BOX'];
             }
 
-            if ($cdBefore != $data_item->cAssyNo) {
-                $cdBefore = $data_item->cAssyNo;
-                $fixCd = $data_item->cAssyNo;
+            if ($cdBefore != $data_item['cAssyNo']) {
+                $cdBefore = $data_item['cAssyNo'];
+                $fixCd = $data_item['cAssyNo'];
             } else {
                 $fixCd = NULL;
             }
 
             $data_array[] = array(
-                'No' => $no++,
+
+                'No' => NULL,
                 'Loc' => $fixLoc,
                 'Part Code' => $fixCd,
-                'Part Name' => $data_item->cModel,
-                'QTY' => $data_item->cQty,
-                'BOX' => $data_item->BOX,
-                'Total' => $data_item->Total
+                'Part Name' => $data_item['cModel'],
+                'QTY' => $data_item['cQty'],
+                'BOX' => $data_item['BOX'],
+                'Total' => $data_item['Total']
             );
-            if ($data->last() == $data_item) {
+            if ($i == $TotData) {
                 $data_array[] = array(
-                    'No' => $no++,
+                    'No' => NULL,
                     'Loc' => NULL,
                     'Part Code' => NULL,
                     'Part Name' => NULL,
@@ -131,19 +135,79 @@ class InventoryController extends Controller
                     'Total' => $totalQty
                 );
             }
+            $i++;
         }
+       
 
 
+        //untuk insert ke db inventory_pappers
         $InsertData = [];
-        foreach ($data_array as $r) {
+        $satu = NULL;
+        foreach ($data as $r) {
             $InsertData[] = [
-                'nomor_urut' => $r['No'],
-                'item_code' => $r['Part Code'],
-                'item_qty' => $r['QTY'],
-                'item_box' => $r['BOX']
+                'created_at' => now(),
+                'updated_at' => NULL,
+                'item_code' => $r['cAssyNo'],
+                'item_qty' => $r['cQty'],
+                'item_box' => $r['BOX'],
+                'checker_id' => '-',
+                'auditor_id' => NULL,
+                'created_by' => '-',
+                'updated_by' => NULL,
+                'deleted_at' => NULL,
+                'deleted_by' => NULL,
+                'item_location' => $r['cLoc']
             ];
         }
-        InventoryPapper::insert($InsertData);
+
+        $tempStr = '';
+        $nomor = 0;
+
+        foreach ($InsertData as &$rs) {
+            if ($rs['item_code'] != $tempStr) {
+                $tempStr = $rs['item_code'];
+                $nomor++;
+                $rs['nomor_urut'] = $nomor;
+            } else {
+                $rs['nomor_urut'] = $nomor;
+            }
+        }
+        unset($rs);
+        foreach (array_chunk($InsertData, (1500 / 13) - 2) as $chunk) {
+            InventoryPapper::insert($chunk);
+        }
+        foreach ($data_array as &$rs) {
+            $rs['Loc'] = '';
+        }
+        unset($rs);
+        foreach ($data_array as &$rr) {
+            $locStr = '';
+            $locArray = [];
+
+            foreach ($data as $lok) {
+                if ($rr['Part Code'] == $lok['cAssyNo']) {
+                    $locStr .= $lok['cLoc'] . ',';
+                    if (!in_array($lok['cLoc'], $locArray)) {
+                        $locArray[] = $lok['cLoc'];
+                    }
+                }
+            }
+            $rr['Loc'] = implode(',', $locArray);
+        }
+        unset($rr);
+        array_unshift($data_array, array("No", "Loc", "Part Code", "Part Name", "QTY", "BOX", "Total"));
+/*
+        $tempSt='';
+        $no=0;
+        foreach ($data_array as &$rs) {
+            if ($rs['Loc'] = !$tempSt) {
+                $tempSt = $rs['Loc'];
+                $no++;
+                $rs['No'] = $no;
+            } else {
+                $rs['No'] = $no;
+            }
+        }*/
         $this->ExportExcel($data_array);
     }
 }
