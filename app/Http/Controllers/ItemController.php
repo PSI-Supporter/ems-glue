@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -39,6 +40,12 @@ class ItemController extends Controller
         return view('form_item', ['items' => $Items]);
     }
 
+
+
+    #----------------------------------------------TRIAL VIEW DATA------------------------------------------------------------------------
+    #----------------------------------------------TRIAL VIEW DATA------------------------------------------------------------------------
+    
+
     function loadTrans(Request $request)
     {
         $searchValue = $request->transName;
@@ -75,6 +82,29 @@ class ItemController extends Controller
 
 
 
+
+
+
+
+    #----------------------------------------------SECTION ITEM CONTROLLER FROM CI------------------------------------------------------------------------
+    #----------------------------------------------SECTION ITEM CONTROLLER FROM CI------------------------------------------------------------------------
+    #----------------------------------------------SECTION ITEM CONTROLLER FROM CI------------------------------------------------------------------------
+    #----------------------------------------------SECTION ITEM CONTROLLER FROM CI------------------------------------------------------------------------
+    #----------------------------------------------SECTION ITEM CONTROLLER FROM CI------------------------------------------------------------------------
+    #----------------------------------------------SECTION ITEM CONTROLLER FROM CI------------------------------------------------------------------------
+    #----------------------------------------------SECTION ITEM CONTROLLER FROM CI------------------------------------------------------------------------
+
+
+
+    
+    public function __construct()
+    {
+        date_default_timezone_set('Asia/Jakarta');
+    }
+    public function index()
+    {
+        echo "sorry";
+    }
     public function search(request $request)
     # search
     {
@@ -353,7 +383,63 @@ public function searchRMExim(Request $request)
         header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
         header('Cache-Control: max-age=0');
         $writer->save('php://output');
-
     }
-    
+/*
+    public function search_internal_item(request $request)
+    {
+        $searchBy = $request->searchBy;
+        $search = $request->search;
+        $rs = [];
+        switch ($searchBy) {
+            case 'in':
+                $rs = $this->MSTITM_mod->select_columns_like(['RTRIM(MITM_ITMCD) MITM_ITMCD', 'RTRIM(MITM_ITMD1) MITM_ITMD1', 'MITM_ITMCDCUS', "RTRIM(ISNULL(MITM_STKUOM,'')) MITM_STKUOM"], ['MITM_ITMD1' => $search]);
+                break;
+            case 'ic':
+                $rs = $this->MSTITM_mod->select_columns_like(['RTRIM(MITM_ITMCD) MITM_ITMCD', 'RTRIM(MITM_ITMD1) MITM_ITMD1', 'MITM_ITMCDCUS', "RTRIM(ISNULL(MITM_STKUOM,'')) MITM_STKUOM"], ['MITM_ITMCD' => $search]);
+                break;
+            case 'po':
+                $rs = $this->RCV_mod->selectItemLike(['RCV_PO' => $search]);
+                break;
+            case 'do':
+                $rs = $this->RCV_mod->selectItemLike(['RCV_DONO' => $search]);
+                break;
+            default:
+                $rs = $this->MSTITM_mod->select_columns_like(['RTRIM(MITM_ITMCD) MITM_ITMCD', 'RTRIM(MITM_ITMD1) MITM_ITMD1', 'MITM_ITMCDCUS', "RTRIM(ISNULL(MITM_STKUOM,'')) MITM_STKUOM"], ['MITM_ITMCDCUS' => $search]);
+        }
+        die(json_encode(['data' => $rs]));
+    }
+
+   
+    public function downloadsa()
+    {
+        $rs = DB::table('MITIM_TBL')->get()->toArray();
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('registered_part');
+        $sheet->setCellValue('A1', 'Assy Code');
+        $sheet->setCellValue('B1', 'Item Code');
+        $sheet->setCellValue('C1', 'Item Code SA');
+        $i = 2;
+        foreach ($rs as $r) {
+            $sheet->setCellValue('A'. $i, $r['FG']);
+            $sheet->setCellValue('B'. $i, $r['MITMSA_ITMCD']);
+            $sheet->setCellValue('C'. $i, $r['MITMSA_ITMCDS']);
+            $i++;
+        }
+        foreach (range('A', 'C') as $v) {
+            $sheet->getColumnDimension($v)->setAutoSize(true);
+        }
+        $rang = "A1:C" . $sheet->getHighestDataRow();
+        $sheet->getStyle($rang)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT);
+
+        $stringjudul = "registered SA Part";
+        $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
+        $filename = $stringjudul; //save our workbook as this file name
+
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
+        header('Cache-Control: max-age=0');
+        $writer->save('php://output');
+    }
+    */
 }
