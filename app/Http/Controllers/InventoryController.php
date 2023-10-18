@@ -10,6 +10,8 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Reader\Exception;
 use PhpOffice\PhpSpreadsheet\Writer\Xls;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Style;
+use PhpOffice\PhpSpreadsheet\Style\Border;
 
 class InventoryController extends Controller
 {
@@ -44,6 +46,15 @@ class InventoryController extends Controller
             $spreadSheet = new Spreadsheet();
             $spreadSheet->getActiveSheet()->getDefaultColumnDimension()->setWidth(20);
             $spreadSheet->getActiveSheet()->fromArray($data_inv);
+            $styleArray = array(
+                'borders' => array(
+                    'allborders' => array(
+                        'style' => Border::BORDER_MEDIUM,
+                        'color' => array('argb' => '000000'),
+                    ),
+                ),
+            );
+            $spreadSheet->getActiveSheet()->getStyle('A1:G'.$data_inv)->applyFromArray($styleArray);
             $Excel_writer = new Xls($spreadSheet);
             header('Content-Type: application/vnd.ms-excel');
             header('Content-Disposition: attachment;filename="WMS_Inventory.xls"');
@@ -137,8 +148,6 @@ class InventoryController extends Controller
             }
             $i++;
         }
-       
-
 
         //untuk insert ke db inventory_pappers
         $InsertData = [];
@@ -194,20 +203,19 @@ class InventoryController extends Controller
             }
             $rr['Loc'] = implode(',', $locArray);
         }
+        $nobf = '';
+        $noArray = '';
+        foreach ($data_array as &$n) {
+            if ($n['Loc'] != $nobf) {
+                $noArray++;
+                $n['No'] = $noArray;
+            } else {
+                $n['No'] = NULL;
+            }
+        }
         unset($rr);
         array_unshift($data_array, array("No", "Loc", "Part Code", "Part Name", "QTY", "BOX", "Total"));
-/*
-        $tempSt='';
-        $no=0;
-        foreach ($data_array as &$rs) {
-            if ($rs['Loc'] = !$tempSt) {
-                $tempSt = $rs['Loc'];
-                $no++;
-                $rs['No'] = $no;
-            } else {
-                $rs['No'] = $no;
-            }
-        }*/
+
         $this->ExportExcel($data_array);
     }
 }
