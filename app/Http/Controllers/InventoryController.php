@@ -68,14 +68,15 @@ class InventoryController extends Controller
 
         $spreadSheet = new Spreadsheet();
         $sheet = $spreadSheet->getActiveSheet();
-
+        
         foreach ($Warehouses as $Warehouse) {
 
             $data = DB::table('WMS_Inv')
-                ->select('cLoc', 'cAssyNo', 'cModel', 'cQty', 'mstloc_grp', DB::raw("COUNT(*) as BOX"), DB::raw("SUM(cQty) as Total"))
+                ->select('cLoc',DB::raw("SER_ITMID as cAssyNo"), 'cModel', 'cQty', 'mstloc_grp', DB::raw("COUNT(*) as BOX"), DB::raw("SUM(cQty) as Total"))
+                ->leftJoin('SER_TBL', 'RefNo', '=', 'SER_ID')
                 ->where('mstloc_grp', $Warehouse->mstloc_grp)
-                ->groupBy('cAssyNo', 'cLoc', 'cModel', 'cQty', 'mstloc_grp')
-                ->orderBy('cAssyNo', 'ASC')
+                ->groupBy('SER_ITMID', 'cLoc', 'cModel', 'cQty', 'mstloc_grp')
+                ->orderBy('SER_ITMID', 'ASC')
                 ->orderBy('cLoc', 'ASC')
                 ->get();
 
