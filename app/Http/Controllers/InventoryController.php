@@ -76,9 +76,8 @@ class InventoryController extends Controller
                 ->leftJoin('SER_TBL', 'RefNo', '=', 'SER_ID')
                 ->where('mstloc_grp', $Warehouse->mstloc_grp)
                 ->groupBy('SER_ITMID', 'cLoc', 'cModel', 'cQty', 'mstloc_grp')
-                ->orderBy('cLoc', 'ASC')
                 ->orderBy('SER_ITMID', 'ASC')
-                ->orderBy('cQty', 'DESC')
+                ->orderBy('cLoc', 'ASC')
                 ->get();
 
             $data = json_decode(json_encode($data), true);
@@ -218,13 +217,22 @@ class InventoryController extends Controller
             foreach (array_chunk($InsertData, (1500 / 13) - 2) as $chunk) {
                 InventoryPapper::insert($chunk);
             }
-
+            $Inv_result = InventoryPapper::select("nomor_urut", "item_location", "item_code", "MITM_ITMD1", "item_qty", "item_box", 
+            DB::raw ('item_qty*item_box as Total'))
+            ->leftJoin('MITM_TBL', 'item_code', '=', 'MITM_ITMCD')
+            ->whereNull("deleted_at")
+            ->where("item_location_group", $Warehouse->mstloc_grp)
+            ->orderBy("item_location", "ASC")
+            ->orderBy("item_code", "ASC")
+            ->orderBy("item_qty", "DESC")
+            ->get();
+            $Inv_result = json_decode(json_encode($Inv_result), true);   
             array_unshift($data_array, array("No", "Loc", "Part Code", "Part Name", "QTY", "BOX", "Total"));
 
             $sheet = $spreadSheet->createSheet();
             $sheet->setTitle($Warehouse->mstloc_grp);
             $sheet->getDefaultColumnDimension()->setWidth(20);
-            $sheet->fromArray($data_array);
+            $sheet->fromArray($Inv_result);
         }
 
         $Excel_writer = new Xls($spreadSheet);
