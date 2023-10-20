@@ -4,6 +4,7 @@ use App\Http\Controllers\BusinessGroupController;
 use App\Http\Controllers\CountryController;
 use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\ItemController;
+use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\LabelController;
 use App\Http\Controllers\ReturnController;
 use App\Http\Controllers\SupplyController;
@@ -58,6 +59,12 @@ Route::get('item/searchFGExim', [ItemController::class, 'searchFGExim']);
 Route::get('item/searchRMExim', [ItemController::class, 'searchRMExim']);
 Route::get('item/searchRMXls', [ItemController::class, 'searchRMEximXls']);
 Route::get('item/searchFGXls', [ItemController::class, 'searchFGEximXls']);
+Route::get('item/downloadsa', [ItemController::class, 'downloadsa']);
+
+#Untuk Inventory
+Route::get('/Inv', [InventoryController::class, 'loadInventory']);
+Route::get('/form-inv', [InventoryController::class, 'formInventory']);
+Route::get('/export/inventory-fg', [InventoryController::class, 'exportInv']);
 
 # Terkait Label Raw Material
 Route::post('label/combine-raw-material', [LabelController::class, 'combineRMLabel']);

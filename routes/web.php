@@ -35,4 +35,4 @@ Route::post('/updateTruk', [ItemController::class, 'updateTruk']);
 #Untuk Inventory
 Route::get('/Inv', [InventoryController::class, 'loadInventory']);
 Route::get('/form-inv', [InventoryController::class, 'formInventory']);
-Route::get('/export', [InventoryController::class, 'exportInv']);
+Route::get('/export/inventory-fg', [InventoryController::class, 'exportInv']);
