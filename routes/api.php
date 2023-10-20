@@ -64,7 +64,7 @@ Route::get('item/downloadsa', [ItemController::class, 'downloadsa']);
 #Untuk Inventory
 Route::get('/Inv', [InventoryController::class, 'loadInventory']);
 Route::get('/form-inv', [InventoryController::class, 'formInventory']);
-Route::get('/export', [InventoryController::class, 'exportInv']);
+Route::get('/export/inventory-fg', [InventoryController::class, 'exportInv']);
 
 # Terkait Label Raw Material
 Route::post('label/combine-raw-material', [LabelController::class, 'combineRMLabel']);
