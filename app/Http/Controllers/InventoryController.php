@@ -46,15 +46,6 @@ class InventoryController extends Controller
             $spreadSheet = new Spreadsheet();
             $spreadSheet->getActiveSheet()->getDefaultColumnDimension()->setWidth(20);
             $spreadSheet->getActiveSheet()->fromArray($data_inv);
-            $styleArray = array(
-                'borders' => array(
-                    'allborders' => array(
-                        'style' => Border::BORDER_MEDIUM,
-                        'color' => array('argb' => '000000'),
-                    ),
-                ),
-            );
-            $spreadSheet->getActiveSheet()->getStyle('A1:G'.$data_inv)->applyFromArray($styleArray);
             $Excel_writer = new Xls($spreadSheet);
             header('Content-Type: application/vnd.ms-excel');
             header('Content-Disposition: attachment;filename="WMS_Inventory.xls"');
@@ -74,8 +65,8 @@ class InventoryController extends Controller
     function exportInv()
     {
         $data = DB::table('WMS_Inv')
-            ->select('cLoc', 'cAssyNo', 'cModel', 'cQty', DB::raw("COUNT(*) as BOX"), DB::raw("SUM(cQty) as Total"))
-            ->groupBy('cAssyNo', 'cLoc', 'cModel', 'cQty')
+            ->select('cLoc', 'cAssyNo', 'cModel', 'cQty', 'mstloc_grp', DB::raw("COUNT(*) as BOX"), DB::raw("SUM(cQty) as Total"))
+            ->groupBy('cAssyNo', 'cLoc', 'cModel', 'cQty', 'mstloc_grp')
             ->orderBy('cAssyNo', 'ASC')
             ->orderBy('cLoc', 'ASC')
             ->get();
@@ -89,7 +80,10 @@ class InventoryController extends Controller
         $i = 0;
         $TotData = count($data);
 
-        //untuk ekspor ke excel
+
+
+
+        //untuk ekspor ke excel-------->>>
 
         foreach ($data as $data_item) {
 
@@ -135,6 +129,7 @@ class InventoryController extends Controller
                 'BOX' => $data_item['BOX'],
                 'Total' => $data_item['Total']
             );
+            $i++;
             if ($i == $TotData) {
                 $data_array[] = array(
                     'No' => NULL,
@@ -146,44 +141,7 @@ class InventoryController extends Controller
                     'Total' => $totalQty
                 );
             }
-            $i++;
-        }
-
-        //untuk insert ke db inventory_pappers
-        $InsertData = [];
-        $satu = NULL;
-        foreach ($data as $r) {
-            $InsertData[] = [
-                'created_at' => now(),
-                'updated_at' => NULL,
-                'item_code' => $r['cAssyNo'],
-                'item_qty' => $r['cQty'],
-                'item_box' => $r['BOX'],
-                'checker_id' => '-',
-                'auditor_id' => NULL,
-                'created_by' => '-',
-                'updated_by' => NULL,
-                'deleted_at' => NULL,
-                'deleted_by' => NULL,
-                'item_location' => $r['cLoc']
-            ];
-        }
-
-        $tempStr = '';
-        $nomor = 0;
-
-        foreach ($InsertData as &$rs) {
-            if ($rs['item_code'] != $tempStr) {
-                $tempStr = $rs['item_code'];
-                $nomor++;
-                $rs['nomor_urut'] = $nomor;
-            } else {
-                $rs['nomor_urut'] = $nomor;
-            }
-        }
-        unset($rs);
-        foreach (array_chunk($InsertData, (1500 / 13) - 2) as $chunk) {
-            InventoryPapper::insert($chunk);
+           
         }
         foreach ($data_array as &$rs) {
             $rs['Loc'] = '';
@@ -214,6 +172,47 @@ class InventoryController extends Controller
             }
         }
         unset($rr);
+
+
+
+        //untuk insert ke db inventory_pappers
+        $InsertData = [];
+        $satu = NULL;
+        foreach ($data as $r) {
+            $InsertData[] = [
+                'created_at' => now(),
+                'updated_at' => NULL,
+                'item_code' => $r['cAssyNo'],
+                'item_qty' => $r['cQty'],
+                'item_box' => $r['BOX'],
+                'checker_id' => '-',
+                'auditor_id' => NULL,
+                'created_by' => '-',
+                'updated_by' => NULL,
+                'deleted_at' => NULL,
+                'deleted_by' => NULL,
+                'item_location' => $r['cLoc'],
+                'item_location_group' => $r['mstloc_grp']
+            ];
+        }
+
+        $tempStr = '';
+        $nomor = 0;
+
+        foreach ($InsertData as &$rs) {
+            if ($rs['item_code'] != $tempStr) {
+                $tempStr = $rs['item_code'];
+                $nomor++;
+                $rs['nomor_urut'] = $nomor;
+            } else {
+                $rs['nomor_urut'] = $nomor;
+            }
+        }
+        unset($rs);
+        foreach (array_chunk($InsertData, (1500 / 13) - 2) as $chunk) {
+            InventoryPapper::insert($chunk);
+        }
+
         array_unshift($data_array, array("No", "Loc", "Part Code", "Part Name", "QTY", "BOX", "Total"));
 
         $this->ExportExcel($data_array);
