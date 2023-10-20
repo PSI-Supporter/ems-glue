@@ -50,6 +50,7 @@ Route::post('return/confirm', [ReturnController::class, 'confirm']);
 Route::post('return/without-psn', [ReturnController::class, 'returnWithoutPSN']);
 Route::delete('return/without-psn/{id}', [ReturnController::class, 'cancelReturnWithoutPSN']);
 
+
 # Terkait Item Master
 Route::get('item/{id}/location', [ItemController::class, 'loadById']);
 Route::get('item/search', [ItemController::class, 'search']);

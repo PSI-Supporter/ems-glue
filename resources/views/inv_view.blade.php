@@ -22,7 +22,7 @@
                     <div class=" card-content table-responsive">
 
                         <table id="example" class="table table-striped table-bordered" style="width:100%">
-                            <a href="{{url("export")}}" class="btn btn-success btn-sm" style="margin-left:85%">Export Excel</a>
+                            <a href="export/inventory-fg" class="btn btn-success btn-sm" style="margin-left:85%">Export Excel</a>
                             <br>
                             <thead>
                                 <th scope="col">No.</th>
