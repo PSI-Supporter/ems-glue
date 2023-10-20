@@ -76,8 +76,9 @@ class InventoryController extends Controller
                 ->leftJoin('SER_TBL', 'RefNo', '=', 'SER_ID')
                 ->where('mstloc_grp', $Warehouse->mstloc_grp)
                 ->groupBy('SER_ITMID', 'cLoc', 'cModel', 'cQty', 'mstloc_grp')
-                ->orderBy('SER_ITMID', 'ASC')
                 ->orderBy('cLoc', 'ASC')
+                ->orderBy('SER_ITMID', 'ASC')
+                ->orderBy('cQty', 'DESC')
                 ->get();
 
             $data = json_decode(json_encode($data), true);
