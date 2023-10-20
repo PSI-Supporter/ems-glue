@@ -8,6 +8,6 @@
 </tr>
 </tr>
 <tr>
-    <td colspan="7"></td>
+    <td colspan="8"></td>
 </tr>
 </html>
