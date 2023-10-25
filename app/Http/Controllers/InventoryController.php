@@ -66,122 +66,26 @@ class InventoryController extends Controller
     {
         $Warehouses = DB::table('WMS_Inv')->select('mstloc_grp')->groupBy('mstloc_grp')->get();
 
-        $spreadSheet = new Spreadsheet();
-        $sheet = $spreadSheet->getActiveSheet();
-        
+        # Hapus sebelum insert
+        InventoryPapper::whereNull('deleted_at')->update(['deleted_at' => date('Y-m-d H:i:s')]);
+
         foreach ($Warehouses as $Warehouse) {
 
             $data = DB::table('WMS_Inv')
-                ->select('cLoc',DB::raw("SER_ITMID as cAssyNo"), 'cModel', 'cQty', 'mstloc_grp', DB::raw("COUNT(*) as BOX"), DB::raw("SUM(cQty) as Total"))
+                ->select('cLoc', DB::raw("SER_ITMID as cAssyNo"), 'cModel', 'cQty', 'mstloc_grp', DB::raw("COUNT(*) as BOX"), DB::raw("SUM(cQty) as Total"))
                 ->leftJoin('SER_TBL', 'RefNo', '=', 'SER_ID')
                 ->where('mstloc_grp', $Warehouse->mstloc_grp)
                 ->groupBy('SER_ITMID', 'cLoc', 'cModel', 'cQty', 'mstloc_grp')
-                ->orderBy('SER_ITMID', 'ASC')
                 ->orderBy('cLoc', 'ASC')
+                ->orderBy('SER_ITMID', 'ASC')
+                ->orderBy('cQty', 'DESC')
                 ->get();
 
             $data = json_decode(json_encode($data), true);
-            $data_array = array();
-            $locBefore = NULL;
-            $cdBefore = NULL;
-            $totalBox = 0;
-            $totalQty = 0;
-            $firstDifferent = NULL;
-            $i = 0;
-            $TotData = count($data);
 
-            //untuk ekspor ke excel-------->>>
-
-            foreach ($data as $data_item) {
-
-                if ($locBefore != $data_item['cAssyNo']) {
-                    if ($firstDifferent) {
-                        $data_array[] = array(
-                            'No' => NULL,
-                            'Loc' => NULL,
-                            'Part Code' => NULL,
-                            'Part Name' => NULL,
-                            'QTY' => 'Total',
-                            'BOX' => $totalBox,
-                            'Total' => $totalQty
-                        );
-                    } else {
-                        $firstDifferent = true;
-                    }
-
-                    $totalQty = $data_item['Total'];
-                    $totalBox = $data_item['BOX'];
-                    $locBefore = $data_item['cAssyNo'];
-                    $fixLoc = $data_item['cLoc'];
-                } else {
-                    $fixLoc = NULL;
-                    $totalQty += $data_item['Total'];
-                    $totalBox += $data_item['BOX'];
-                }
-
-                if ($cdBefore != $data_item['cAssyNo']) {
-                    $cdBefore = $data_item['cAssyNo'];
-                    $fixCd = $data_item['cAssyNo'];
-                } else {
-                    $fixCd = NULL;
-                }
-
-                $data_array[] = array(
-
-                    'No' => NULL,
-                    'Loc' => $fixLoc,
-                    'Part Code' => $fixCd,
-                    'Part Name' => $data_item['cModel'],
-                    'QTY' => $data_item['cQty'],
-                    'BOX' => $data_item['BOX'],
-                    'Total' => $data_item['Total']
-                );
-                $i++;
-                if ($i == $TotData) {
-                    $data_array[] = array(
-                        'No' => NULL,
-                        'Loc' => NULL,
-                        'Part Code' => NULL,
-                        'Part Name' => NULL,
-                        'QTY' => 'Total',
-                        'BOX' => $totalBox,
-                        'Total' => $totalQty
-                    );
-                }
-            }
-            foreach ($data_array as &$rs) {
-                $rs['Loc'] = '';
-            }
-            unset($rs);
-            foreach ($data_array as &$rr) {
-                $locStr = '';
-                $locArray = [];
-
-                foreach ($data as $lok) {
-                    if ($rr['Part Code'] == $lok['cAssyNo']) {
-                        $locStr .= $lok['cLoc'] . ',';
-                        if (!in_array($lok['cLoc'], $locArray)) {
-                            $locArray[] = $lok['cLoc'];
-                        }
-                    }
-                }
-                $rr['Loc'] = implode(',', $locArray);
-            }
-            $nobf = '';
-            $noArray = '';
-            foreach ($data_array as &$n) {
-                if ($n['Loc'] != $nobf) {
-                    $noArray++;
-                    $n['No'] = $noArray;
-                } else {
-                    $n['No'] = NULL;
-                }
-            }
-            unset($rr);
 
             //untuk insert ke db inventory_pappers
             $InsertData = [];
-            $satu = NULL;
             foreach ($data as $r) {
                 $InsertData[] = [
                     'created_at' => now(),
@@ -196,7 +100,8 @@ class InventoryController extends Controller
                     'deleted_at' => NULL,
                     'deleted_by' => NULL,
                     'item_location' => $r['cLoc'],
-                    'item_location_group' => $r['mstloc_grp']
+                    'item_location_group' => $r['mstloc_grp'],
+                    'nomor_urut' => NULL
                 ];
             }
 
@@ -204,12 +109,26 @@ class InventoryController extends Controller
             $nomor = 0;
 
             foreach ($InsertData as &$rs) {
+                $theNumber = -1;
+                foreach ($InsertData as $_r) {
+                    if ($rs['item_code'] === $_r['item_code']) {
+                        if ($_r['nomor_urut']) {
+                            $theNumber = $_r['nomor_urut'];
+                            break;
+                        }
+                    }
+                }
                 if ($rs['item_code'] != $tempStr) {
                     $tempStr = $rs['item_code'];
-                    $nomor++;
-                    $rs['nomor_urut'] = $nomor;
+
+                    if ($theNumber > 0) {
+                        $rs['nomor_urut'] = $theNumber;
+                    } else {
+                        $nomor++;
+                        $rs['nomor_urut'] =  $nomor;
+                    }
                 } else {
-                    $rs['nomor_urut'] = $nomor;
+                    $rs['nomor_urut'] = $theNumber > 0 ? $theNumber : $nomor;
                 }
             }
             unset($rs);
@@ -217,22 +136,150 @@ class InventoryController extends Controller
             foreach (array_chunk($InsertData, (1500 / 13) - 2) as $chunk) {
                 InventoryPapper::insert($chunk);
             }
-            $Inv_result = InventoryPapper::select("nomor_urut", "item_location", "item_code", "MITM_ITMD1", "item_qty", "item_box", 
-            DB::raw ('item_qty*item_box as Total'))
-            ->leftJoin('MITM_TBL', 'item_code', '=', 'MITM_ITMCD')
-            ->whereNull("deleted_at")
-            ->where("item_location_group", $Warehouse->mstloc_grp)
-            ->orderBy("item_location", "ASC")
-            ->orderBy("item_code", "ASC")
-            ->orderBy("item_qty", "DESC")
-            ->get();
-            $Inv_result = json_decode(json_encode($Inv_result), true);   
-            array_unshift($data_array, array("No", "Loc", "Part Code", "Part Name", "QTY", "BOX", "Total"));
+        }
 
+        $this->Export();
+        
+    }
+
+    function Export()
+    {
+        $spreadSheet = new Spreadsheet();
+        $sheet = $spreadSheet->getActiveSheet();
+        $Warehouses = DB::table('WMS_Inv')->select('mstloc_grp')->groupBy('mstloc_grp')->get();
+        foreach ($Warehouses as $Warehouse) {
             $sheet = $spreadSheet->createSheet();
             $sheet->setTitle($Warehouse->mstloc_grp);
-            $sheet->getDefaultColumnDimension()->setWidth(20);
-            $sheet->fromArray($Inv_result);
+            $sheet->freezePane('A4');
+
+            $WarehouseData = InventoryPapper::select('inventory_pappers.*', DB::raw('RTRIM(MITM_ITMD1) ITMD1'))
+                ->leftJoin('MITM_TBL', 'item_code', '=', 'MITM_ITMCD')
+                ->where('item_location_group', $Warehouse->mstloc_grp)
+                ->whereNull('deleted_at')
+                ->orderBy('nomor_urut', 'ASC')
+                ->orderBy('item_location', 'ASC')
+                ->orderBy('item_code', 'ASC')
+                ->orderBy('item_qty', 'DESC')->get();
+            $WarehouseData = json_decode(json_encode($WarehouseData), true);
+
+            $ItemLocation = InventoryPapper::select('item_code', 'item_location', DB::raw("COUNT(*) AS TTLROW"))
+                ->where('item_location_group', $Warehouse->mstloc_grp)
+                ->whereNull('deleted_at')
+                ->groupBy('item_code', 'item_location')
+                ->orderBy('item_location', 'ASC')
+                ->get();
+            $ItemLocation = json_decode(json_encode($ItemLocation), true);
+
+            #Resume Location Per Item
+            $ResumeItemLocation = [];
+            foreach ($ItemLocation as $r) {
+                $isFound = false;
+                foreach ($ResumeItemLocation as &$l) {
+                    if ($r['item_code'] === $l['item_code']) {
+                        $l['COUNTER']++;
+                        $isFound = true;
+                        break;
+                    }
+                }
+                unset($l);
+
+                if (!$isFound) {
+                    $ResumeItemLocation[] = [
+                        'item_code' => $r['item_code'],
+                        'COUNTER' => 1,
+                    ];
+                }
+            }
+
+            foreach ($ResumeItemLocation as $r) {
+                if ($r['COUNTER'] > 1) {
+                    $strLocation = '';
+                    foreach ($ItemLocation as $l) {
+                        if ($r['item_code'] === $l['item_code']) {
+                            $strLocation .= $l['item_location'] . ',';
+                        }
+                    }
+
+                    foreach ($WarehouseData as &$w) {
+                        if ($r['item_code'] === $w['item_code']) {
+                            $w['item_location'] = $strLocation;
+                        }
+                    }
+                    unset($w);
+                }
+            }
+
+            $sheet->setCellValue([1, 3], 'No');
+            $sheet->setCellValue([2, 3], 'Loc.');
+            $sheet->setCellValue([3, 3], 'Part Code');
+            $sheet->setCellValue([4, 3], 'Part Name');
+            $sheet->setCellValue([5, 3], 'QTY');
+            $sheet->setCellValue([6, 3], 'BOX');
+            $sheet->setCellValue([7, 3], 'TOTAL');
+            $sheet->setCellValue([8, 3], 'Checked By');
+            $sheet->setCellValue([9, 3], 'Auditor');
+
+            $rowAt = 4;
+            $tempUrut = '';
+            foreach ($WarehouseData as $r) {
+                $displayUrut = '';
+                $displayLocation = '';
+                $displayItemCode = '';
+                $displayItemName = '';
+                if ($tempUrut != $r['nomor_urut']) {
+                    $displayUrut = $r['nomor_urut'];
+                    $displayLocation = $r['item_location'];
+                    $displayItemCode = $r['item_code'];
+                    $displayItemName = $r['ITMD1'];
+                    $tempUrut = $r['nomor_urut'];
+                } else {
+                    $displayUrut = '';
+                    $displayLocation = '';
+                    $displayItemCode = '';
+                    $displayItemName = '';
+                }
+                if ($rowAt > 4) {
+                    if ($displayUrut) {
+                        $minI = 0;
+                        $maxI = $rowAt - 1;
+                        for ($i = $rowAt; $i > 3; $i--) {
+                            if ($sheet->getCell([1, $i])->getValue() != '') {
+                                $minI = $i;
+                                break;
+                            }
+                        }
+                        $sheet->setCellValue([4, $rowAt], 'Total');
+                        $sheet->setCellValue([6, $rowAt], "=SUM(F" . $maxI . ":F" . $minI . ")");
+                        $sheet->setCellValue([7, $rowAt], "=SUM(G" . $maxI . ":G" . $minI . ")");
+                        $rowAt += 1;
+                    }
+                }
+                $sheet->setCellValue([1, $rowAt], $displayUrut);
+                $sheet->setCellValue([2, $rowAt], $displayLocation);
+                $sheet->setCellValue([3, $rowAt], $displayItemCode);
+                $sheet->setCellValue([4, $rowAt], $displayItemName);
+                $sheet->setCellValue([5, $rowAt], $r['item_qty']);
+                $sheet->setCellValue([6, $rowAt], $r['item_box']);
+                $sheet->setCellValue([7, $rowAt], $r['item_qty'] * $r['item_box']);
+                $rowAt++;
+            }
+
+            $minI = 0;
+            $maxI = $rowAt - 1;
+            for ($i = $rowAt; $i > 3; $i--) {
+                if ($sheet->getCell([1, $i])->getValue() != '') {
+                    $minI = $i;
+                    break;
+                }
+            }
+
+            $sheet->setCellValue([4, $rowAt], 'Total');
+            $sheet->setCellValue([6, $rowAt], "=SUM(F" . $maxI . ":F" . $minI . ")");
+            $sheet->setCellValue([7, $rowAt], "=SUM(G" . $maxI . ":G" . $minI . ")");
+
+            foreach (range('A', 'V') as $v) {
+                $sheet->getColumnDimension($v)->setAutoSize(true);
+            }
         }
 
         $Excel_writer = new Xls($spreadSheet);
