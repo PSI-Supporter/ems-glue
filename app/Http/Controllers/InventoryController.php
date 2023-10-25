@@ -48,7 +48,7 @@ class InventoryController extends Controller
         foreach ($Warehouses as $Warehouse) {
 
             $data = DB::table('WMS_Inv')
-                ->select('cLoc', DB::raw("SER_ITMID as cAssyNo"), 'cModel', 'cQty', 'mstloc_grp', DB::raw("COUNT(*) as BOX"), DB::raw("SUM(cQty) as Total"))
+                ->select('cLoc', DB::raw("UPPER(SER_ITMID) as cAssyNo"), 'cModel', 'cQty', 'mstloc_grp', DB::raw("COUNT(*) as BOX"), DB::raw("SUM(cQty) as Total"))
                 ->leftJoin('SER_TBL', 'RefNo', '=', 'SER_ID')
                 ->where('mstloc_grp', $Warehouse->mstloc_grp)
                 ->groupBy('SER_ITMID', 'cLoc', 'cModel', 'cQty', 'mstloc_grp')
