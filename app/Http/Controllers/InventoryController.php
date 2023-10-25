@@ -38,30 +38,6 @@ class InventoryController extends Controller
         return view('inv_view', ['Inv' => $Inv]);
     }
 
-    public function ExportExcel($data_inv)
-    {
-        ini_set('max_execution_time', 0);
-        ini_set('memory_limit', '4000M');
-        try {
-            $spreadSheet = new Spreadsheet();
-            $spreadSheet->getActiveSheet()->getDefaultColumnDimension()->setWidth(20);
-            $spreadSheet->getActiveSheet()->fromArray($data_inv);
-            $Excel_writer = new Xls($spreadSheet);
-            header('Content-Type: application/vnd.ms-excel');
-            header('Content-Disposition: attachment;filename="WMS_Inventory.xls"');
-            header('Cache-Control: max-age=0');
-            ob_end_clean();
-            $Excel_writer->save('php://output');
-            exit();
-        } catch (Exception $e) {
-            return;
-        }
-    }
-    /**
-     *This function loads the customer data from the database then converts it
-     * into an Array that will be exported to Excel
-     */
-
     function exportInv()
     {
         $Warehouses = DB::table('WMS_Inv')->select('mstloc_grp')->groupBy('mstloc_grp')->get();
