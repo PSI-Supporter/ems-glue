@@ -115,7 +115,6 @@ class InventoryController extends Controller
         }
 
         $this->Export();
-        
     }
 
     function Export()
@@ -128,10 +127,23 @@ class InventoryController extends Controller
             $sheet->setTitle($Warehouse->mstloc_grp);
             $sheet->freezePane('A4');
 
-            $WarehouseData = InventoryPapper::select('inventory_pappers.*', DB::raw('RTRIM(MITM_ITMD1) ITMD1'))
-                ->leftJoin('MITM_TBL', 'item_code', '=', 'MITM_ITMCD')
+            $WarehouseDataSummary = InventoryPapper::select(
+                'nomor_urut',
+                'item_code',
+                'item_qty',
+                DB::raw(
+                    "SUM(item_box) item_box",
+                ),
+                DB::raw(
+                    "MIN(item_location) item_location",
+                ),
+            )
                 ->where('item_location_group', $Warehouse->mstloc_grp)
                 ->whereNull('deleted_at')
+                ->groupBy('nomor_urut', 'item_code', 'item_qty');
+
+            $WarehouseData = DB::query()->fromSub($WarehouseDataSummary, 'v1')->selectRaw('v1.*,RTRIM(MITM_ITMD1) ITMD1')
+                ->leftJoin('MITM_TBL', 'item_code', '=', 'MITM_ITMCD')
                 ->orderBy('nomor_urut', 'ASC')
                 ->orderBy('item_location', 'ASC')
                 ->orderBy('item_code', 'ASC')
