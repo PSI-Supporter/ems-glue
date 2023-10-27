@@ -5,16 +5,17 @@ namespace App\Http\Controllers;
 use App\Models\InventoryPapper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Http\RedirectResponse;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Reader\Exception;
 use PhpOffice\PhpSpreadsheet\Writer\Xls;
-use PhpOffice\PhpSpreadsheet\IOFactory;
-use PhpOffice\PhpSpreadsheet\Style;
-use PhpOffice\PhpSpreadsheet\Style\Border;
 
 class InventoryController extends Controller
 {
+
+    public function __construct()
+    {
+        date_default_timezone_set('Asia/Jakarta');
+    }
+
     #load data to view
     function loadInventory(Request $request)
     {
