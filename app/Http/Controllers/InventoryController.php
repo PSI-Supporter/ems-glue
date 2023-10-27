@@ -207,6 +207,14 @@ class InventoryController extends Controller
             $sheet->setCellValue([8, 3], 'Checked By');
             $sheet->setCellValue([9, 3], 'Auditor');
 
+            usort($WarehouseData, function ($a, $b) {
+                $retval = $a['nomor_urut'] <=> $b['nomor_urut'];
+                if ($retval == 0) {
+                    $retval = $b['item_qty'] <=> $a['item_qty'];
+                }
+                return $retval;
+            });
+
             $rowAt = 4;
             $tempUrut = '';
             foreach ($WarehouseData as $r) {
