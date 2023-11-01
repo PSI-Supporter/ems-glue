@@ -21,6 +21,8 @@ Route::get('/', function () {
 
 Route::get('/items', [ItemController::class, 'loadItems']);
 Route::get('/form-item', [ItemController::class, 'formItem']);
+Route::get('/items/report/PDF', [ItemController::class, 'SpreadsheetToPdf']);
+Route::get('/items/form-report', [ItemController::class, 'formItemReport']);
 
 Route::get('/trans', [ItemController::class, 'loadTrans']);
 Route::get('/form-trans', [ItemController::class, 'formTrans']);

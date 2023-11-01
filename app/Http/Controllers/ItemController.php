@@ -6,9 +6,11 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Reader\Xls;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
-
+use PhpOffice\PhpSpreadsheet\Writer\Pdf\Mpdf;
+use PhpOffice\PhpSpreadsheet\Writer\Xls as WriterXls;
 
 class ItemController extends Controller
 {
@@ -44,7 +46,7 @@ class ItemController extends Controller
 
     #----------------------------------------------TRIAL VIEW DATA------------------------------------------------------------------------
     #----------------------------------------------TRIAL VIEW DATA------------------------------------------------------------------------
-    
+
 
     function loadTrans(Request $request)
     {
@@ -59,8 +61,8 @@ class ItemController extends Controller
     {
         $searchValue = $request->transName;
         $Trans = DB::table('MSTTRANS_TBL')->select('MSTTRANS_ID', 'MSTTRANS_TYPE', 'MSTTRANS_LUPDT', 'MSTTRANS_USRID')
-        ->where('MSTTRANS_TYPE', 'LIKE', '%' . $searchValue . '%')
-        ->get();
+            ->where('MSTTRANS_TYPE', 'LIKE', '%' . $searchValue . '%')
+            ->get();
         return view('form_trans', ['trans' => $Trans]);
     }
 
@@ -76,7 +78,7 @@ class ItemController extends Controller
     {
         $searchValue = $request->transName;
         $Trans = DB::table('MSTTRANS_TBL')->select('MSTTRANS_ID', 'MSTTRANS_TYPE', 'MSTTRANS_LUPDT', 'MSTTRANS_USRID')
-        ->get();
+            ->get();
         return view('form_truk', ['Trans' => $Trans]);
     }
 
@@ -96,7 +98,7 @@ class ItemController extends Controller
 
 
 
-    
+
     public function __construct()
     {
         date_default_timezone_set('Asia/Jakarta');
@@ -115,49 +117,49 @@ class ItemController extends Controller
             case 'itemcd':
                 $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
                 , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
-                ->where('MITM_ITMCD', 'LIKE', '%' . $cid . '%')
-                ->get()->toArray();
+                    ->where('MITM_ITMCD', 'LIKE', '%' . $cid . '%')
+                    ->get()->toArray();
                 break;
             case 'itemnm':
                 $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
                 , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
-                ->where('MITM_ITMD1', 'LIKE', '%' . $cid . '%')
-                ->get()->toArray();
+                    ->where('MITM_ITMD1', 'LIKE', '%' . $cid . '%')
+                    ->get()->toArray();
                 break;
             case 'spt':
                 $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
                 , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
-                ->where('MITM_SPTNO', 'LIKE', '%' . $cid . '%')
-                ->get()->toArray();
+                    ->where('MITM_SPTNO', 'LIKE', '%' . $cid . '%')
+                    ->get()->toArray();
                 break;
         }
         echo json_encode($rs);
     }
 
-    public function searchItemLocation( request $request)
+    public function searchItemLocation(request $request)
     #search_itemlocation
     {
-        $cid =$request->cid;
+        $cid = $request->cid;
         $csrchkey = $request->csrchby;
         $rs = [];
         switch ($csrchkey) {
             case 'itemcd':
                 $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
                 , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
-                ->where('MITM_ITMCD', 'LIKE', '%' . $cid . '%')
-                ->get()->toArray();
+                    ->where('MITM_ITMCD', 'LIKE', '%' . $cid . '%')
+                    ->get()->toArray();
                 break;
             case 'itemnm':
                 $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
                 , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
-                ->where('MITM_ITMD1', 'LIKE', '%' . $cid . '%')
-                ->get()->toArray();
+                    ->where('MITM_ITMD1', 'LIKE', '%' . $cid . '%')
+                    ->get()->toArray();
                 break;
             case 'spt':
                 $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
                 , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
-                ->where('MITM_SPTNO', 'LIKE', '%' . $cid . '%')
-                ->get()->toArray();
+                    ->where('MITM_SPTNO', 'LIKE', '%' . $cid . '%')
+                    ->get()->toArray();
                 break;
         }
         echo json_encode($rs);
@@ -166,27 +168,27 @@ class ItemController extends Controller
     public function searchFG(request $request)
     # searchfg
     {
-        $cid =$request->cid;
+        $cid = $request->cid;
         $csrchkey = $request->csrchby;
         $rs = array();
         switch ($csrchkey) {
             case 'itemcd':
                 $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
                 , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
-                ->where('MITM_ITMCD', 'LIKE', '%' . $cid . '%')
-                ->get()->toArray();
+                    ->where('MITM_ITMCD', 'LIKE', '%' . $cid . '%')
+                    ->get()->toArray();
                 break;
             case 'itemnm':
                 $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
                 , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
-                ->where('MITM_ITMD1', 'LIKE', '%' . $cid . '%')
-                ->get()->toArray();
+                    ->where('MITM_ITMD1', 'LIKE', '%' . $cid . '%')
+                    ->get()->toArray();
                 break;
             case 'spt':
                 $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
                 , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
-                ->where('MITM_SPTNO', 'LIKE', '%' . $cid . '%')
-                ->get()->toArray();
+                    ->where('MITM_SPTNO', 'LIKE', '%' . $cid . '%')
+                    ->get()->toArray();
                 break;
         }
         echo json_encode($rs);
@@ -202,14 +204,14 @@ class ItemController extends Controller
             case 'itemcd':
                 $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
                 , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
-                ->where('MITM_ITMCD', 'LIKE', '%' . $search . '%')
-                ->get()->toArray();
+                    ->where('MITM_ITMCD', 'LIKE', '%' . $search . '%')
+                    ->get()->toArray();
                 break;
             case 'itemnm':
                 $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
                 , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
-                ->where('MITM_ITMD1', 'LIKE', '%' . $search . '%')
-                ->get()->toArray();
+                    ->where('MITM_ITMD1', 'LIKE', '%' . $search . '%')
+                    ->get()->toArray();
                 break;
         }
         $rs = json_decode(json_encode($rs), true);
@@ -219,10 +221,10 @@ class ItemController extends Controller
         }
         unset($r);
         die('{"data": ' . json_encode($rs) . '}');
-}
+    }
 
-public function searchRMExim(Request $request)
-# searchrm_exim
+    public function searchRMExim(Request $request)
+    # searchrm_exim
     {
         $search = $request->insearch;
         $searchby = $request->insearchby;
@@ -231,14 +233,14 @@ public function searchRMExim(Request $request)
             case 'itemcd':
                 $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
                 , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
-                ->where('MITM_ITMCD', 'LIKE', '%' . $search . '%')
-                ->get()->toArray();
+                    ->where('MITM_ITMCD', 'LIKE', '%' . $search . '%')
+                    ->get()->toArray();
                 break;
             case 'itemnm':
                 $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
                 , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
-                ->where('MITM_ITMD1', 'LIKE', '%' . $search . '%')
-                ->get()->toArray();
+                    ->where('MITM_ITMD1', 'LIKE', '%' . $search . '%')
+                    ->get()->toArray();
                 break;
         }
         $rs = json_decode(json_encode($rs), true);
@@ -267,14 +269,14 @@ public function searchRMExim(Request $request)
             case 'itemcd':
                 $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
                 , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
-                ->where('MITM_ITMCD', 'LIKE', '%' . $search . '%')
-                ->get()->toArray();
+                    ->where('MITM_ITMCD', 'LIKE', '%' . $search . '%')
+                    ->get()->toArray();
                 break;
             case 'itemnm':
                 $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
                 , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
-                ->where('MITM_ITMD1', 'LIKE', '%' . $search . '%')
-                ->get()->toArray();
+                    ->where('MITM_ITMD1', 'LIKE', '%' . $search . '%')
+                    ->get()->toArray();
                 break;
         }
         $spreadsheet = new Spreadsheet();
@@ -293,14 +295,14 @@ public function searchRMExim(Request $request)
         foreach ($rs as &$r) {
             $r['MITM_NWG'] = substr($r['MITM_NWG'], 0, 1) == '.' ? '0' . $r['MITM_NWG'] : $r['MITM_NWG'];
             $r['MITM_GWG'] = substr($r['MITM_GWG'], 0, 1) == '.' ? '0' . $r['MITM_GWG'] : $r['MITM_GWG'];
-            $sheet->setCellValue('A'. $n, $r['MITM_ITMCD']);
-            $sheet->setCellValue('B'. $n, $r['MITM_ITMD1']);
-            $sheet->setCellValue('C'. $n, $r['MITM_HSCD']);
-            $sheet->setCellValue('D'. $n, $r['MITM_NWG']);
-            $sheet->setCellValue('E'. $n, $r['MITM_GWG']);
-            $sheet->setCellValue('F'. $n, $r['MITM_BM']);
-            $sheet->setCellValue('G'. $n, $r['MITM_PPN']);
-            $sheet->setCellValue('H'. $n, $r['MITM_PPH']);
+            $sheet->setCellValue('A' . $n, $r['MITM_ITMCD']);
+            $sheet->setCellValue('B' . $n, $r['MITM_ITMD1']);
+            $sheet->setCellValue('C' . $n, $r['MITM_HSCD']);
+            $sheet->setCellValue('D' . $n, $r['MITM_NWG']);
+            $sheet->setCellValue('E' . $n, $r['MITM_GWG']);
+            $sheet->setCellValue('F' . $n, $r['MITM_BM']);
+            $sheet->setCellValue('G' . $n, $r['MITM_PPN']);
+            $sheet->setCellValue('H' . $n, $r['MITM_PPH']);
             $n++;
         }
         unset($r);
@@ -316,7 +318,6 @@ public function searchRMExim(Request $request)
         header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
         header('Cache-Control: max-age=0');
         $writer->save('php://output');
-
     }
     public function searchFGEximXls(request $request)
     # searchfg_exim_xls
@@ -335,14 +336,14 @@ public function searchRMExim(Request $request)
             case 'itemcd':
                 $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
                 , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
-                ->where('MITM_ITMCD', 'LIKE', '%' . $search . '%')
-                ->get()->toArray();
+                    ->where('MITM_ITMCD', 'LIKE', '%' . $search . '%')
+                    ->get()->toArray();
                 break;
             case 'itemnm':
                 $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
                 , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
-                ->where('MITM_ITMD1', 'LIKE', '%' . $search . '%')
-                ->get()->toArray();
+                    ->where('MITM_ITMD1', 'LIKE', '%' . $search . '%')
+                    ->get()->toArray();
         }
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
@@ -360,14 +361,14 @@ public function searchRMExim(Request $request)
         foreach ($rs as &$r) {
             $r['MITM_NWG'] = substr($r['MITM_NWG'], 0, 1) == '.' ? '0' . $r['MITM_NWG'] : $r['MITM_NWG'];
             $r['MITM_GWG'] = substr($r['MITM_GWG'], 0, 1) == '.' ? '0' . $r['MITM_GWG'] : $r['MITM_GWG'];
-            $sheet->setCellValue('A'. $n, $r['MITM_ITMCD']);
-            $sheet->setCellValue('B'. $n, $r['MITM_ITMD1']);
-            $sheet->setCellValue('C'. $n, $r['MITM_HSCD']);
-            $sheet->setCellValue('D'. $n, $r['MITM_NWG']);
-            $sheet->setCellValue('E'. $n, $r['MITM_GWG']);
-            $sheet->setCellValue('F'. $n, $r['MITM_BM']);
-            $sheet->setCellValue('G'. $n, $r['MITM_PPN']);
-            $sheet->setCellValue('H'. $n, $r['MITM_PPH']);
+            $sheet->setCellValue('A' . $n, $r['MITM_ITMCD']);
+            $sheet->setCellValue('B' . $n, $r['MITM_ITMD1']);
+            $sheet->setCellValue('C' . $n, $r['MITM_HSCD']);
+            $sheet->setCellValue('D' . $n, $r['MITM_NWG']);
+            $sheet->setCellValue('E' . $n, $r['MITM_GWG']);
+            $sheet->setCellValue('F' . $n, $r['MITM_BM']);
+            $sheet->setCellValue('G' . $n, $r['MITM_PPN']);
+            $sheet->setCellValue('H' . $n, $r['MITM_PPH']);
             $n++;
         }
         unset($r);
@@ -384,62 +385,59 @@ public function searchRMExim(Request $request)
         header('Cache-Control: max-age=0');
         $writer->save('php://output');
     }
-/*
-    public function search_internal_item(request $request)
-    {
-        $searchBy = $request->searchBy;
-        $search = $request->search;
-        $rs = [];
-        switch ($searchBy) {
-            case 'in':
-                $rs = $this->MSTITM_mod->select_columns_like(['RTRIM(MITM_ITMCD) MITM_ITMCD', 'RTRIM(MITM_ITMD1) MITM_ITMD1', 'MITM_ITMCDCUS', "RTRIM(ISNULL(MITM_STKUOM,'')) MITM_STKUOM"], ['MITM_ITMD1' => $search]);
-                break;
-            case 'ic':
-                $rs = $this->MSTITM_mod->select_columns_like(['RTRIM(MITM_ITMCD) MITM_ITMCD', 'RTRIM(MITM_ITMD1) MITM_ITMD1', 'MITM_ITMCDCUS', "RTRIM(ISNULL(MITM_STKUOM,'')) MITM_STKUOM"], ['MITM_ITMCD' => $search]);
-                break;
-            case 'po':
-                $rs = $this->RCV_mod->selectItemLike(['RCV_PO' => $search]);
-                break;
-            case 'do':
-                $rs = $this->RCV_mod->selectItemLike(['RCV_DONO' => $search]);
-                break;
-            default:
-                $rs = $this->MSTITM_mod->select_columns_like(['RTRIM(MITM_ITMCD) MITM_ITMCD', 'RTRIM(MITM_ITMD1) MITM_ITMD1', 'MITM_ITMCDCUS', "RTRIM(ISNULL(MITM_STKUOM,'')) MITM_STKUOM"], ['MITM_ITMCDCUS' => $search]);
-        }
-        die(json_encode(['data' => $rs]));
-    }
 
-   
-    public function downloadsa()
+    function SpreadsheetToPdf(Request $request)
     {
-        $rs = DB::table('MITIM_TBL')->get()->toArray();
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('registered_part');
-        $sheet->setCellValue('A1', 'Assy Code');
-        $sheet->setCellValue('B1', 'Item Code');
-        $sheet->setCellValue('C1', 'Item Code SA');
-        $i = 2;
-        foreach ($rs as $r) {
-            $sheet->setCellValue('A'. $i, $r['FG']);
-            $sheet->setCellValue('B'. $i, $r['MITMSA_ITMCD']);
-            $sheet->setCellValue('C'. $i, $r['MITMSA_ITMCDS']);
-            $i++;
+        $sheet->setTitle('master_hscode');
+        $spreadsheet->getActiveSheet()->getStyle('A5:H5')->getFill()
+            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+            ->getStartColor()->setARGB('bde0fe');
+        $sheet->setCellValue('A1', 'Name');
+        $sheet->setCellValue('B1', $request->name);
+        $sheet->setCellValue('A5', 'Item Code');
+        $sheet->setCellValue('B5', 'Item Name');
+        $sheet->setCellValue('C5', 'HS Code');
+        $sheet->setCellValue('D5', 'Net Weight');
+        $sheet->setCellValue('E5', 'Gross Weight');
+        $sheet->setCellValue('F5', 'BM');
+        $sheet->setCellValue('G5', 'PPN');
+        $sheet->setCellValue('H5', 'PPH');
+        $barisY = 5;
+        for ($i = 1; $i < 200; $i++) {
+            $sheet->setCellValue('A' . $i + 5, 'Item Code ' . $i);
         }
-        foreach (range('A', 'C') as $v) {
+        foreach (range('A', 'L') as $v) {
             $sheet->getColumnDimension($v)->setAutoSize(true);
         }
-        $rang = "A1:C" . $sheet->getHighestDataRow();
-        $sheet->getStyle($rang)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT);
 
-        $stringjudul = "registered SA Part";
-        $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
-        $filename = $stringjudul; //save our workbook as this file name
+        $sheet->getStyle('A5:H' . ($i - 1))->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
 
-        header('Content-Type: application/vnd.ms-excel');
-        header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
-        header('Cache-Control: max-age=0');
+        $sheet->mergeCells('B6:B10', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue('B6', 'COBA');
+        $sheet->getStyle('B6')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('B6')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
+
+        // PDF
+        $writer = new Mpdf($spreadsheet);
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: inline; filename="kamu.pdf"');
         $writer->save('php://output');
+
+        // EXCEL
+        // $Excel_writer = new WriterXls($spreadsheet);
+        // header('Content-Type: application/vnd.ms-excel');
+        // header('Content-Disposition: attachment;filename="ItemReport.xls"');
+        // header('Cache-Control: max-age=0');
+        // ob_end_clean();
+        // $Excel_writer->save('php://output');
+
     }
-    */
+
+    public function formItemReport()
+    {
+        return view('master.item_report');
+    }
 }
