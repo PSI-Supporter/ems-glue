@@ -26,11 +26,14 @@
         <div class="mb-3 row">
             <label for="inputPassword" class="col-sm-2 col-form-label"></label>
             <div class="col-sm-10">
-                <div class="btn btn-primary" onclick="BtnViewOnClick(this)">View</div>
+                <div class="btn btn-primary" id="btnView" onclick="BtnViewOnClick(this)">View</div>
             </div>
         </div>
+        <!-- <div class="row border-top">
+            <object id="frame1" data="report/PDF" type="application/pdf" height="300px"></object>
+        </div> -->
         <div class="row border-top">
-            <iframe id="frame1" src="report/PDF" frameborder="0" height="300px"></iframe>
+            <iframe id="frame1" frameborder="0" height="300px"></iframe>
         </div>
     </div>
 
@@ -39,8 +42,12 @@
         function BtnViewOnClick(senderElement) {
             senderElement.innerHTML = 'Please wait'
             frame1.src = `report/PDF?name=${inputName.value}`
-            senderElement.innerHTML = 'View'
+            
         }
+
+        frame1.addEventListener('load', function() {            
+            btnView.innerHTML = 'View'
+        })
     </script>
 </body>
 
