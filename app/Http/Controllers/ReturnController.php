@@ -322,7 +322,144 @@ class ReturnController extends Controller
                     ->get();
             } else {
                 # data of Supplied Part Vs Returned Part Per PSN
-                $data = DB::select("EXEC sp_splvssupvsret_psnonly ?", [$request->doc]);
+                if ($request->outstanding === '1') {
+                    $data = DB::select("EXEC sp_splvssupvsret_psnonly ?", [$request->doc]);
+                } else {
+                    $items = DB::select("SELECT
+                                        RETSCN_ITMCD
+                                    FROM
+                                        (
+                                        SELECT
+                                            A.*
+                                        FROM
+                                            OPENQUERY(
+                                            [SRVMEGA],
+                                            'SELECT RTRIM(PPSN2_PSNNO) PPSN2_PSNNO
+                                            ,RTRIM(PPSN2_SUBPN) SUBPN
+                                            ,SUM(PPSN2_RTNQT) MGQT
+                                        FROM PSI_MEGAEMS.dbo.PPSN2_TBL
+                                        WHERE 
+                                        SUBSTRING(PPSN2_PSNNO, 8, 4) IN (
+                                                YEAR(DATEADD(MONTH, - 1, GETDATE()))
+                                                ,YEAR(GETDATE())
+                                                )
+                                            AND SUBSTRING(PPSN2_PSNNO, 13, 2) IN (
+                                                MONTH(DATEADD(MONTH, - 1, GETDATE()))
+                                                ,MONTH(GETDATE())	
+                                                )	
+                                            AND PPSN2_PSNNO= ''$request->doc''
+                                        GROUP BY PPSN2_PSNNO
+                                            ,PPSN2_SUBPN
+                                        '
+                                            ) A
+                                        ) V1
+                                        LEFT JOIN (
+                                        SELECT
+                                            RETSCN_SPLDOC,
+                                            RETSCN_ITMCD,
+                                            SUM(RETSCN_QTYAFT) SCNQT
+                                        FROM
+                                            RETSCN_TBL
+                                        WHERE
+                                            SUBSTRING(RETSCN_SPLDOC, 8, 4) IN (
+                                            YEAR(DATEADD(MONTH, - 1, GETDATE())),
+                                            YEAR(GETDATE())
+                                            )
+                                            AND SUBSTRING(RETSCN_SPLDOC, 13, 2) IN (
+                                            MONTH(DATEADD(MONTH, - 1, GETDATE())),
+                                            MONTH(GETDATE())
+                                            )
+                                            AND SUBSTRING(RETSCN_SPLDOC, 1, 2) != 'PR'
+                                            AND RETSCN_SAVED IS NOT NULL
+                                        GROUP BY
+                                            RETSCN_SPLDOC,
+                                            RETSCN_ITMCD
+                                        ) V2 ON PPSN2_PSNNO = RETSCN_SPLDOC
+                                        AND SUBPN = RETSCN_ITMCD
+                                    WHERE
+                                        MGQT < SCNQT
+                                        AND PPSN2_PSNNO LIKE ?
+                                        AND PPSN2_PSNNO NOT IN (
+                                        SELECT
+                                            SPLSCN_DOC
+                                        FROM
+                                            V_SPLSCN_TBLC
+                                        WHERE
+                                            SPLSCN_DATE = CONVERT(DATE, GETDATE())
+                                            and SPLSCN_DOC not like 'PR-%'
+                                        GROUP BY
+                                            SPLSCN_DOC
+                                        )
+                                    GROUP BY
+                                        RETSCN_ITMCD", ['%' . $request->doc . '%']);
+
+                    $itemArray = [];
+                    foreach ($items as $r) {
+                        $itemArray[] = $r->RETSCN_ITMCD;
+                    }
+
+                    if (!empty($itemArray)) {
+                        $strItem = "'" . implode("','", $itemArray) . "'";
+                        $data = DB::select("SELECT
+                                    SPL_ITMCD,
+                                    SPL_DOC,
+                                    RTRIM(MITM_SPTNO) MITM_SPTNO,
+                                    SPL_QTYREQ,
+                                    isnull(SCNQTY, 0) SCNQTY,
+                                    (isnull(SCNQTY, 0) - SPL_QTYREQ) LOGIC,
+                                    ISNULL(RETQTY, 0) TTLRET
+                                FROM
+                                    (
+                                    SELECT
+                                        SPL_ITMCD,
+                                        SPL_DOC,
+                                        SUM(SPL_QTYREQ) SPL_QTYREQ
+                                    FROM
+                                        SPL_TBL
+                                    WHERE
+                                        SPL_DOC = ? AND
+                                        SPL_ITMCD IN ($strItem)
+                                    GROUP BY
+                                        SPL_ITMCD,
+                                        SPL_DOC
+                                    ) v1
+                                    left join (
+                                    SELECT
+                                        SPLSCN_ITMCD,
+                                        SPLSCN_DOC,
+                                        SUM(SPLSCN_QTY) SCNQTY
+                                    FROM
+                                        SPLSCN_TBL
+                                    WHERE
+                                        SPLSCN_DOC = ?
+                                    GROUP BY
+                                        SPLSCN_ITMCD,
+                                        SPLSCN_DOC
+                                    ) v2 on SPL_ITMCD = SPLSCN_ITMCD
+                                    AND SPL_DOC = SPLSCN_DOC
+                                    LEFT JOIN (
+                                    SELECT
+                                        RETSCN_ITMCD,
+                                        RETSCN_SPLDOC,
+                                        SUM(RETSCN_QTYAFT) RETQTY
+                                    FROM
+                                        RETSCN_TBL
+                                    WHERE
+                                        RETSCN_SPLDOC = ?
+                                        and ISNULL(RETSCN_HOLD, '0') = '0'
+                                    GROUP BY
+                                        RETSCN_ITMCD,
+                                        RETSCN_SPLDOC
+                                    ) v3 on SPL_ITMCD = RETSCN_ITMCD
+                                    AND SPL_DOC = RETSCN_SPLDOC
+                                    INNER JOIN MITM_TBL ON SPL_ITMCD = MITM_ITMCD
+                                where
+                                    isnull(RETQTY, 0) > 0
+                                ORDER BY
+                                    SPL_DOC,
+                                    SPL_ITMCD ASC", [$request->doc, $request->doc, $request->doc]);
+                    }
+                }
             }
         } else {
             $RSSub = DB::table("v_ith_tblc")->select(DB::raw("ITH_DATEC RETSCN_DATE,SUBSTRING(ITH_DOC,1,19) RETSCN_SPLDOC, ITH_ITMCD RETSCN_ITMCD,SUM(ITH_QTY) RTNQTY"))
