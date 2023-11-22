@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ITH;
 use App\Models\PartSupply;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -479,40 +480,45 @@ class SupplyController extends Controller
             }
 
             $RSSPL = DB::table("SPL_TBL")->select("SPL_BG")->where("SPL_DOC", $sampleDoc)->first();
-            switch ($RSSPL->SPL_BG) {
-                case 'PSI1PPZIEP':
-                    $WHOut = 'ARWH1';
-                    $WHInc = 'PLANT1';
-                    break;
-                case 'PSI2PPZADI':
-                    $WHOut = 'ARWH2';
-                    $WHInc = 'PLANT2';
-                    break;
-                case 'PSI2PPZINS':
-                    $WHOut = 'NRWH2';
-                    $WHInc = 'PLANT_NA';
-                    break;
-                case 'PSI2PPZOMC':
-                    $WHOut = 'NRWH2';
-                    $WHInc = 'PLANT_NA';
-                    break;
-                case 'PSI2PPZOMI':
-                    $WHOut = 'ARWH2';
-                    $WHInc = 'PLANT2';
-                    break;
-                case 'PSI2PPZSSI':
-                    $WHOut = 'NRWH2';
-                    $WHInc = 'PLANT_NA';
-                    break;
-                case 'PSI2PPZSTY':
-                    $WHOut = 'ARWH2';
-                    $WHInc = 'PLANT2';
-                    break;
-                case 'PSI2PPZTDI':
-                    $WHOut = 'ARWH2';
-                    $WHInc = 'PLANT2';
-                    break;
+            try {
+                switch ($RSSPL->SPL_BG) {
+                    case 'PSI1PPZIEP':
+                        $WHOut = 'ARWH1';
+                        $WHInc = 'PLANT1';
+                        break;
+                    case 'PSI2PPZADI':
+                        $WHOut = 'ARWH2';
+                        $WHInc = 'PLANT2';
+                        break;
+                    case 'PSI2PPZINS':
+                        $WHOut = 'NRWH2';
+                        $WHInc = 'PLANT_NA';
+                        break;
+                    case 'PSI2PPZOMC':
+                        $WHOut = 'NRWH2';
+                        $WHInc = 'PLANT_NA';
+                        break;
+                    case 'PSI2PPZOMI':
+                        $WHOut = 'ARWH2';
+                        $WHInc = 'PLANT2';
+                        break;
+                    case 'PSI2PPZSSI':
+                        $WHOut = 'NRWH2';
+                        $WHInc = 'PLANT_NA';
+                        break;
+                    case 'PSI2PPZSTY':
+                        $WHOut = 'ARWH2';
+                        $WHInc = 'PLANT2';
+                        break;
+                    case 'PSI2PPZTDI':
+                        $WHOut = 'ARWH2';
+                        $WHInc = 'PLANT2';
+                        break;
+                }
+            } catch(Exception $e){
+                return ['message' => 'Null Business Group for document '.$sampleDoc];
             }
+            
             foreach ($data as $d) {
                 $RSTobeSaved[] = [
                     'ITH_ITMCD' => $d['SPLSCN_ITMCD'],
