@@ -474,8 +474,18 @@ class SupplyController extends Controller
             # ambil sample
             foreach ($data as $r) {
                 $sampleDoc = substr($r['DOC'], 0, 19);
-                if (!in_array($sampleDoc, $documents)) {
-                    $documents[] = $sampleDoc;
+                $_isFound = false;
+                foreach ($documents as &$n) {
+                    if ($sampleDoc === $n['DOC']) {
+                        $_isFound = true;
+                        $n['COUNTER']++;
+                        break;
+                    }
+                }
+                unset($n);
+
+                if (!$_isFound) {
+                    $documents[] = ['DOC' => $sampleDoc, 'COUNTER' => 1];
                 }
             }
 
@@ -515,10 +525,10 @@ class SupplyController extends Controller
                         $WHInc = 'PLANT2';
                         break;
                 }
-            } catch(Exception $e){
-                return ['message' => 'Null Business Group for document '.$sampleDoc];
+            } catch (Exception $e) {
+                return ['message' => 'Null Business Group for document ' . $sampleDoc];
             }
-            
+
             foreach ($data as $d) {
                 $RSTobeSaved[] = [
                     'ITH_ITMCD' => $d['SPLSCN_ITMCD'],
@@ -545,7 +555,7 @@ class SupplyController extends Controller
             }
 
             if (count($RSTobeSaved) > 1) {
-                if (strtoupper($request->save) === 'Y') {
+                if (strtoupper($request->save) === 'Y') {                    
                     $affectedRows = ITH::insert($RSTobeSaved);
                 }
             }
