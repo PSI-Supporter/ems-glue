@@ -3,10 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\C3LC;
+use App\Models\Label;
+use App\Traits\LabelingTrait;
 use Illuminate\Http\Request;
 
 class LabelController extends Controller
 {
+    use LabelingTrait;
+
     function combineRMLabel(Request $request)
     {
         $currdate = date('YmdHis');
@@ -24,7 +28,7 @@ class LabelController extends Controller
             $newqty = 0;
             $lotasHome = $clot[0];
             if (count($lot_distinc) > 1) {
-                $lotasHome = substr($clot[0], 0, 10);
+                $lotasHome = substr($clot[0], 0, 23);
                 $lotasHome .= '$C';
             }
             for ($i = 0; $i < $ttldata; $i++) {
@@ -38,8 +42,18 @@ class LabelController extends Controller
                     'C3LC_ITMCD' => $citm[0], 'C3LC_NLOTNO' => $lotasHome, 'C3LC_NQTY' => $newqty, 'C3LC_LOTNO' => $clot[$i], 'C3LC_QTY' => $cqty_com[$i], 'C3LC_REFF' => $newid, 'C3LC_LINE' => $i, 'C3LC_USRID' => $cuser, 'C3LC_LUPTD' => $currrtime,
                 ];
             }
+
+            $Response = $this->generateLabelId([
+                'machineName' => $request->machineName ?? 'DF',
+                'documentCode' => 'COMBINE-' . $newid,
+                'itemCode' => $citm[0],
+                'qty' => $newqty,
+                'lotNumber' => $lotasHome,
+                'userID' => $request->userId,
+            ]);
+
             C3LC::insert($C3Data);
-            $printdata[] = ['NEWQTY' => $newqty, 'NEWLOT' => $lotasHome];
+            $printdata[] = ['NEWQTY' => $newqty, 'NEWLOT' => $lotasHome, 'SER_ID' => $Response['data']];
             $myar[] = ['cd' => '1', 'msg' => 'Saved successfully'];
         } else {
             $myar[] = ['cd' => '0', 'msg' => 'It seems You are using wrong menu or function'];

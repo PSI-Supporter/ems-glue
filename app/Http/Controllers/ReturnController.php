@@ -4,13 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Models\C3LC;
 use App\Models\ITH;
+use App\Models\Label;
 use App\Models\PartReturned;
 use App\Models\RETRM;
+use App\Traits\LabelingTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ReturnController extends Controller
 {
+    use LabelingTrait;
 
     public function __construct()
     {
@@ -103,6 +106,7 @@ class ReturnController extends Controller
                             ->get();
                         #END
                         $RSSPLSCN = json_decode(json_encode($RSSPLSCN), true);
+
                         if (!empty($RSSPLSCN)) {
                             $RSSPLSCN = reset($RSSPLSCN);
                             $orderno = $RSSPLSCN['SPLSCN_ORDERNO'];
@@ -122,14 +126,38 @@ class ReturnController extends Controller
             $mlastid = $this->getLastIdOfReturnRecord();
             $mlastid++;
             $newid = date('Ymd') . $mlastid;
+
+            $LotNumber = trim($request->lotNumber);
+
+            $Response = $this->generateLabelId([
+                'machineName' => $request->machineName ?? 'DF',
+                'documentCode' => $request->doc,
+                'itemCode' => $request->item,
+                'qty' => $request->qtyAfter,
+                'lotNumber' => $LotNumber,
+                'userID' => $request->userId,
+            ]);
+
             $datas = [
-                'RETSCN_ID' =>  $newid, 'RETSCN_SPLDOC' => $request->doc, 'RETSCN_CAT' => $request->category, 'RETSCN_LINE' => $request->line, 'RETSCN_FEDR' => $fr, 'RETSCN_ORDERNO' => $orderno,
-                'RETSCN_ITMCD' => $request->item, 'RETSCN_LOT' => trim($request->lotNumber),
-                'RETSCN_QTYBEF' => $request->qtyBefore, 'RETSCN_QTYAFT' => $request->qtyAfter, 'RETSCN_CNTRYID' => $request->countryId,
-                'RETSCN_ROHS' => $request->roHs, 'RETSCN_LUPDT' => date('Y-m-d H:i:s'), 'RETSCN_USRID' => $request->userId
+                'RETSCN_ID' =>  $newid,
+                'RETSCN_SPLDOC' => $request->doc,
+                'RETSCN_CAT' => $request->category,
+                'RETSCN_LINE' => $request->line,
+                'RETSCN_FEDR' => $fr,
+                'RETSCN_ORDERNO' => $orderno,
+                'RETSCN_ITMCD' => $request->item,
+                'RETSCN_LOT' => $LotNumber,
+                'RETSCN_QTYBEF' => $request->qtyBefore,
+                'RETSCN_QTYAFT' => $request->qtyAfter,
+                'RETSCN_CNTRYID' => $request->countryId,
+                'RETSCN_ROHS' => $request->roHs,
+                'RETSCN_LUPDT' => date('Y-m-d H:i:s'),
+                'RETSCN_USRID' => $request->userId,
+                'RETSCN_UNIQUEKEY' => $Response['data']
             ];
+
             PartReturned::insert($datas);
-            return ['status' => [['cd' => '11', 'msg' => 'Saved']]];
+            return ['status' => [['cd' => '11', 'msg' => 'Saved', 'RETSCN_UNIQUEKEY' => $Response['data']]]];
         } else {
             $result[] = ['cd' => '00', 'msg' => 'Sorry, Item not found in PSN'];
             return ['status' => $result];
@@ -183,14 +211,43 @@ class ReturnController extends Controller
             $mlastid = $this->getLastIdOfReturnRecord();
             $mlastid++;
             $newid = date('Ymd') . $mlastid;
+
+            $Response = $this->generateLabelId([
+                'machineName' => $request->machineName ?? 'DF',
+                'documentCode' => $request->doc,
+                'itemCode' => $request->item,
+                'qty' => $request->qtyAfter,
+                'lotNumber' => $clot,
+                'userID' => $request->userId,
+            ]);
+
             $datas = [
-                'RETSCN_ID' =>  $newid, 'RETSCN_SPLDOC' => $request->doc, 'RETSCN_CAT' => $request->category, 'RETSCN_LINE' => $request->line, 'RETSCN_FEDR' => $fr, 'RETSCN_ORDERNO' => $orderno,
-                'RETSCN_ITMCD' => $request->item, 'RETSCN_LOT' => $clot,
-                'RETSCN_QTYBEF' => $cqbf, 'RETSCN_QTYAFT' => $request->qtyAfter, 'RETSCN_CNTRYID' => $request->countryId,
-                'RETSCN_ROHS' => $request->roHs, 'RETSCN_LUPDT' => date('Y-m-d H:i:s'), 'RETSCN_USRID' => $request->userId
+                'RETSCN_ID' =>  $newid,
+                'RETSCN_SPLDOC' => $request->doc,
+                'RETSCN_CAT' => $request->category,
+                'RETSCN_LINE' => $request->line,
+                'RETSCN_FEDR' => $fr,
+                'RETSCN_ORDERNO' => $orderno,
+                'RETSCN_ITMCD' => $request->item,
+                'RETSCN_LOT' => $clot,
+                'RETSCN_QTYBEF' => $cqbf,
+                'RETSCN_QTYAFT' => $request->qtyAfter,
+                'RETSCN_CNTRYID' => $request->countryId,
+                'RETSCN_ROHS' => $request->roHs,
+                'RETSCN_LUPDT' => date('Y-m-d H:i:s'),
+                'RETSCN_USRID' => $request->userId,
+                'RETSCN_UNIQUEKEY' => $Response['data']
             ];
             PartReturned::insert($datas);
-            return ['status' => [['cd' => '11', 'msg' => 'Saved', "xitem" => $request->item, "xqty" => $request->qtyAfter, "xlot" => trim($request->lotNumber), "xitemnm" =>  $citemnm]]];
+
+            return ['status' => [[
+                'cd' => '11', 'msg' => 'Saved',
+                "xitem" => $request->item,
+                "xqty" => $request->qtyAfter,
+                "xlot" => $clot,
+                "xitemnm" => $citemnm,
+                "RETSCN_UNIQUEKEY" => $Response['data']
+            ]]];
         } else {
             $myar[] = ['cd' => '00', 'msg' => 'could not return, please contact Mr. H '];
             die('{"status":' . json_encode($myar) . '}');
@@ -199,16 +256,26 @@ class ReturnController extends Controller
 
     function delete(Request $request)
     {
+        $partReturned = PartReturned::where("RETSCN_ID", $request->id)->select('RETSCN_UNIQUEKEY')->first();
+
         $affectedRow = PartReturned::where("RETSCN_ID", $request->id)
             ->where(DB::raw("COALESCE(RETSCN_SAVED,'0')"), '0')
             ->delete();
-        $result[] = $affectedRow > 0 ? ["cd" => "1", "msg" => "Deleted successfully"] : ["cd" => "0", "msg" => "could not be deleted, please refresh the page"];
+
+        if ($affectedRow > 0) {
+            Label::where('SER_ID', $partReturned->RETSCN_UNIQUEKEY)->delete();
+            $result[] = ["cd" => "1", "msg" => "Deleted successfully"];
+        } else {
+            $result[] = ["cd" => "0", "msg" => "could not be deleted, please refresh the page"];
+        }
+
         return ['status' => $result];
     }
 
     function setPartStatus(Request $request)
     {
-        $affectedRow = PartReturned::where("RETSCN_ID", $request->id)->whereNull("RETSCN_SAVED")
+        $affectedRow = PartReturned::where("RETSCN_ID", $request->id)
+            ->whereNull("RETSCN_SAVED")
             ->update(["RETSCN_HOLD" => $request->status], ['timestamps' => false]);
         $result[] = $affectedRow > 0 ? ["cd" => 1, "msg" => "OK"] : ["cd" => 0, "msg" => "Could not Hold/Release"];
         return ['status' => $result];
@@ -233,7 +300,7 @@ class ReturnController extends Controller
 
                 $lotasHome = $request->lotNumber[0];
                 if ($request->qtyAfter > $request->qtyBefore[0] && $request->lotNumber[0] != $request->lotNumber[1]) {
-                    $lotasHome = substr($request->lotNumber[0], 0, 10);
+                    $lotasHome = substr($request->lotNumber[0], 0, 23);
                     $lotasHome .= '#C';
                 }
                 #PREPARE NEW ROW ID
@@ -280,15 +347,38 @@ class ReturnController extends Controller
                             if (count($C3Data) > 1) {
                                 C3LC::insert($C3Data);
                             }
+
+                            $Response = $this->generateLabelId([
+                                'machineName' => $request->machineName ?? 'DF',
+                                'documentCode' => $request->doc,
+                                'itemCode' => $request->item,
+                                'qty' => $request->qtyAfter,
+                                'lotNumber' => $lotasHome,
+                                'userID' => $request->userId,
+                            ]);
+
                             $rsbefore = reset($RSSPLSCN);
                             $datas = [
-                                'RETSCN_ID' =>  $newid, 'RETSCN_SPLDOC' => $request->doc, 'RETSCN_CAT' => $request->category, 'RETSCN_LINE' => $request->line, 'RETSCN_FEDR' => $rsbefore['SPLSCN_FEDR'], 'RETSCN_ORDERNO' => $rsbefore['SPLSCN_ORDERNO'],
-                                'RETSCN_ITMCD' => $request->item[0], 'RETSCN_LOT' => $lotasHome, 'RETSCN_QTYBEF' => $request->qtyBefore[0], 'RETSCN_QTYAFT' => $request->qtyAfter, 'RETSCN_CNTRYID' => $request->countryId,
-                                'RETSCN_ROHS' => $request->roHs, 'RETSCN_LUPDT' => date('Y-m-d H:i:s'), 'RETSCN_USRID' => $request->userId
+                                'RETSCN_ID' =>  $newid,
+                                'RETSCN_SPLDOC' => $request->doc,
+                                'RETSCN_CAT' => $request->category,
+                                'RETSCN_LINE' => $request->line,
+                                'RETSCN_FEDR' => $rsbefore['SPLSCN_FEDR'],
+                                'RETSCN_ORDERNO' => $rsbefore['SPLSCN_ORDERNO'],
+                                'RETSCN_ITMCD' => $request->item[0],
+                                'RETSCN_LOT' => $lotasHome,
+                                'RETSCN_QTYBEF' => $request->qtyBefore[0],
+                                'RETSCN_QTYAFT' => $request->qtyAfter,
+                                'RETSCN_CNTRYID' => $request->countryId,
+                                'RETSCN_ROHS' => $request->roHs,
+                                'RETSCN_LUPDT' => date('Y-m-d H:i:s'),
+                                'RETSCN_USRID' => $request->userId,
+                                'RETSCN_UNIQUEKEY' => $Response['data']
                             ];
+
                             $toret = PartReturned::insert($datas);
                             if ($toret > 0) {
-                                $result[] = ['cd' => '11', 'msg' => 'Saved', 'lotno' => $lotasHome];
+                                $result[] = ['cd' => '11', 'msg' => 'Saved', 'lotno' => $lotasHome, 'RETSCN_UNIQUEKEY' => $Response['data']];
                             }
                         } else {
                             $result[] = ['cd' => '00', 'msg' => 'could not get FR and ORDER NO', '$C3Data' => $C3Data];
@@ -668,6 +758,7 @@ class ReturnController extends Controller
             }
             break;
         }
+
         if (DB::table("RETRM_TBL")
             ->where("RETRM_ITMCD", $request->item)
             ->where("RETRM_OLDQTY", $request->qtyBefore)
@@ -678,12 +769,30 @@ class ReturnController extends Controller
         } else {
             $lastNumber = $this->getLastIdOfReturnWithoutPSNRecord() + 1;
             $doc = "RWP" . $_year . $AMONTHPATRN[($_month - 1)] . $_day . $lastNumber;
+
+            $Response = $this->generateLabelId([
+                'machineName' => $request->machineName ?? 'DF',
+                'documentCode' => $doc,
+                'itemCode' => $request->item,
+                'qty' => $request->qtyAfter,
+                'lotNumber' => $request->lotNumber,
+                'userID' => $request->userId,
+            ]);
+
             $data = [
-                'RETRM_DOC' => $doc, 'RETRM_LINE' => 1, 'RETRM_ITMCD' => $request->item, 'RETRM_OLDQTY' => $request->qtyBefore, 'RETRM_NEWQTY' => $request->qtyAfter, 'RETRM_LOTNUM' => $request->lotNumber, 'RETRM_CREATEDAT' => $currentDateTime, 'RETRM_USRID' => $request->userId
+                'RETRM_DOC' => $doc,
+                'RETRM_LINE' => 1,
+                'RETRM_ITMCD' => $request->item,
+                'RETRM_OLDQTY' => $request->qtyBefore,
+                'RETRM_NEWQTY' => $request->qtyAfter,
+                'RETRM_LOTNUM' => $request->lotNumber,
+                'RETRM_CREATEDAT' => $currentDateTime,
+                'RETRM_USRID' => $request->userId,
+                'RETRM_UNIQUEKEY' => $Response['data']
             ];
             $rv = RETRM::insert($data);
 
-            $datab = [
+            $datab[] = [
                 'ITH_ITMCD' => $request->item,
                 'ITH_WH' =>  $cwh_inc,
                 'ITH_DOC' => $doc,
@@ -694,9 +803,8 @@ class ReturnController extends Controller
                 'ITH_USRID' =>  $request->userId,
                 'ITH_LUPDT' =>  date('Y-m-d H:i:s')
             ];
-            ITH::insert($datab);
 
-            $datab = [
+            $datab[] = [
                 'ITH_ITMCD' => $request->item,
                 'ITH_WH' =>  $cwh_out,
                 'ITH_DOC' => $doc,
@@ -708,7 +816,7 @@ class ReturnController extends Controller
                 'ITH_LUPDT' =>  date('Y-m-d H:i:s')
             ];
             ITH::insert($datab);
-            $result[] = $rv > 0 ? ['cd' => '1', 'msg' => 'OK'] : ['cd' => '0', 'msg' => 'could not be saved'];
+            $result[] = $rv > 0 ? ['cd' => '1', 'msg' => 'OK', 'SER_ID' => $Response['data']] : ['cd' => '0', 'msg' => 'could not be saved'];
         }
         return ['status' => $result];
     }
@@ -791,9 +899,13 @@ class ReturnController extends Controller
                 ) {
                     $myar[] = ['cd' => '0', 'msg' => 'Could not be canceled because it was already uploaded to IT Inventory'];
                 } else {
+                    $retRM = RETRM::where('RETRM_DOC', $idscan)->select('RETRM_UNIQUEKEY')->first();
+
                     if (RETRM::where('RETRM_DOC', $idscan)
                         ->where('RETRM_ITMCD', $itemcd)->delete()
                     ) {
+                        Label::where('SER_ID', $retRM->RETRM_UNIQUEKEY)->delete();
+
                         $datab = [
                             'ITH_ITMCD' => $itemcd,
                             'ITH_WH' =>  $cwh_inc,

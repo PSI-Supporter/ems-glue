@@ -39,16 +39,18 @@ Route::post('supply/validate-supplied-item', [SupplyController::class, 'isPartAl
 Route::post('supply/fix-transaction', [SupplyController::class, 'fixTransactionBySuppplyNumber']);
 
 # Terkait Return Part
-Route::get('return/counted', [ReturnController::class, 'getCountedPart']);
-Route::post('return', [ReturnController::class, 'save']);
-Route::get('return/resume', [ReturnController::class, 'resume']);
-Route::put('return/status/{id}', [ReturnController::class, 'setPartStatus']);
-Route::delete('return/items/{id}', [ReturnController::class, 'delete']);
-Route::post('return/alternative-saving', [ReturnController::class, 'saveAlternative']);
-Route::post('return/combine', [ReturnController::class, 'saveByCombining']);
-Route::post('return/confirm', [ReturnController::class, 'confirm']);
-Route::post('return/without-psn', [ReturnController::class, 'returnWithoutPSN']);
-Route::delete('return/without-psn/{id}', [ReturnController::class, 'cancelReturnWithoutPSN']);
+Route::prefix('return')->group(function () {
+    Route::get('counted', [ReturnController::class, 'getCountedPart']);
+    Route::post('', [ReturnController::class, 'save']);
+    Route::get('resume', [ReturnController::class, 'resume']);
+    Route::put('status/{id}', [ReturnController::class, 'setPartStatus']);
+    Route::delete('items/{id}', [ReturnController::class, 'delete']);
+    Route::post('alternative-saving', [ReturnController::class, 'saveAlternative']);
+    Route::post('combine', [ReturnController::class, 'saveByCombining']);
+    Route::post('confirm', [ReturnController::class, 'confirm']);
+    Route::post('without-psn', [ReturnController::class, 'returnWithoutPSN']);
+    Route::delete('without-psn/{id}', [ReturnController::class, 'cancelReturnWithoutPSN']);
+});
 
 
 # Terkait Item Master
