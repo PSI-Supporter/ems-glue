@@ -453,6 +453,7 @@ class SupplyController extends Controller
 
     function fixTransactionBySuppplyNumber(Request $request)
     {
+        $TOTAL_COLUMN = 9;
         $RSSub1 = DB::table('SPLSCN_TBL')->selectRaw("SPLSCN_ITMCD, CONVERT(DATE, MAX(SPLSCN_LUPDT)) SCANDT,max(SPLSCN_LUPDT) SPLSCN_LUPDT, SUM(SPLSCN_QTY) SCNQT, CONCAT(SPLSCN_DOC, '|',SPLSCN_CAT,'|',SPLSCN_LINE,'|',SPLSCN_FEDR) DOC, MAX(SPLSCN_USRID) SPLSCN_USRID")
             ->where("SPLSCN_DOC", "like", "%" . $request->doc . "%")->where('SPLSCN_SAVED', '1')
             ->groupByRaw("SPLSCN_ITMCD,SPLSCN_DOC,SPLSCN_CAT,SPLSCN_LINE,SPLSCN_FEDR");
@@ -555,8 +556,10 @@ class SupplyController extends Controller
             }
 
             if (count($RSTobeSaved) > 1) {
-                if (strtoupper($request->save) === 'Y') {                    
-                    $affectedRows = ITH::insert($RSTobeSaved);
+                if (strtoupper($request->save) === 'Y') {
+                    foreach (array_chunk($RSTobeSaved, (2100 / $TOTAL_COLUMN) - 2) as $chunk) {
+                        $affectedRows = ITH::insert($chunk);
+                    }
                 }
             }
         }
