@@ -6,6 +6,7 @@ use App\Models\C3LC;
 use App\Models\ITH;
 use App\Models\Label;
 use App\Models\PartReturned;
+use App\Models\RawMaterialLabel;
 use App\Models\RETRM;
 use App\Traits\LabelingTrait;
 use Illuminate\Http\Request;
@@ -263,7 +264,10 @@ class ReturnController extends Controller
             ->delete();
 
         if ($affectedRow > 0) {
-            Label::where('SER_ID', $partReturned->RETSCN_UNIQUEKEY)->delete();
+            RawMaterialLabel::where('code', $partReturned->RETSCN_UNIQUEKEY)->update([
+                'deleted_by' => $request->userId,
+                'deleted_at' => date('Y-m-d H:i:s'),
+            ]);
             $result[] = ["cd" => "1", "msg" => "Deleted successfully"];
         } else {
             $result[] = ["cd" => "0", "msg" => "could not be deleted, please refresh the page"];
