@@ -14,7 +14,7 @@ trait LabelingTrait
         $LabelCreator = '1'; # from SMT
         $LabelMachineName = substr('00' . $data['machineName'], -2);
 
-        $Labels = RawMaterialLabel::where('created_at', $LabelDate . ' ' . $LabelTime)            
+        $Labels = RawMaterialLabel::where('created_at', $LabelDate . ' ' . $LabelTime)
             ->count();
 
         $NewID = substr(str_replace('-', '', $LabelDate), -6) . $LabelCreator . $LabelMachineName . str_replace(':', '', $LabelTime) . ++$Labels;
@@ -23,10 +23,11 @@ trait LabelingTrait
             'code' => $NewID,
             'doc_code' => $data['documentCode'],
             'item_code' => $data['itemCode'],
-            'quantity' => $data['qty'],            
+            'quantity' => $data['qty'],
             'lot_code' => $data['lotNumber'],
             'created_by' => $data['userID'],
             'created_at' => $LabelDate . ' ' . $LabelTime,
+            'composed' => $data['composed'] ?? NULL,
         ]);
 
         return ['data' => $NewID, 'created_at' => $LabelDate . ' ' . $LabelTime];

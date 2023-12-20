@@ -3,9 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\C3LC;
-use App\Models\Label;
 use App\Traits\LabelingTrait;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class LabelController extends Controller
 {
@@ -52,8 +52,12 @@ class LabelController extends Controller
                 'userID' => $request->userId,
             ]);
 
+            $rack = DB::table('ITMLOC_TBL')
+                ->select('ITMLOC_LOC')
+                ->where('ITMLOC_ITM', $citm[0])->first();
+
             C3LC::insert($C3Data);
-            $printdata[] = ['NEWQTY' => $newqty, 'NEWLOT' => $lotasHome, 'SER_ID' => $Response['data']];
+            $printdata[] = ['NEWQTY' => $newqty, 'NEWLOT' => $lotasHome, 'SER_ID' => $Response['data'], 'rackCode' => $rack->ITMLOC_LOC];
             $myar[] = ['cd' => '1', 'msg' => 'Saved successfully'];
         } else {
             $myar[] = ['cd' => '0', 'msg' => 'It seems You are using wrong menu or function'];

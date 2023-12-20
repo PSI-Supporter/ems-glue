@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\BusinessGroupController;
 use App\Http\Controllers\CountryController;
-use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\LabelController;
@@ -77,6 +76,3 @@ Route::get("report/return-without-psn", [ReturnController::class, 'reportReturnW
 
 # Terkait Business Group
 Route::get("business-group", [BusinessGroupController::class, 'getAll']);
-
-# Terkait Pabean
-Route::get('pabean/outgoing-status', [DeliveryController::class, 'getPabeanStatus']);
