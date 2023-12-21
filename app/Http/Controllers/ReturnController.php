@@ -355,7 +355,7 @@ class ReturnController extends Controller
                             $Response = $this->generateLabelId([
                                 'machineName' => $request->machineName ?? 'DF',
                                 'documentCode' => $request->doc,
-                                'itemCode' => $request->item,
+                                'itemCode' => $request->item[0],
                                 'qty' => $request->qtyAfter,
                                 'lotNumber' => $lotasHome,
                                 'userID' => $request->userId,
