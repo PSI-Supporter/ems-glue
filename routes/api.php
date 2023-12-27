@@ -5,6 +5,7 @@ use App\Http\Controllers\CountryController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\LabelController;
+use App\Http\Controllers\ReceiveController;
 use App\Http\Controllers\ReturnController;
 use App\Http\Controllers\SupplyController;
 use Illuminate\Http\Request;
@@ -76,3 +77,8 @@ Route::get("report/return-without-psn", [ReturnController::class, 'reportReturnW
 
 # Terkait Business Group
 Route::get("business-group", [BusinessGroupController::class, 'getAll']);
+
+# Terkait data Sistem sebelumnya
+Route::prefix('ics')->group(function () {
+    Route::get('receive', [ReceiveController::class, 'search']);
+});
