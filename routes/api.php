@@ -7,6 +7,7 @@ use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\LabelController;
 use App\Http\Controllers\ReceiveController;
 use App\Http\Controllers\ReturnController;
+use App\Http\Controllers\SimulationController;
 use App\Http\Controllers\SupplyController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -81,4 +82,9 @@ Route::get("business-group", [BusinessGroupController::class, 'getAll']);
 # Terkait data Sistem sebelumnya
 Route::prefix('ics')->group(function () {
     Route::get('receive', [ReceiveController::class, 'search']);
+});
+
+# Terkait Simulasi Work Order
+Route::prefix('simulation')->group(function () {
+    Route::get('document/{id}', [SimulationController::class, 'getReportLinePerDocument']);
 });
