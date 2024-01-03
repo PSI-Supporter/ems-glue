@@ -35,7 +35,8 @@ class ReceiveController extends Controller
                 'unit_code',
                 'curr_code',
                 'net_price',
-                DB::raw("net_price*rcv_qty AS amount")
+                DB::raw("net_price*rcv_qty AS amount"),
+                'nopen',
             )
             ->where($columnMap[$request->searchBy], 'like', '%' . $request->searchValue . '%')
             ->orderBy('trans_date')
