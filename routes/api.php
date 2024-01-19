@@ -9,6 +9,7 @@ use App\Http\Controllers\ReceiveController;
 use App\Http\Controllers\ReturnController;
 use App\Http\Controllers\SimulationController;
 use App\Http\Controllers\SupplyController;
+use App\Http\Controllers\TransferLocationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -87,4 +88,12 @@ Route::prefix('ics')->group(function () {
 # Terkait Simulasi Work Order
 Route::prefix('simulation')->group(function () {
     Route::get('document/{id}', [SimulationController::class, 'getReportLinePerDocument']);
+});
+
+Route::prefix('transfer-indirect-rm')->group(function () {
+    Route::post('form', [TransferLocationController::class, 'saveDraftTransferIndirectRM']);
+    Route::get('form', [TransferLocationController::class, 'search']);
+    Route::get('form/{id}', [TransferLocationController::class, 'detailsByDocument']);
+    Route::put('form/{id}', [TransferLocationController::class, 'updateByDocument']);
+    Route::get('export/{id}', [TransferLocationController::class, 'toSpreadsheet']);
 });
