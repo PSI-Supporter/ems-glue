@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ITH;
 use App\Models\transfer_indirect_rm_detail;
 use App\Models\transfer_indirect_rm_header;
 use Exception;
@@ -88,6 +89,7 @@ class TransferLocationController extends Controller
                 return [
                     'message' => 'Saved successfully',
                     'new_document' => $newCode,
+                    'new_document_id' => $createdHeader->id,
                     'data' => transfer_indirect_rm_detail::where('id_header', $createdHeader->id)->get()
                 ];
             } catch (Exception $e) {
@@ -157,6 +159,8 @@ class TransferLocationController extends Controller
             'issue_date' => $request->issue_date,
             'location_from' => $request->location_from,
             'location_to' => $request->location_to,
+            'updated_by' => $request->userid,
+            'updated_at' => date('Y-m-d H:i:s'),
         ]);
         if ($affectedRows) {
             return ['message' => 'Updated successfully'];
@@ -168,17 +172,79 @@ class TransferLocationController extends Controller
     function toSpreadsheet(Request $request)
     {
 
-        $data = transfer_indirect_rm_detail::where('id_header', $request->id)
-            ->whereNull('deleted_at')
-            ->select('part_code', DB::raw("SUM(sup_qty) AS total_qty"))
-            ->groupBy('part_code')
+        $data = transfer_indirect_rm_detail::leftJoin('transfer_indirect_rm_headers as H', 'id_header', '=', 'H.id')->where('id_header', $request->id)
+            ->whereNull('transfer_indirect_rm_details.deleted_at')
+            ->select('doc_code', 'part_code', DB::raw("SUM(sup_qty) AS total_qty"), 'location_from', 'location_to', 'issue_date', 'submitted_at')
+            ->groupBy('part_code', 'doc_code', 'submitted_at', 'location_from', 'location_to', 'issue_date')
             ->get();
         $data = json_decode(json_encode($data), true);
 
+        $dataSpreadsheet = [];
         if (empty($data)) {
-            $data = [
+            $dataSpreadsheet = [
                 ['part_code' => '', 'total_qty' => '']
             ];
+        } else {
+            # check is already submitted
+            $isSubmitted = false;
+            foreach ($data as $d) {
+                if ($d['submitted_at']) {
+                    $isSubmitted = true;
+                }
+                break;
+            }
+
+            if (!$isSubmitted) {
+                foreach ($data as $d) {
+                    $dataSpreadsheet[] = [
+                        'part_code' => $d['part_code'],
+                        'qty' => $d['total_qty'],
+                    ];
+                    $tobeSaved[] = [
+                        'ITH_ITMCD' => $d['part_code'],
+                        'ITH_DATE' => $d['issue_date'],
+                        'ITH_FORM' => 'OUT',
+                        'ITH_DOC' => $d['doc_code'],
+                        'ITH_QTY' => $d['total_qty'] * -1,
+                        'ITH_WH' => $d['location_from'],
+                        'ITH_LUPDT' => $d['issue_date'] . ' 21:21:21',
+                        'ITH_USRID' => $request->userid
+                    ];
+                    $tobeSaved[] = [
+                        'ITH_ITMCD' => $d['part_code'],
+                        'ITH_DATE' => $d['issue_date'],
+                        'ITH_FORM' => 'INC',
+                        'ITH_DOC' => $d['doc_code'],
+                        'ITH_QTY' => $d['total_qty'],
+                        'ITH_WH' => $d['location_to'],
+                        'ITH_LUPDT' => $d['issue_date'] . ' 21:21:21',
+                        'ITH_USRID' => $request->userid
+                    ];
+                }
+
+                DB::beginTransaction();
+
+                $affectedRowsHead = transfer_indirect_rm_header::where('id', $request->id)->update(
+                    [
+                        'submitted_by' => $request->userid,
+                        'submitted_at' => date('Y-m-d H:i:s')
+                    ]
+                );
+
+                if ($affectedRowsHead) {
+                    try {
+                        ITH::insert($tobeSaved);
+                        DB::commit();
+                    } catch (Exception $e) {
+                        DB::rollBack();
+                        return response()->json([[$e->getMessage()]]);
+                    }
+                }
+            } else {
+                $dataSpreadsheet = [
+                    ['part_code' => '', 'total_qty' => '']
+                ];
+            }
         }
 
         $spreadsheet = new Spreadsheet();
@@ -186,8 +252,11 @@ class TransferLocationController extends Controller
         $sheet->setTitle('TRANSFER');
         $sheet->freezePane('A2');
 
-        $sheet->fromArray(array_keys($data[0]), null, 'A1');
-        $sheet->fromArray($data, null, 'A2');
+        $sheet->fromArray(array_keys($dataSpreadsheet[0]), null, 'A1');
+        $sheet->setCellValue([1, 2], 'Part Code');
+        $sheet->setCellValue([2, 2], 'Qty');
+
+        $sheet->fromArray($dataSpreadsheet, null, 'A2');
 
         foreach (range('A', 'B') as $r) {
             $sheet->getColumnDimension($r)->setAutoSize(true);
