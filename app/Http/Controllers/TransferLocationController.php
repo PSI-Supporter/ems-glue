@@ -118,6 +118,7 @@ class TransferLocationController extends Controller
             'transfer_indirect_rm_headers.id',
             'transfer_indirect_rm_headers.created_at',
             'transfer_indirect_rm_headers.updated_at',
+            'submitted_at',
         ];
 
         $data = transfer_indirect_rm_header::leftJoin('transfer_indirect_rm_details', 'transfer_indirect_rm_headers.id', '=', 'id_header')
@@ -155,6 +156,7 @@ class TransferLocationController extends Controller
 
     function updateByDocument(Request $request)
     {
+        DB::beginTransaction();
         $affectedRows = transfer_indirect_rm_header::where('id', $request->id)->update([
             'issue_date' => $request->issue_date,
             'location_from' => $request->location_from,
@@ -163,7 +165,30 @@ class TransferLocationController extends Controller
             'updated_at' => date('Y-m-d H:i:s'),
         ]);
         if ($affectedRows) {
-            return ['message' => 'Updated successfully'];
+            try {
+                if ($request->part_code) {
+                    $countDetail = count($request->part_code);
+                    $affectedRowsDetails = 0;
+                    for ($i = 0; $i < $countDetail; $i++) {
+                        $affectedRowsDetails += transfer_indirect_rm_detail::where('id', $request->rows_id[$i])->update([
+                            'model' => $request->model[$i],
+                            'assy_code' => $request->assy_code[$i],
+                            'part_code' => $request->part_code[$i],
+                            'part_name' => $request->part_name[$i],
+                            'usage_qty' => $request->usage_qty[$i],
+                            'req_qty' => $request->req_qty[$i],
+                            'job' => $request->job[$i],
+                            'sup_qty' => $request->sup_qty[$i],
+                            'created_by' => $request->userid
+                        ]);
+                    }
+                }
+                DB::commit();
+                return ['message' => 'Updated successfully'];
+            } catch (Exception $e) {
+                DB::rollBack();
+                return response()->json([[$e->getMessage() . ' ({' . $e->getLine() . '})']], 406);
+            }
         } else {
             return response()->json([['Could not update']], 406);
         }
@@ -234,12 +259,12 @@ class TransferLocationController extends Controller
                 if ($affectedRowsHead) {
                     try {
                         ITH::insert($tobeSaved);
-                        DB::commit();
                     } catch (Exception $e) {
                         DB::rollBack();
                         return response()->json([[$e->getMessage()]]);
                     }
                 }
+                DB::commit();
             } else {
                 $dataSpreadsheet = [
                     ['part_code' => '', 'total_qty' => '']
