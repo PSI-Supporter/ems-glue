@@ -170,21 +170,41 @@ class TransferLocationController extends Controller
                     $countDetail = count($request->part_code);
                     $affectedRowsDetails = 0;
                     for ($i = 0; $i < $countDetail; $i++) {
-                        $affectedRowsDetails += transfer_indirect_rm_detail::where('id', $request->rows_id[$i])->update([
-                            'model' => $request->model[$i],
-                            'assy_code' => $request->assy_code[$i],
-                            'part_code' => $request->part_code[$i],
-                            'part_name' => $request->part_name[$i],
-                            'usage_qty' => $request->usage_qty[$i],
-                            'req_qty' => $request->req_qty[$i],
-                            'job' => $request->job[$i],
-                            'sup_qty' => $request->sup_qty[$i],
-                            'created_by' => $request->userid
-                        ]);
+                        if (strlen($request->rows_id[$i]) > 0) {
+                            $affectedRowsDetails += transfer_indirect_rm_detail::where('id', $request->rows_id[$i])->update([
+                                'model' => $request->model[$i],
+                                'assy_code' => $request->assy_code[$i],
+                                'part_code' => $request->part_code[$i],
+                                'part_name' => $request->part_name[$i],
+                                'usage_qty' => $request->usage_qty[$i],
+                                'req_qty' => $request->req_qty[$i],
+                                'job' => $request->job[$i],
+                                'sup_qty' => $request->sup_qty[$i],
+                                'updated_by' => $request->userid
+                            ]);
+                        } else {
+                            transfer_indirect_rm_detail::insert([[
+                                'created_at' => date('Y-m-d H:i:s'),
+                                'created_by' => $request->userid,
+                                'id_header' => $request->id,
+                                'model' => $request->model[$i],
+                                'assy_code' => $request->assy_code[$i],
+                                'part_code' => $request->part_code[$i],
+                                'part_name' => $request->part_name[$i],
+                                'usage_qty' => $request->usage_qty[$i],
+                                'req_qty' => $request->req_qty[$i],
+                                'job' => $request->job[$i],
+                                'sup_qty' => $request->sup_qty[$i],
+                            ]]);
+                        }
                     }
                 }
                 DB::commit();
-                return ['message' => 'Updated successfully'];
+                return [
+                    'message' => 'Updated successfully',
+                    'data' => transfer_indirect_rm_detail::where('id_header', $request->id)
+                        ->whereNull('deleted_at')->get()
+                ];
             } catch (Exception $e) {
                 DB::rollBack();
                 return response()->json([[$e->getMessage() . ' ({' . $e->getLine() . '})']], 406);
@@ -294,5 +314,29 @@ class TransferLocationController extends Controller
         header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
         header('Cache-Control: max-age=0');
         $writer->save('php://output');
+    }
+
+    function deleteByItem(Request $request)
+    {
+        DB::beginTransaction();
+        try {
+            if ($request->rows_id) {
+                $countDetail = count($request->rows_id);
+                $affectedRowsDetails = 0;
+                for ($i = 0; $i < $countDetail; $i++) {
+                    if (strlen($request->rows_id[$i]) > 0) {
+                        $affectedRowsDetails += transfer_indirect_rm_detail::where('id', $request->rows_id[$i])->update([
+                            'deleted_at' => date('Y-m-d H:i:s'),
+                            'deleted_by' => $request->userid,
+                        ]);
+                    }
+                }
+            }
+            DB::commit();
+            return ['message' => 'Deleted successfully'];
+        } catch (Exception $e) {
+            DB::rollBack();
+            return response()->json([[$e->getMessage() . ' ({' . $e->getLine() . '})']], 406);
+        }
     }
 }

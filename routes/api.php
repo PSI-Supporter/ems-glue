@@ -4,6 +4,7 @@ use App\Http\Controllers\BusinessGroupController;
 use App\Http\Controllers\CountryController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\ITHController;
 use App\Http\Controllers\LabelController;
 use App\Http\Controllers\ReceiveController;
 use App\Http\Controllers\ReturnController;
@@ -75,7 +76,10 @@ Route::get('/export/inventory-fg', [InventoryController::class, 'exportInv']);
 Route::post('label/combine-raw-material', [LabelController::class, 'combineRMLabel']);
 
 # Terkait laporan
-Route::get("report/return-without-psn", [ReturnController::class, 'reportReturnWithoutPSN']);
+Route::prefix('report')->group(function () {
+    Route::get("return-without-psn", [ReturnController::class, 'reportReturnWithoutPSN']);
+    Route::post("stock", [ITHController::class, 'getStockMultipleItem']);
+});
 
 # Terkait Business Group
 Route::get("business-group", [BusinessGroupController::class, 'getAll']);
@@ -95,5 +99,6 @@ Route::prefix('transfer-indirect-rm')->group(function () {
     Route::get('form', [TransferLocationController::class, 'search']);
     Route::get('form/{id}', [TransferLocationController::class, 'detailsByDocument']);
     Route::put('form/{id}', [TransferLocationController::class, 'updateByDocument']);
+    Route::delete('form/{id}', [TransferLocationController::class, 'deleteByItem']);
     Route::get('export/{id}', [TransferLocationController::class, 'toSpreadsheet']);
 });
