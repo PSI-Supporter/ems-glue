@@ -217,7 +217,10 @@ class TransferLocationController extends Controller
     function toSpreadsheet(Request $request)
     {
 
-        $data = transfer_indirect_rm_detail::leftJoin('transfer_indirect_rm_headers as H', 'id_header', '=', 'H.id')->where('id_header', $request->id)
+        $data = transfer_indirect_rm_detail::leftJoin('transfer_indirect_rm_headers as H', 'id_header', '=', 'H.id')
+            ->leftJoin('MITM_TBL', 'part_code', '=', 'MITM_ITMCD')
+            ->where('id_header', $request->id)
+            ->where('MITM_ITMD1', 'NOT LIKE', '%AIRCAP%')
             ->whereNull('transfer_indirect_rm_details.deleted_at')
             ->select('doc_code', 'part_code', DB::raw("SUM(sup_qty) AS total_qty"), 'location_from', 'location_to', 'issue_date', 'submitted_at')
             ->groupBy('part_code', 'doc_code', 'submitted_at', 'location_from', 'location_to', 'issue_date')
