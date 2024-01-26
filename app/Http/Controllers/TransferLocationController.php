@@ -258,16 +258,18 @@ class TransferLocationController extends Controller
                         'ITH_LUPDT' => $d['issue_date'] . ' 21:21:21',
                         'ITH_USRID' => $request->userid
                     ];
-                    $tobeSaved[] = [
-                        'ITH_ITMCD' => $d['part_code'],
-                        'ITH_DATE' => $d['issue_date'],
-                        'ITH_FORM' => 'INC',
-                        'ITH_DOC' => $d['doc_code'],
-                        'ITH_QTY' => $d['total_qty'],
-                        'ITH_WH' => $d['location_to'],
-                        'ITH_LUPDT' => $d['issue_date'] . ' 21:21:21',
-                        'ITH_USRID' => $request->userid
-                    ];
+                    if (!in_array($d['location_from'], ['AIWH1'])) {
+                        $tobeSaved[] = [
+                            'ITH_ITMCD' => $d['part_code'],
+                            'ITH_DATE' => $d['issue_date'],
+                            'ITH_FORM' => 'INC',
+                            'ITH_DOC' => $d['doc_code'],
+                            'ITH_QTY' => $d['total_qty'],
+                            'ITH_WH' => $d['location_to'],
+                            'ITH_LUPDT' => $d['issue_date'] . ' 21:21:21',
+                            'ITH_USRID' => $request->userid
+                        ];
+                    }
                 }
 
                 DB::beginTransaction();
