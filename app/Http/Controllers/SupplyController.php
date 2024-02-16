@@ -332,15 +332,16 @@ class SupplyController extends Controller
         }
         $DocumentCount = DB::table("SPL_TBL")->where("SPL_DOC", $request->doc)->where($whereExtension)->count();
         $WorkOrder = [];
+        $WorkOrderUnique = [];
         $RSKittingReferenceDocument = [];
         if ($DocumentCount > 0) {
             if (isset($request->line)) {
-                $WorkOrder = strtoupper(substr($request->doc, 0, 3)) == "PR-" ? [["PPSN1_WONO" => "_"]]
+                $WorkOrder = strtoupper(substr($request->doc, 0, 3)) == "PR-" ? [(object)["PPSN1_WONO" => "_"]]
                     : DB::select("exec xsp_megapsnhead_nofr ?, ?", [$request->doc, $request->line]);
             } else {
                 if (substr($request->doc, 0, 3) == "PR-") {
                     # jika dokumen part req maka WO nya blank (_)
-                    $WorkOrder = [["PPSN1_WONO" => "_"]];
+                    $WorkOrder = [(object)["PPSN1_WONO" => "_"]];
 
                     # cari referensi dokumen kitting
                     $RSKittingReferenceDocument = DB::table("SPL_TBL")->select("SPL_REFDOCNO", DB::raw("MAX(SPL_REFDOCCAT) REFDOCCAT"))
@@ -363,7 +364,22 @@ class SupplyController extends Controller
         } else {
             $result[] = ["cd" => 0, "msg" => "Trans No not found"];
         }
-        return ['status' => $result, 'WorkOrder' => $WorkOrder, 'dataReff' => $RSKittingReferenceDocument];
+
+        foreach ($WorkOrder as $r) {
+            $isFound = false;
+            foreach ($WorkOrderUnique as $u) {
+                if ($u['PPSN1_WONO'] === $r->PPSN1_WONO) {
+                    $isFound = true;
+                    break;
+                }
+            }
+
+            if (!$isFound) {
+                $WorkOrderUnique[] = ['PPSN1_WONO' => $r->PPSN1_WONO];
+            }
+        }
+
+        return ['status' => $result, 'WorkOrder' => $WorkOrderUnique, 'dataReff' => $RSKittingReferenceDocument];
     }
 
     function isPartInDocumentExist(Request $request)
