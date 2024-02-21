@@ -79,6 +79,7 @@ Route::post('label/combine-raw-material', [LabelController::class, 'combineRMLab
 Route::prefix('report')->group(function () {
     Route::get("return-without-psn", [ReturnController::class, 'reportReturnWithoutPSN']);
     Route::post("stock", [ITHController::class, 'getStockMultipleItem']);
+    Route::post("stock-wms", [ITHController::class, 'getStockMultipleItemWMS']);
 });
 
 # Terkait Business Group
