@@ -84,6 +84,12 @@ class RedmineController extends Controller
                 ->where('tracker_id', $where['tracker_id']);
         }
 
+        if ($where['tracker_id'] == $this->FORM_HISTORICAL_PROBLEM) {
+            $data = $data->where('custom_values.custom_field_id', 13); // date of event
+            $data = $data->where('custom_values.value', '>=', $where['dateFrom']); // date of event
+            $data = $data->where('custom_values.value', '<=', $where['dateTo']); // date of event
+        }
+
         $data = $data->get()->toArray();
 
 
@@ -123,7 +129,12 @@ class RedmineController extends Controller
             $errorMessage = $validator->errors();
         }
 
-        $where = ['tracker_id' => $request->tracker_id, 'statusId' => $request->statusId];
+        $where = [
+            'tracker_id' => $request->tracker_id,
+            'statusId' => $request->statusId,
+            'dateFrom' => $request->dateFrom,
+            'dateTo' => $request->dateTo,
+        ];
         $data = $this->getIssueData($where);
 
         $spreadSheet = new Spreadsheet();
