@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\ItemController;
+use App\Http\Controllers\RedmineController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -26,6 +27,12 @@ Route::get('/items/form-report', [ItemController::class, 'formItemReport']);
 
 Route::get('/trans', [ItemController::class, 'loadTrans']);
 Route::get('/form-trans', [ItemController::class, 'formTrans']);
+Route::get('/form-ict', [RedmineController::class, 'formICT']);
+Route::prefix('redmine')->group(function () {
+    Route::get('/projects', [RedmineController::class, 'getProject']);
+    Route::get('/issues', [RedmineController::class, 'getIssue']);
+    Route::get('/export-issue', [RedmineController::class, 'exportIssue']);
+});
 
 
 Route::get('/truk', [ItemController::class, 'loadTruk']);
