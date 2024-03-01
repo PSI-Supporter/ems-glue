@@ -19,7 +19,7 @@ return new class extends Migration
             $table->bigInteger('doc_order');
             $table->date('issue_date');
             $table->string('location_from', 45);
-            $table->string('location_to', 45);
+            $table->string('location_to', 45)->nullable();
             $table->timestamps();
             $table->dateTime('deleted_at')->nullable();
             $table->string('created_by', 9);

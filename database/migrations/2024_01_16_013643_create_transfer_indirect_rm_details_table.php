@@ -25,7 +25,7 @@ return new class extends Migration
             $table->string('assy_code', 50)->nullable();
             $table->string('part_code', 50);
             $table->string('part_name', 50)->nullable();
-            $table->float('usage_qty', 18, 4);
+            $table->float('usage_qty', 18, 4)->nullable();
             $table->float('req_qty', 18, 4);
             $table->string('job', 50)->nullable();
             $table->float('sup_qty', 18, 4);
