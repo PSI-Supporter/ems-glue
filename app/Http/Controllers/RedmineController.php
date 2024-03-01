@@ -24,8 +24,6 @@ class RedmineController extends Controller
 
     function getIssue(Request $request)
     {
-
-
         // Form ICT
         $data = DB::connection('sqlsrv_redmine')->table('issues')->where('tracker_id', $request->tracker_id)->get()->toArray();
         $listOfUniqueIssue = [];
@@ -49,55 +47,45 @@ class RedmineController extends Controller
             }
         }
 
-        if ($request->traceker_id == $this->FORM_REQUEST_ICT) {
-        }
-
         return ['data' => $data, 'custom' => $listOfCustomValue];
     }
 
     function getIssueData($where)
     {
-        if ($where['statusId'] != '-') {
-            if ($where['statusId'] === '1') {
-                $data = DB::connection('sqlsrv_redmine')->table('issues')
-                    ->leftJoin('users', 'assigned_to_id', '=', 'users.id')
-                    ->leftJoin('custom_values', 'issues.id', '=', 'custom_values.customized_id')
-                    ->where('custom_values.custom_field_id', 12) //closed date field
-                    ->where('custom_values.value', '=', '') //closed date value
-                    ->select('issues.*', 'firstname')
-                    ->where('tracker_id', $where['tracker_id']);
-                // die(json_encode($data));
-            } else {
-                // die('sini2');
-                $data = DB::connection('sqlsrv_redmine')->table('issues')
-                    ->leftJoin('users', 'assigned_to_id', '=', 'users.id')
-                    ->leftJoin('custom_values', 'issues.id', '=', 'custom_values.customized_id')
-                    ->where('custom_values.custom_field_id', 12) //closed date field
-                    ->where('custom_values.value', '!=', '') //closed date value
-                    ->select('issues.*', 'firstname')
-                    ->where('tracker_id', $where['tracker_id']);
-            }
-        } else {
-            $data = DB::connection('sqlsrv_redmine')->table('issues')
-                ->leftJoin('users', 'assigned_to_id', '=', 'users.id')
-                ->select('issues.*', 'firstname')
-                ->where('tracker_id', $where['tracker_id']);
-        }
+
+        $data = DB::connection('sqlsrv_redmine')->table('issues')
+            ->leftJoin('users', 'assigned_to_id', '=', 'users.id')
+            ->leftJoin('custom_values', 'issues.id', '=', 'custom_values.customized_id')
+            ->select('issues.*', 'firstname')
+            ->where('tracker_id', $where['tracker_id']);
+
 
         if ($where['tracker_id'] == $this->FORM_HISTORICAL_PROBLEM) {
-            $data = $data->where('custom_values.custom_field_id', 13); // date of event
+            $data = $data->whereIn('custom_values.custom_field_id', [12, 13]); // closed date and date of event
+            $data = $data->where('custom_values.value', '>=', $where['dateFrom']); // date of event
+            $data = $data->where('custom_values.value', '<=', $where['dateTo']); // date of event
+        } else {
+            $data = $data->whereIn('custom_values.custom_field_id', [12, 4]); // closed date and date of event
             $data = $data->where('custom_values.value', '>=', $where['dateFrom']); // date of event
             $data = $data->where('custom_values.value', '<=', $where['dateTo']); // date of event
         }
+        logger('AFTER ADD WHERE CLAUSE ' . $data->toSql());
+        logger('bindingnya ' . json_encode($data->getBindings()));
 
         $data = $data->get()->toArray();
-
 
         $listOfUniqueIssue = [];
 
         foreach ($data as $r) {
             $listOfUniqueIssue[] = $r->id;
         }
+
+        // to header
+        $data = DB::connection('sqlsrv_redmine')->table('issues')
+            ->leftJoin('users', 'assigned_to_id', '=', 'users.id')
+            ->select('issues.*', 'firstname')
+            ->where('tracker_id', $where['tracker_id'])
+            ->whereIn('issues.id', $listOfUniqueIssue)->get()->toArray();
 
         $listOfCustomValue = empty($listOfUniqueIssue) ? [] : DB::connection('sqlsrv_redmine')->table('custom_values')
             ->leftJoin('custom_fields', 'custom_values.custom_field_id', '=', 'custom_fields.id')
@@ -119,16 +107,6 @@ class RedmineController extends Controller
 
     function exportIssue(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'tracker_id' => 'required'
-        ]);
-
-        $errorMessage = '';
-
-        if ($validator->fails()) {
-            $errorMessage = $validator->errors();
-        }
-
         $where = [
             'tracker_id' => $request->tracker_id,
             'statusId' => $request->statusId,
@@ -140,10 +118,65 @@ class RedmineController extends Controller
         $spreadSheet = new Spreadsheet();
         $sheet = $spreadSheet->getActiveSheet();
 
-        // $sheet->setCellValue([1, 1], $errorMessage);
-
-        if ($request->traceker_id == $this->FORM_REQUEST_ICT) {
+        if ($request->tracker_id == $this->FORM_REQUEST_ICT) {
             $sheet->setTitle('FORM REQUEST ICT');
+            $sheet->setCellValue([1, 3], 'Request Date');
+            $sheet->setCellValue([2, 3], 'Reason');
+            $sheet->setCellValue([3, 3], 'Description');
+            $sheet->setCellValue([4, 3], 'Application Type');
+            $sheet->setCellValue([5, 3], 'User');
+            $sheet->setCellValue([6, 3], 'Department');
+            $sheet->setCellValue([7, 3], 'ICT Recommendation');
+            $sheet->setCellValue([8, 3], 'Target Date');
+            $sheet->setCellValue([9, 3], 'PIC');
+            $sheet->setCellValue([10, 3], 'Status');
+            $sheet->freezePane([1, 4]);
+
+            $y = 4;
+            foreach ($data['data'] as $r) {
+                $skip = false;
+                if ($where['statusId'] != '-') {
+                    if ($where['statusId'] == 0) { // expected : show closed 
+                        if ($r->Closed_Date == '') { // when data still open
+                            $skip = true;
+                        } else { // when data already closed
+                            $skip = false;
+                        }
+                    } else { // expected : show open 
+                        if ($r->Closed_Date == '') { // when data still open
+                            $skip = false;
+                        } else { // when data already closed
+                            $skip = true;
+                        }
+                    }
+                }
+                if (!$skip) {
+                    $sheet->setCellValue([1, $y], $r->Date_of_Request);
+                    $sheet->setCellValue([2, $y], $r->subject);
+                    $sheet->setCellValue([3, $y], $r->description);
+                    $sheet->setCellValue([4, $y], $r->Application_Type);
+                    $sheet->setCellValue([5, $y], $r->User);
+                    $sheet->setCellValue([6, $y], $r->Department);
+                    $sheet->setCellValue([7, $y], $r->ICT_Recommendation);
+                    $sheet->setCellValue([8, $y], $r->Target_Date);
+                    $sheet->setCellValue([9, $y], $r->firstname);
+                    $sheet->setCellValue([10, $y], $r->Closed_Date == '' ? 'Open' : 'Closed at ' . $r->Closed_Date);
+                    $y++;
+                }
+            }
+
+            foreach (range('A', 'J') as $columnID) {
+                $sheet->getColumnDimension($columnID)
+                    ->setAutoSize(true);
+            }
+
+            $sheet->getStyle('A3:J3')->getAlignment()->setHorizontal('center')->setVertical('center');
+            $sheet->getStyle('A3:J3')->getFill()
+                ->setFillType(Fill::FILL_SOLID)
+                ->getStartColor()->setARGB('EFEAE2');
+
+            $sheet->getStyle('A3:J' . ($y - 1))->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+            $sheet->getStyle('A3:J3')->getBorders()->getBottom()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_DOUBLE);
         } else {
             $sheet->setTitle('LIST');
             $sheet->setCellValue([1, 1], 'PT. SMT INDONESIA');
@@ -151,7 +184,6 @@ class RedmineController extends Controller
             $sheet->setCellValue([4, 1], 'ICT  HISTORICAL  PROBLEM  RECORD');
             $sheet->setCellValue([12, 1], 'FPP-09-05, Rev.01');
             $sheet->mergeCells('D1:H1');
-
 
             $sheet->setCellValue([1, 3], 'Date');
             $sheet->setCellValue([2, 3], 'Unit Name');
@@ -165,22 +197,41 @@ class RedmineController extends Controller
             $sheet->setCellValue([10, 3], 'Preventive Action');
             $sheet->setCellValue([11, 3], 'PIC');
             $sheet->setCellValue([12, 3], 'Status');
+            $sheet->freezePane([1, 4]);
 
             $y = 4;
             foreach ($data['data'] as $r) {
-                $sheet->setCellValue([1, $y], $r->Date_of_Event);
-                $sheet->setCellValue([2, $y], $r->Unit_Name);
-                $sheet->setCellValue([3, $y], $r->Device_Type);
-                $sheet->setCellValue([4, $y], $r->Unit_Serial_Number);
-                $sheet->setCellValue([5, $y], $r->User);
-                $sheet->setCellValue([6, $y], $r->Department);
-                $sheet->setCellValue([7, $y], $r->Problem);
-                $sheet->setCellValue([8, $y], $r->Root_Cause);
-                $sheet->setCellValue([9, $y], $r->Corrective_Action);
-                $sheet->setCellValue([10, $y], $r->Preventive_Action ?? '');
-                $sheet->setCellValue([11, $y], $r->firstname);
-                $sheet->setCellValue([12, $y], $r->Closed_Date);
-                $y++;
+                $skip = false;
+                if ($where['statusId'] != '-') {
+                    if ($where['statusId'] == 0) { // expected : show closed 
+                        if ($r->Closed_Date == '') { // when data still open
+                            $skip = true;
+                        } else { // when data already closed
+                            $skip = false;
+                        }
+                    } else { // expected : show open 
+                        if ($r->Closed_Date == '') { // when data still open
+                            $skip = false;
+                        } else { // when data already closed
+                            $skip = true;
+                        }
+                    }
+                }
+                if (!$skip) {
+                    $sheet->setCellValue([1, $y], $r->Date_of_Event);
+                    $sheet->setCellValue([2, $y], $r->Unit_Name);
+                    $sheet->setCellValue([3, $y], $r->Device_Type);
+                    $sheet->setCellValue([4, $y], $r->Unit_Serial_Number);
+                    $sheet->setCellValue([5, $y], $r->User);
+                    $sheet->setCellValue([6, $y], $r->Department);
+                    $sheet->setCellValue([7, $y], $r->Problem);
+                    $sheet->setCellValue([8, $y], $r->Root_Cause);
+                    $sheet->setCellValue([9, $y], $r->Corrective_Action);
+                    $sheet->setCellValue([10, $y], $r->Preventive_Action ?? '');
+                    $sheet->setCellValue([11, $y], $r->firstname);
+                    $sheet->setCellValue([12, $y], $r->Closed_Date == '' ? 'Open' : 'Closed at ' . $r->Closed_Date);
+                    $y++;
+                }
             }
 
             foreach (range('A', 'L') as $columnID) {

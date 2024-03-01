@@ -48,7 +48,7 @@
             </div>
         </div>
         <div class="row">
-            <div class="col-md-12">
+            <div class="col-md-12 mb-1">
                 <button class="btn btn-success" onclick="btnExportOnClick(this)">Export to Spreadsheet</button>
             </div>
         </div>
@@ -64,13 +64,13 @@
         $("#dateFrom").datepicker({
             format: 'yyyy-mm-dd',
             autoclose: true,
-            clearBtn: true
         });
         $("#dateTo").datepicker({
             format: 'yyyy-mm-dd',
             autoclose: true,
-            clearBtn: true
         });
+        $("#dateFrom").datepicker('update', new Date());
+        $("#dateTo").datepicker('update', new Date());
 
         function btnExportOnClick(p) {
             p.disabled = true
@@ -91,9 +91,9 @@
                     })
 
                     const selectedFormText = $("#formId option:selected").text()
-                    const fileName = `${selectedFormText}.xlsx`
+                    const fileName = `${selectedFormText} Report.xlsx`
                     saveAs(blob, fileName)
-                    
+                    div_alert.innerHTML = ''
                 },
                 xhr: function() {
                     const xhr = new XMLHttpRequest()
