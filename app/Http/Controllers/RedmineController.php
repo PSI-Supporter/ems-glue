@@ -85,7 +85,9 @@ class RedmineController extends Controller
             ->leftJoin('users', 'assigned_to_id', '=', 'users.id')
             ->select('issues.*', 'firstname')
             ->where('tracker_id', $where['tracker_id'])
-            ->whereIn('issues.id', $listOfUniqueIssue)->get()->toArray();
+            ->whereIn('issues.id', $listOfUniqueIssue)
+            ->orderBy('issues.id')
+            ->get()->toArray();
 
         $listOfCustomValue = empty($listOfUniqueIssue) ? [] : DB::connection('sqlsrv_redmine')->table('custom_values')
             ->leftJoin('custom_fields', 'custom_values.custom_field_id', '=', 'custom_fields.id')
@@ -120,16 +122,18 @@ class RedmineController extends Controller
 
         if ($request->tracker_id == $this->FORM_REQUEST_ICT) {
             $sheet->setTitle('FORM REQUEST ICT');
-            $sheet->setCellValue([1, 3], 'Request Date');
-            $sheet->setCellValue([2, 3], 'Reason');
-            $sheet->setCellValue([3, 3], 'Description');
-            $sheet->setCellValue([4, 3], 'Application Type');
-            $sheet->setCellValue([5, 3], 'User');
-            $sheet->setCellValue([6, 3], 'Department');
-            $sheet->setCellValue([7, 3], 'ICT Recommendation');
-            $sheet->setCellValue([8, 3], 'Target Date');
-            $sheet->setCellValue([9, 3], 'PIC');
-            $sheet->setCellValue([10, 3], 'Status');
+            $sheet->setCellValue([1, 3], 'No');
+            $sheet->setCellValue([2, 3], 'Request Date');
+            $sheet->setCellValue([3, 3], 'Application Type');
+            $sheet->setCellValue([4, 3], 'Subject');
+            $sheet->setCellValue([5, 3], 'Description');
+            $sheet->setCellValue([6, 3], 'Reason');
+            $sheet->setCellValue([7, 3], 'User');
+            $sheet->setCellValue([8, 3], 'Department');
+            $sheet->setCellValue([9, 3], 'ICT Recommendation');
+            $sheet->setCellValue([10, 3], 'Target Date');
+            $sheet->setCellValue([11, 3], 'PIC');
+            $sheet->setCellValue([12, 3], 'Status');
             $sheet->freezePane([1, 4]);
 
             $y = 4;
@@ -151,32 +155,34 @@ class RedmineController extends Controller
                     }
                 }
                 if (!$skip) {
-                    $sheet->setCellValue([1, $y], $r->Date_of_Request);
-                    $sheet->setCellValue([2, $y], $r->subject);
-                    $sheet->setCellValue([3, $y], $r->description);
-                    $sheet->setCellValue([4, $y], $r->Application_Type);
-                    $sheet->setCellValue([5, $y], $r->User);
-                    $sheet->setCellValue([6, $y], $r->Department);
-                    $sheet->setCellValue([7, $y], $r->ICT_Recommendation);
-                    $sheet->setCellValue([8, $y], $r->Target_Date);
-                    $sheet->setCellValue([9, $y], $r->firstname);
-                    $sheet->setCellValue([10, $y], $r->Closed_Date == '' ? 'Open' : 'Closed at ' . $r->Closed_Date);
+                    $sheet->setCellValue([1, $y], $r->id);
+                    $sheet->setCellValue([2, $y], $r->Date_of_Request);
+                    $sheet->setCellValue([3, $y], $r->Application_Type);
+                    $sheet->setCellValue([4, $y], $r->subject);
+                    $sheet->setCellValue([5, $y], $r->description);
+                    $sheet->setCellValue([6, $y], $r->Reason ?? '-');
+                    $sheet->setCellValue([7, $y], $r->User);
+                    $sheet->setCellValue([8, $y], $r->Department);
+                    $sheet->setCellValue([9, $y], $r->ICT_Recommendation);
+                    $sheet->setCellValue([10, $y], $r->Target_Date);
+                    $sheet->setCellValue([11, $y], $r->firstname);
+                    $sheet->setCellValue([12, $y], $r->Closed_Date == '' ? 'Open' : 'Closed at ' . $r->Closed_Date);
                     $y++;
                 }
             }
 
-            foreach (range('A', 'J') as $columnID) {
+            foreach (range('A', 'L') as $columnID) {
                 $sheet->getColumnDimension($columnID)
                     ->setAutoSize(true);
             }
 
-            $sheet->getStyle('A3:J3')->getAlignment()->setHorizontal('center')->setVertical('center');
-            $sheet->getStyle('A3:J3')->getFill()
+            $sheet->getStyle('A3:L3')->getAlignment()->setHorizontal('center')->setVertical('center');
+            $sheet->getStyle('A3:L3')->getFill()
                 ->setFillType(Fill::FILL_SOLID)
                 ->getStartColor()->setARGB('EFEAE2');
 
-            $sheet->getStyle('A3:J' . ($y - 1))->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
-            $sheet->getStyle('A3:J3')->getBorders()->getBottom()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_DOUBLE);
+            $sheet->getStyle('A3:L' . ($y - 1))->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+            $sheet->getStyle('A3:L3')->getBorders()->getBottom()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_DOUBLE);
         } else {
             $sheet->setTitle('LIST');
             $sheet->setCellValue([1, 1], 'PT. SMT INDONESIA');
