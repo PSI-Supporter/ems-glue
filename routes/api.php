@@ -93,6 +93,7 @@ Route::prefix('ics')->group(function () {
 # Terkait Simulasi Work Order
 Route::prefix('simulation')->group(function () {
     Route::get('document/{id}', [SimulationController::class, 'getReportLinePerDocument']);
+    Route::get('checker', [SimulationController::class, 'getReportSimulationChecker']);
 });
 
 Route::prefix('transfer-indirect-rm')->group(function () {

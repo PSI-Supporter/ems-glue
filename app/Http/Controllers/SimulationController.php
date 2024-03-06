@@ -16,4 +16,15 @@ class SimulationController extends Controller
             ->get();
         return ['data' => $data];
     }
+
+    function getReportSimulationChecker(Request $request)
+    {
+        $UnPSNSIM = DB::table('XSIM_CHECKER')->get()->toArray();
+        $PemutihanSIM = DB::table('XSIM_CHECKER2')->get()->toArray();
+        $data = array_merge($UnPSNSIM, $PemutihanSIM);
+        usort($data, function($a, $b) {
+            return $b->WONO <=> $a->WONO;
+        });
+        return ['data' => $data];
+    }
 }
