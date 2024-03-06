@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
@@ -155,8 +154,25 @@ class RedmineController extends Controller
                     }
                 }
                 if (!$skip) {
+                    $DateOfRequest = strtotime($r->Date_of_Request);
+                    $fDateOfRequest = date('d/m/Y', $DateOfRequest);
+
+                    if ($r->Target_Date) {
+                        $DateOfTarget = strtotime($r->Target_Date);
+                        $fDateOfTarget = date('d/m/Y', $DateOfTarget);
+                    } else {
+                        $fDateOfTarget = NULL;
+                    }
+
+                    if ($r->Closed_Date) {
+                        $DateOfClosing = strtotime($r->Closed_Date);
+                        $fDateOfClosing = date('d/m/Y', $DateOfClosing);
+                    } else {
+                        $fDateOfClosing = '';
+                    }
+
                     $sheet->setCellValue([1, $y], $r->id);
-                    $sheet->setCellValue([2, $y], $r->Date_of_Request);
+                    $sheet->setCellValue([2, $y], $fDateOfRequest);
                     $sheet->setCellValue([3, $y], $r->Application_Type);
                     $sheet->setCellValue([4, $y], $r->subject);
                     $sheet->setCellValue([5, $y], $r->description);
@@ -164,9 +180,9 @@ class RedmineController extends Controller
                     $sheet->setCellValue([7, $y], $r->User);
                     $sheet->setCellValue([8, $y], $r->Department);
                     $sheet->setCellValue([9, $y], $r->ICT_Recommendation);
-                    $sheet->setCellValue([10, $y], $r->Target_Date);
+                    $sheet->setCellValue([10, $y], $fDateOfTarget);
                     $sheet->setCellValue([11, $y], $r->firstname);
-                    $sheet->setCellValue([12, $y], $r->Closed_Date == '' ? 'Open' : 'Closed at ' . $r->Closed_Date);
+                    $sheet->setCellValue([12, $y], $fDateOfClosing == '' ? 'Open' : 'Closed at ' . $fDateOfClosing);
                     $y++;
                 }
             }
@@ -224,7 +240,16 @@ class RedmineController extends Controller
                     }
                 }
                 if (!$skip) {
-                    $sheet->setCellValue([1, $y], $r->Date_of_Event);
+                    $DateOfEvent = strtotime($r->Date_of_Event);
+                    $fDateOfEvent = date('d/m/Y', $DateOfEvent);
+
+                    if ($r->Closed_Date) {
+                        $DateOfClosing = strtotime($r->Closed_Date);
+                        $fDateOfClosing = date('d/m/Y', $DateOfClosing);
+                    } else {
+                        $fDateOfClosing = '';
+                    }
+                    $sheet->setCellValue([1, $y], $fDateOfEvent);
                     $sheet->setCellValue([2, $y], $r->Unit_Name);
                     $sheet->setCellValue([3, $y], $r->Device_Type);
                     $sheet->setCellValue([4, $y], $r->Unit_Serial_Number);
@@ -235,7 +260,7 @@ class RedmineController extends Controller
                     $sheet->setCellValue([9, $y], $r->Corrective_Action);
                     $sheet->setCellValue([10, $y], $r->Preventive_Action ?? '');
                     $sheet->setCellValue([11, $y], $r->firstname);
-                    $sheet->setCellValue([12, $y], $r->Closed_Date == '' ? 'Open' : 'Closed at ' . $r->Closed_Date);
+                    $sheet->setCellValue([12, $y], $fDateOfClosing == '' ? 'Open' : 'Closed at ' . $fDateOfClosing);
                     $y++;
                 }
             }
