@@ -104,3 +104,11 @@ Route::prefix('transfer-indirect-rm')->group(function () {
     Route::delete('form/{id}', [TransferLocationController::class, 'deleteByItem']);
     Route::get('export/{id}', [TransferLocationController::class, 'toSpreadsheet']);
 });
+
+
+Route::prefix('x-transfer')->group(function () {
+    Route::get('document', [TransferLocationController::class, 'xGetDocument']);
+    Route::post('document', [TransferLocationController::class, 'saveXdocument']);
+    Route::get('document/{id}', [TransferLocationController::class, 'xGetDocumentDetail']);
+    Route::get('auto-conform', [TransferLocationController::class, 'autoConformXdocument']);
+});

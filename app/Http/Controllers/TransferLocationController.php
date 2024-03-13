@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ITH;
+use App\Models\sync_xtrf_h;
 use App\Models\transfer_indirect_rm_detail;
 use App\Models\transfer_indirect_rm_header;
 use Exception;
@@ -343,5 +344,160 @@ class TransferLocationController extends Controller
             DB::rollBack();
             return response()->json([[$e->getMessage() . ' ({' . $e->getLine() . '})']], 406);
         }
+    }
+
+    function xGetDocument(Request $request)
+    {
+        $data = DB::table('XSTKTRND1')
+            ->leftJoin('XSTKTRND2', 'STKTRND1_RQRLSNO', '=', 'STKTRND2_RQRLSNO')
+            ->where('STKTRND1_LOCCDFR', $request->locationFrom)
+            ->where('STKTRND1_LOCCDTO', $request->locationTo)
+            ->whereNotNull('STKTRND1_RQAPPROVEDT')
+            ->select(DB::raw('RTRIM(STKTRND1_DOCNO) DOCNO'), DB::raw('CONVERT(DATE,STKTRND1_ISUDT) ISUDT'), DB::raw("COUNT(*) TTLROWS"))
+            ->groupBy('STKTRND1_DOCNO', 'STKTRND1_ISUDT')
+            ->orderBy('STKTRND1_ISUDT')
+            ->get();
+        return ['data' => $data];
+    }
+
+    function xGetDocumentDetail(Request $request)
+    {
+        $data = DB::table('XSTKTRND1')
+            ->leftJoin('XSTKTRND2', 'STKTRND1_RQRLSNO', '=', 'STKTRND2_RQRLSNO')
+            ->leftJoin('XMITM_V', 'STKTRND2_ITMCD', '=', 'MITM_ITMCD')
+            ->where('STKTRND1_DOCNO', base64_decode($request->id))
+            ->where('STKTRND1_DOCCD', 'TRF')
+            ->select(
+                DB::raw('CONVERT(DATE,STKTRND1_ISUDT) ISUDT'),
+                DB::raw('RTRIM(STKTRND1_LOCCDFR) LOCCDFR'),
+                DB::raw('RTRIM(STKTRND1_LOCCDTO) LOCCDTO'),
+                DB::raw('RTRIM(MITM_ITMCD) ITMCD'),
+                DB::raw('RTRIM(MITM_ITMD1) ITMD1'),
+                DB::raw('RTRIM(MITM_SPTNO) SPTNO'),
+                'STKTRND2_TRNQT',
+                DB::raw('RTRIM(MITM_STKUOM) STKUOM'),
+            )
+            ->orderBy('MITM_ITMCD')
+            ->get();
+        return ['data' => $data];
+    }
+
+    function saveXdocument(Request $request)
+    {
+        $validator = Validator::make(
+            $request->all(),
+            [
+                'document' => [
+                    Rule::unique('sync_xtrf_hs', 'xdocument_number')
+                ], 'userId' => 'required'
+            ],
+            [
+                'userId.required' => 'User ID is required',
+                'document.unique' => 'The document is already added'
+            ]
+        );
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 406);
+        }
+
+        $ttlRows = DB::table("XSTKTRND1")
+            ->where('STKTRND1_DOCNO', $request->document)
+            ->where('STKTRND1_DOCCD', 'TRF')->count();
+
+        if ($ttlRows === 0) {
+            return response()->json(['Document is not found'], 400);
+        }
+
+        try {
+            sync_xtrf_h::create(
+                [
+                    'xdocument_number' => $request->document,
+                    'created_by' => $request->userId
+                ]
+            );
+            return ['message' => 'OK'];
+        } catch (Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 400);
+        }
+    }
+
+    function autoConformXdocument()
+    {
+        // get list un-synchronized document
+        $NotSyncYet = sync_xtrf_h::select('xdocument_number')->whereNull('synchronized_at')->get();
+        $NotSyncYetList = [];
+        foreach ($NotSyncYet as $r) {
+            $NotSyncYetList[] = $r->xdocument_number;
+        }
+
+        // get list approved based on the un-synchronized document
+        $XSigneddocument = DB::table('XSTKTRND1')
+            ->whereIn('STKTRND1_DOCNO', $NotSyncYetList)
+            ->whereNotNull('STKTRND1_RQAPPROVEDT')
+            ->select(
+                DB::raw("RTRIM(STKTRND1_DOCNO) STKTRND1_DOCNO"),
+                DB::raw("RTRIM(STKTRND1_LOCCDFR) STKTRND1_LOCCDFR"),
+                DB::raw("RTRIM(STKTRND1_LOCCDTO) STKTRND1_LOCCDTO"),
+            )
+            ->get();
+
+        $SavedDocs = 0;
+        foreach ($XSigneddocument as $r) {
+
+            // get list detail of the approved document
+            $XSigneddocumentDetail = DB::table('XITRN_TBL')
+                ->where('ITRN_DOCNO', trim($r->STKTRND1_DOCNO))
+                ->select(
+                    DB::raw("RTRIM(ITRN_LOCCD) ITRN_LOCCD"),
+                    DB::raw("RTRIM(ITRN_ITMCD) ITRN_ITMCD"),
+                    DB::raw("RTRIM(ITRN_USRID) ITRN_USRID"),
+                    DB::raw("CONVERT(DATE,ITRN_ISUDT) ITRN_ISUDT"),
+                    "IOQT",
+                    "ITRN_LINE"
+                )
+                ->get();
+
+            // make a list tobe synchronized
+            $tobeSaved = [];
+            foreach ($XSigneddocumentDetail as $_r) {
+                $tobeSaved[] = [
+                    "ITH_ITMCD" => $_r->ITRN_ITMCD,
+                    "ITH_DATE" => $_r->ITRN_ISUDT,
+                    "ITH_FORM" => $_r->IOQT > 0 ? 'TRFIN-RM' : 'TRFOUT-RM',
+                    "ITH_DOC" => trim($r->STKTRND1_DOCNO),
+                    "ITH_QTY" => $_r->IOQT,
+                    "ITH_WH" => $_r->ITRN_LOCCD,
+                    "ITH_REMARK" => $_r->ITRN_LINE,
+                    "ITH_LUPDT" => $_r->ITRN_ISUDT . ' 07:07:07',
+                    "ITH_USRID" => $_r->ITRN_USRID,
+                ];
+            }
+
+            if (!empty($tobeSaved)) {
+                $synchronizedRows = DB::table("ITH_TBL")->where("ITH_DOC", trim($r->STKTRND1_DOCNO))->count();
+
+                // check wheter the approved document already synchronized
+                if ($synchronizedRows === 0) {
+                    try {
+                        DB::table("ITH_TBL")->insert($tobeSaved);
+                        $SavedDocs++;
+                        logger('SYCXDOC success message :' . trim($r->STKTRND1_DOCNO));
+                    } catch (Exception $e) {
+                        logger('SYCXDOC exception message : ' . $e->getMessage());
+                    }
+                }
+
+                // update un-synchronized flag document to be synchronized
+                sync_xtrf_h::where('xdocument_number', trim($r->STKTRND1_DOCNO))
+                    ->whereNull('synchronized_at')
+                    ->update(['synchronized_at' => date('Y-m-d H:i:s')]);
+            }
+        }
+
+        $outputMessage = "Synchronized documents : " . $SavedDocs;
+
+        logger($outputMessage);
+        return ['message' => $outputMessage];
     }
 }
