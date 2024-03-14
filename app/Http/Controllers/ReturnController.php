@@ -154,7 +154,8 @@ class ReturnController extends Controller
                 'RETSCN_ROHS' => $request->roHs,
                 'RETSCN_LUPDT' => date('Y-m-d H:i:s'),
                 'RETSCN_USRID' => $request->userId,
-                'RETSCN_UNIQUEKEY' => $Response['data']
+                'RETSCN_UNIQUEKEY' => $Response['data'],
+                'created_at' => date('Y-m-d H:i:s')
             ];
 
             PartReturned::insert($datas);
@@ -172,7 +173,7 @@ class ReturnController extends Controller
             ->orderBy(DB::raw("convert(bigint,SUBSTRING(RETSCN_ID,9,11))"), "DESC")
             ->take(1)
             ->first();
-        $mlastid = $RSLastCountedPart->lastNumber;
+        $mlastid = $RSLastCountedPart->lastNumber ?? 0;
         return $mlastid;
     }
 
@@ -237,7 +238,8 @@ class ReturnController extends Controller
                 'RETSCN_ROHS' => $request->roHs,
                 'RETSCN_LUPDT' => date('Y-m-d H:i:s'),
                 'RETSCN_USRID' => $request->userId,
-                'RETSCN_UNIQUEKEY' => $Response['data']
+                'RETSCN_UNIQUEKEY' => $Response['data'],
+                'created_at' => date('Y-m-d H:i:s')
             ];
             PartReturned::insert($datas);
 
@@ -377,7 +379,8 @@ class ReturnController extends Controller
                                 'RETSCN_ROHS' => $request->roHs,
                                 'RETSCN_LUPDT' => date('Y-m-d H:i:s'),
                                 'RETSCN_USRID' => $request->userId,
-                                'RETSCN_UNIQUEKEY' => $Response['data']
+                                'RETSCN_UNIQUEKEY' => $Response['data'],
+                                'created_at' => date('Y-m-d H:i:s')
                             ];
 
                             $toret = PartReturned::insert($datas);
@@ -398,6 +401,86 @@ class ReturnController extends Controller
             }
         } else {
             $result[] = ['cd' => '00', 'msg' => 'It seems You are using wrong menu or function'];
+        }
+        return ['status' => $result];
+    }
+
+    function saveFromXray(Request $request)
+    {
+        $result = [];
+
+        $ttlRequest = count($request->item);
+        $perItemResult = [];
+        for ($v = 0; $v < $ttlRequest; $v++) {
+
+            $DocumentCount = DB::table("SPL_TBL")
+                ->where("SPL_DOC", $request->doc)
+                ->where("SPL_CAT", $request->category)
+                ->where("SPL_LINE", $request->line)
+                ->where("SPL_ITMCD", $request->item[$v])->count();
+            if ($DocumentCount > 0) {
+
+                #PREPARE NEW ROW ID
+                $mlastid = $this->getLastIdOfReturnRecord();
+                $mlastid++;
+                $newid = date('Ymd') . $mlastid;
+                #END
+
+                $RSBalncePerItem = DB::select("EXEC sp_getreturnbalance_peritem ?, ?, ?,  ?", [$request->doc, $request->line, $request->category,  $request->item[$v]]);
+                $RSBalncePerItem = json_decode(json_encode($RSBalncePerItem), true);
+                $RSBalncePerItem = count($RSBalncePerItem) > 0 ? reset($RSBalncePerItem) : ['BALQTY' => 0];
+
+                if ($RSBalncePerItem['BALQTY'] >= $request->qtyAfter[$v]) {
+                    #GET FR , ORDERNO
+                    $RSSPLSCN = DB::table("SPLSCN_TBL")
+                        ->select(DB::raw("SPLSCN_ID,SPLSCN_DOC,SPLSCN_CAT,SPLSCN_LINE,RTRIM(SPLSCN_FEDR) SPLSCN_FEDR,SPLSCN_ORDERNO,UPPER(SPLSCN_ITMCD) SPLSCN_ITMCD,SPLSCN_LOTNO,SPLSCN_SAVED,
+                            SPLSCN_QTY,SPLSCN_LUPDT,SPLSCN_USRID,SPLSCN_EXPORTED"))
+                        ->where('SPLSCN_DOC', $request->doc)
+                        ->where('SPLSCN_CAT', $request->category)
+                        ->where('SPLSCN_LINE', $request->line)
+                        ->where('SPLSCN_ITMCD', $request->item[$v])
+                        ->where('SPLSCN_LOTNO', $request->lotNumber[$v])
+                        ->where('SPLSCN_QTY', $request->qtyBefore[$v])
+                        ->get();
+                    #END
+                    $RSSPLSCN = json_decode(json_encode($RSSPLSCN), true);
+                    if (count($RSSPLSCN) > 0) {
+
+                        $rsbefore = reset($RSSPLSCN);
+                        $datas = [
+                            'RETSCN_ID' =>  $newid,
+                            'RETSCN_SPLDOC' => $request->doc,
+                            'RETSCN_CAT' => $request->category,
+                            'RETSCN_LINE' => $request->line,
+                            'RETSCN_FEDR' => $rsbefore['SPLSCN_FEDR'],
+                            'RETSCN_ORDERNO' => $rsbefore['SPLSCN_ORDERNO'],
+                            'RETSCN_ITMCD' => $request->item[$v],
+                            'RETSCN_QTYBEF' => $request->qtyBefore[$v],
+                            'RETSCN_LOT' => $request->lotNumber[$v],
+                            'RETSCN_QTYAFT' => $request->qtyAfter[$v],
+                            'RETSCN_CNTRYID' => '01',
+                            'RETSCN_ROHS' => '1',
+                            'RETSCN_LUPDT' => date('Y-m-d H:i:s'),
+                            'RETSCN_USRID' => $request->userId,
+                            'RETSCN_UNIQUEKEY' => $request->uniqueKey[$v],
+                            'created_at' => date('Y-m-d H:i:s')
+                        ];
+
+                        $toret = PartReturned::insert($datas);
+                        if ($toret > 0) {
+                            $result[] = [
+                                'cd' => '11', 'msg' => 'Saved', '_unique' => $request->uniqueKey[$v]
+                            ];
+                        }
+                    } else {
+                        $result[] = ['cd' => '00', 'msg' => 'could not get FR and ORDER NO', '_unique' => $request->uniqueKey[$v]];
+                    }
+                } else {
+                    $result[] = ['cd' => '00', 'msg' => 'Balance Qty < Return Qty', '_unique' => $request->uniqueKey[$v]];
+                }
+            } else {
+                $result[] = ['cd' => '00', 'msg' => 'PSN and Item does not match', '_unique' => $request->uniqueKey[$v]];
+            }
         }
         return ['status' => $result];
     }

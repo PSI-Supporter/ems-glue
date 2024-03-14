@@ -45,6 +45,7 @@ Route::post('supply/fix-transaction', [SupplyController::class, 'fixTransactionB
 Route::prefix('return')->group(function () {
     Route::get('counted', [ReturnController::class, 'getCountedPart']);
     Route::post('', [ReturnController::class, 'save']);
+    Route::post('by-xray', [ReturnController::class, 'saveFromXray']);
     Route::get('resume', [ReturnController::class, 'resume']);
     Route::put('status/{id}', [ReturnController::class, 'setPartStatus']);
     Route::delete('items/{id}', [ReturnController::class, 'delete']);
