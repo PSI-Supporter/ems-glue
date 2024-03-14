@@ -377,7 +377,7 @@ class TransferLocationController extends Controller
                 'STKTRND2_TRNQT',
                 DB::raw('RTRIM(MITM_STKUOM) STKUOM'),
             )
-            ->orderBy('MITM_ITMCD')
+            ->orderBy('STKTRND2_LINE')
             ->get();
         return ['data' => $data];
     }
