@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\BusinessGroupController;
 use App\Http\Controllers\CountryController;
+use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\ITHController;
@@ -112,4 +113,9 @@ Route::prefix('x-transfer')->group(function () {
     Route::post('document', [TransferLocationController::class, 'saveXdocument']);
     Route::get('document/{id}', [TransferLocationController::class, 'xGetDocumentDetail']);
     Route::get('auto-conform', [TransferLocationController::class, 'autoConformXdocument']);
+});
+
+Route::prefix('delivery')->group(function () {
+    Route::post('limbah', [DeliveryController::class, 'saveDetailLimbah']);
+    Route::get('limbah/{id}', [DeliveryController::class, 'getDetailLimbah']);
 });
