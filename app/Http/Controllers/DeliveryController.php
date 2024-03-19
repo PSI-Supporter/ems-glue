@@ -52,6 +52,8 @@ class DeliveryController extends Controller
                     'DLVSCR_BB_ITMD1' => $request->NamaBarang[$i],
                     'DLVSCR_BB_ITMID' => $request->KodeBarang[$i],
                     'DLVSCR_BB_ITMQT' => $request->Qty[$i],
+                    'DLVSCR_BB_HSCD' => $request->HSCODE[$i],
+                    'DLVSCR_BB_KODE_KANTOR' => $request->KodeKantor[$i],
                     'DLVSCR_BB_BCTYPE' => $request->BCType[$i],
                     'DLVSCR_BB_AJU' => $request->NomorAju[$i],
                     'DLVSCR_BB_NOPEN' => $request->NomorPendaftaran[$i],
@@ -61,6 +63,8 @@ class DeliveryController extends Controller
                     'DLVSCR_BB_BC_DEDUCTION_TYPE' => 1,
                     'DLVSCR_BB_BCURUT' => $request->SeriBarangAsal[$i],
                     'DLVSCR_BB_REMARK' => $request->Remark[$i],
+                    'DLVSCR_BB_MATA_UANG' => $request->MataUang[$i],
+                    'DLVSCR_BB_ZPRPRC' => $request->Harga[$i],
                     'DLVSCR_BB_LINE' => ($i + 1),
                 ];
             }
