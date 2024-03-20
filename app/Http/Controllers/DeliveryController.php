@@ -24,6 +24,7 @@ class DeliveryController extends Controller
                 'SeriBarangAsal.*' => 'numeric',
                 'Satuan' => 'required|array',
                 'BeratBersih' => 'required|array',
+                'BM' => 'required|array',
             ],
             [
                 'userId.required' => ':attribute is required',
@@ -33,6 +34,8 @@ class DeliveryController extends Controller
                 'KodeBarang.required' => 'Nama Barang is required',
                 'Qty.*.numeric' => ':attribute should be numeric',
                 'SeriBarangAsal.*.numeric' => ':attribute should be numeric',
+                'BM.required' => ':attribute is required',
+                'BM.*.numeric' => ':attribute should be numeric',
             ]
         );
 
@@ -65,6 +68,7 @@ class DeliveryController extends Controller
                     'DLVSCR_BB_REMARK' => $request->Remark[$i],
                     'DLVSCR_BB_MATA_UANG' => $request->MataUang[$i],
                     'DLVSCR_BB_ZPRPRC' => $request->Harga[$i],
+                    'DLVSCR_BB_BM' => $request->BM[$i],                  
                     'DLVSCR_BB_LINE' => ($i + 1),
                 ];
             }
