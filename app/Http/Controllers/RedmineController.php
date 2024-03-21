@@ -9,6 +9,7 @@ use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 use PhpOffice\PhpSpreadsheet\Writer\Pdf\Mpdf;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Illuminate\Support\Facades\Http;
 
 class RedmineController extends Controller
 {
@@ -303,5 +304,191 @@ class RedmineController extends Controller
     {
         $trackers = DB::connection('sqlsrv_redmine')->table('trackers')->where('id', '>', 3)->get();
         return view('report.form_ict', ['trackers' => $trackers]);
+    }
+
+    function wrapGetIssue()
+    {
+        $res = Http::get('http://192.168.0.10:3000/issues.json');
+        $resJsonO = json_decode($res->body());
+        return $resJsonO;
+    }
+
+    function wrapPostIssue()
+    {
+        $data = [
+            'issue' => [
+                'project_id' => 3,
+                'tracker_id' => 6,
+                'subject' => 'coba saja',
+                'priority_id' => 3,
+                'custom_fields' => [
+                    [
+                        'id' => 5,
+                        'name' => 'Unit Name',
+                        'value' => '-'
+                    ],
+                    [
+                        'id' => 6,
+                        'name' => 'Device Type',
+                        'value' => '-'
+                    ],
+                    [
+                        'id' => 7,
+                        'name' => 'Unit Serial Number',
+                        'value' => '-'
+                    ],
+                    [
+                        'id' => 8,
+                        'name' => 'User',
+                        'value' => 'usernya'
+                    ],
+                    [
+                        'id' => 9,
+                        'name' => 'Problem',
+                        'value' => 'problemnya'
+                    ],
+                    [
+                        'id' => 10,
+                        'name' => 'Root Cause',
+                        'value' => 'root causenya'
+                    ],
+                    [
+                        'id' => 11,
+                        'name' => 'Corrective Action',
+                        'value' => '-'
+                    ],
+                    [
+                        'id' => 13,
+                        'name' => 'Date of Event',
+                        'value' => '2024-03-21'
+                    ],
+                    [
+                        'id' => 14,
+                        'name' => 'Preventive Action',
+                        'value' => '--'
+                    ],
+                ]
+            ]
+        ];
+        $Person = ['ANA' => 5, 'RIKY' => 7, 'RACHMAN' => 8];
+        $strJSON = '';
+
+        $objJSON = json_decode($strJSON);
+
+        $responseResume = [];
+
+        $res = Http::get('http://192.168.0.10:3000/issues.json');
+        $resList = json_decode($res->body());
+
+        $uploadedSubject = [];
+
+        // make a simplead uploaded subject
+        foreach ($objJSON as $r) {
+            foreach ($resList->issues as $s) {
+                if ($s->subject === $r->Problem) {
+                    if (!in_array($s->subject, $uploadedSubject)) {
+                        $uploadedSubject[] = $s->subject;
+                    }
+                }
+            }
+        }
+
+        $unUploaded = [];
+        foreach ($objJSON as $r) {
+            if (!in_array($r->Problem, $uploadedSubject)) {
+                $unUploaded[] = $r->Problem;
+                $data = [
+                    'issue' => [
+                        'project_id' => 3,
+                        'tracker_id' => 6,
+                        'subject' => $r->Problem,
+                        'priority_id' => 3,
+                        'assigned_to_id' => $Person[$r->PIC],
+                        'custom_fields' => [
+                            [
+                                'id' => 5,
+                                'name' => 'Unit Name',
+                                'value' => $r->Unit_Name
+                            ],
+                            [
+                                'id' => 6,
+                                'name' => 'Device Type',
+                                'value' => $r->Device_Type
+                            ],
+                            [
+                                'id' => 7,
+                                'name' => 'Unit Serial Number',
+                                'value' => $r->Unit_Serial_Number
+                            ],
+                            [
+                                'id' => 8,
+                                'name' => 'User',
+                                'value' => $r->User
+                            ],
+                            [
+                                'id' => 9,
+                                'name' => 'Problem',
+                                'value' => $r->Problem
+                            ],
+                            [
+                                'id' => 10,
+                                'name' => 'Root Cause',
+                                'value' => $r->Root_Cause
+                            ],
+                            [
+                                'id' => 11,
+                                'name' => 'Corrective Action',
+                                'value' => $r->Corrective_Action
+                            ],
+                            [
+                                'id' => 13,
+                                'name' => 'Date of Event',
+                                'value' => $r->Date
+                            ],
+                            [
+                                'id' => 14,
+                                'name' => 'Preventive Action',
+                                'value' => $r->Preventive_Action
+                            ],
+                            [
+                                'id' => 12,
+                                'name' => 'Closed Date',
+                                'value' => empty($r->CloseDate) ? NULL : $r->CloseDate,
+                            ],
+                        ]
+                    ]
+                ];
+
+                $response = Http::withBasicAuth('1210034', '!1210034')
+                    ->post('http://192.168.0.10:3000/issues.json', $data);
+                $responseResume[] = [
+                    'responseCode' => $response->status(),
+                    'responseBody' => json_decode($response->body()),
+                    'opt' => $response,
+                    'data' => $data
+                ];
+            }
+        }
+
+
+        return $responseResume;
+    }
+
+    function wrapUpdateIssue()
+    {
+        $data = [
+            'issue' => [
+                'subject' => 'Tidak bisa Scan HT CIMS',
+                'notes' => 'subject changed'
+            ]
+        ];
+
+        $response = Http::withBasicAuth('1210034', '!1210034')
+            ->put('http://192.168.0.10:3000/issues/9.json', $data);
+
+        return [
+            'response' => $response->status(),
+            'opt' => $response
+        ];
     }
 }

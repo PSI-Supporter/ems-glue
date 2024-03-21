@@ -8,6 +8,7 @@ use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\ITHController;
 use App\Http\Controllers\LabelController;
 use App\Http\Controllers\ReceiveController;
+use App\Http\Controllers\RedmineController;
 use App\Http\Controllers\ReturnController;
 use App\Http\Controllers\SimulationController;
 use App\Http\Controllers\SupplyController;
@@ -68,6 +69,7 @@ Route::get('item/searchRMExim', [ItemController::class, 'searchRMExim']);
 Route::get('item/searchRMXls', [ItemController::class, 'searchRMEximXls']);
 Route::get('item/searchFGXls', [ItemController::class, 'searchFGEximXls']);
 Route::get('item/downloadsa', [ItemController::class, 'downloadsa']);
+Route::get('item/xray', [ItemController::class, 'toXRAYItem']);
 
 #Untuk Inventory
 Route::get('/Inv', [InventoryController::class, 'loadInventory']);
@@ -118,4 +120,10 @@ Route::prefix('x-transfer')->group(function () {
 Route::prefix('delivery')->group(function () {
     Route::post('limbah', [DeliveryController::class, 'saveDetailLimbah']);
     Route::get('limbah/{id}', [DeliveryController::class, 'getDetailLimbah']);
+});
+
+Route::prefix('redmine-wrapper')->group(function () {
+    Route::get('', [RedmineController::class, 'wrapGetIssue']);
+    Route::get('coba-input', [RedmineController::class, 'wrapPostIssue']);
+    Route::get('coba-update', [RedmineController::class, 'wrapUpdateIssue']);
 });
