@@ -60,16 +60,18 @@ Route::prefix('return')->group(function () {
 
 
 # Terkait Item Master
-Route::get('item/{id}/location', [ItemController::class, 'loadById']);
-Route::get('item/search', [ItemController::class, 'search']);
-Route::get('item/searchItmLoc', [ItemController::class, 'searchItemLocation']);
-Route::get('item/searchFG', [ItemController::class, 'searchFG']);
-Route::get('item/searchFGExim', [ItemController::class, 'searchFGExim']);
-Route::get('item/searchRMExim', [ItemController::class, 'searchRMExim']);
-Route::get('item/searchRMXls', [ItemController::class, 'searchRMEximXls']);
-Route::get('item/searchFGXls', [ItemController::class, 'searchFGEximXls']);
-Route::get('item/downloadsa', [ItemController::class, 'downloadsa']);
-Route::get('item/xray', [ItemController::class, 'toXRAYItem']);
+Route::prefix('item')->group(function () {
+    Route::get('{id}/location', [ItemController::class, 'loadById']);
+    Route::get('search', [ItemController::class, 'search']);
+    Route::get('searchItmLoc', [ItemController::class, 'searchItemLocation']);
+    Route::get('searchFG', [ItemController::class, 'searchFG']);
+    Route::get('searchFGExim', [ItemController::class, 'searchFGExim']);
+    Route::get('searchRMExim', [ItemController::class, 'searchRMExim']);
+    Route::get('searchRMXls', [ItemController::class, 'searchRMEximXls']);
+    Route::get('searchFGXls', [ItemController::class, 'searchFGEximXls']);
+    Route::get('downloadsa', [ItemController::class, 'downloadsa']);
+    Route::get('xray', [ItemController::class, 'toXRAYItem']);
+});
 
 #Untuk Inventory
 Route::get('/Inv', [InventoryController::class, 'loadInventory']);
