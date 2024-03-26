@@ -77,6 +77,10 @@ Route::prefix('item')->group(function () {
 Route::get('/Inv', [InventoryController::class, 'loadInventory']);
 Route::get('/form-inv', [InventoryController::class, 'formInventory']);
 Route::get('/export/inventory-fg', [InventoryController::class, 'exportInv']);
+Route::prefix('inventory')->group(function () {
+    Route::delete("keys/{id}", [InventoryController::class, 'removeLine']);
+});
+
 
 # Terkait Label Raw Material
 Route::post('label/combine-raw-material', [LabelController::class, 'combineRMLabel']);

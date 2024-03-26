@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\InventoryPapper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xls;
 
@@ -285,5 +287,42 @@ class InventoryController extends Controller
         header('Cache-Control: max-age=0');
         ob_end_clean();
         $Excel_writer->save('php://output');
+    }
+
+    function removeLine(Request $request)
+    {
+        $validator = Validator::make(
+            $request->all(),
+            [
+                'pin' => 'required',
+                'id' => [
+                    Rule::exists('SER_TBL', 'SER_ID')
+                ],
+            ],
+            [
+                'pin.required' => ':attribute is required',
+                'id.exists' => 'id (:input) is not registerd yet',
+            ]
+        );
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors()->all(), 406);
+        }
+
+        if ($request->pin !== 'MTHSMTMTH') {
+            return response()->json([['PIN is not valid']], 406);
+        }
+
+        logger($request->ip() . ": hapus " . $request->id);
+
+        DB::table("WMS_Inv")->where("REFNO", $request->id)->delete();
+
+        return [
+            'message' => 'Go ahead',
+            'data' => [
+                'pin' => $request->pin,
+                'id' => $request->id,
+            ]
+        ];
     }
 }
