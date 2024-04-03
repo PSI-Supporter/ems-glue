@@ -466,6 +466,18 @@ class ReturnController extends Controller
                             'created_at' => date('Y-m-d H:i:s')
                         ];
 
+
+                        RawMaterialLabel::insert([
+                            'code' => $request->uniqueKey[$v],
+                            'doc_code' => $request->doc,
+                            'item_code' => $request->item[$v],
+                            'quantity' => $request->qtyAfter[$v],
+                            'lot_code' => $request->lotNumber[$v],
+                            'created_by' => $request->userId,
+                            'created_at' => date('Y-m-d H:i:s'),
+                            'composed' => NULL,
+                        ]);
+
                         $toret = PartReturned::insert($datas);
                         if ($toret > 0) {
                             $result[] = [
