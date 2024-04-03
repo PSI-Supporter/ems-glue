@@ -34,15 +34,17 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 Route::get('country', [CountryController::class, 'getAll']);
 
 # Terkait Supply Part
-Route::get('supply/part-category', [SupplyController::class, 'getCategoryByPSN']);
-Route::get('supply/part-line', [SupplyController::class, 'getLineByPSNandCategory']);
-Route::get('supply/outstanding-upload', [SupplyController::class, 'getOutstandingUpload']);
-Route::get('supply/outstanding-scan', [SupplyController::class, 'getOutstandingScan']);
-Route::get('supply/validate-document', [SupplyController::class, 'isDocumentExist']);
-Route::get('supply/validate-item', [SupplyController::class, 'isPartInDocumentExist']);
-Route::post('supply/validate-supplied-item', [SupplyController::class, 'isPartAlreadySuppliedInDocument']);
-Route::post('supply/fix-transaction', [SupplyController::class, 'fixTransactionBySuppplyNumber']);
-
+Route::prefix('supply')->group(function () {
+    Route::get('part-category', [SupplyController::class, 'getCategoryByPSN']);
+    Route::get('part-line', [SupplyController::class, 'getLineByPSNandCategory']);
+    Route::get('outstanding-upload', [SupplyController::class, 'getOutstandingUpload']);
+    Route::get('outstanding-scan', [SupplyController::class, 'getOutstandingScan']);
+    Route::get('validate-document', [SupplyController::class, 'isDocumentExist']);
+    Route::get('validate-item', [SupplyController::class, 'isPartInDocumentExist']);
+    Route::post('validate-supplied-item', [SupplyController::class, 'isPartAlreadySuppliedInDocument']);
+    Route::post('fix-transaction', [SupplyController::class, 'fixTransactionBySuppplyNumber']);
+    Route::put('revise', [SupplyController::class, 'reviseLine']);
+});
 # Terkait Return Part
 Route::prefix('return')->group(function () {
     Route::get('counted', [ReturnController::class, 'getCountedPart']);

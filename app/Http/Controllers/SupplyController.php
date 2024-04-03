@@ -4,12 +4,23 @@ namespace App\Http\Controllers;
 
 use App\Models\ITH;
 use App\Models\PartSupply;
+use App\Traits\BusinessSelectionTrait;
+use DateInterval;
+use DateTime;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 class SupplyController extends Controller
 {
+    use BusinessSelectionTrait;
+
+    public function __construct()
+    {
+        date_default_timezone_set('Asia/Jakarta');
+    }
+
     function OutstandingUpload($data)
     {
         $whereExtension = [];
@@ -484,7 +495,6 @@ class SupplyController extends Controller
         $RSTobeSaved = [];
         $documents = [];
         $sampleDoc = '';
-        $WHOut = $WHInc = NULL;
         $affectedRows = 0;
         if (count($data) > 0) {
             $data = json_decode(json_encode($data), true);
@@ -507,44 +517,7 @@ class SupplyController extends Controller
             }
 
             $RSSPL = DB::table("SPL_TBL")->select("SPL_BG")->where("SPL_DOC", $sampleDoc)->first();
-            try {
-                switch ($RSSPL->SPL_BG) {
-                    case 'PSI1PPZIEP':
-                        $WHOut = 'ARWH1';
-                        $WHInc = 'PLANT1';
-                        break;
-                    case 'PSI2PPZADI':
-                        $WHOut = 'ARWH2';
-                        $WHInc = 'PLANT2';
-                        break;
-                    case 'PSI2PPZINS':
-                        $WHOut = 'NRWH2';
-                        $WHInc = 'PLANT_NA';
-                        break;
-                    case 'PSI2PPZOMC':
-                        $WHOut = 'NRWH2';
-                        $WHInc = 'PLANT_NA';
-                        break;
-                    case 'PSI2PPZOMI':
-                        $WHOut = 'ARWH2';
-                        $WHInc = 'PLANT2';
-                        break;
-                    case 'PSI2PPZSSI':
-                        $WHOut = 'NRWH2';
-                        $WHInc = 'PLANT_NA';
-                        break;
-                    case 'PSI2PPZSTY':
-                        $WHOut = 'ARWH2';
-                        $WHInc = 'PLANT2';
-                        break;
-                    case 'PSI2PPZTDI':
-                        $WHOut = 'ARWH2';
-                        $WHInc = 'PLANT2';
-                        break;
-                }
-            } catch (Exception $e) {
-                return ['message' => 'Null Business Group for document ' . $sampleDoc];
-            }
+            $locations = $this->getPartLocationRoutes($RSSPL->SPL_BG, 'ISSUE-PART');
 
             foreach ($data as $d) {
                 $RSTobeSaved[] = [
@@ -553,7 +526,7 @@ class SupplyController extends Controller
                     'ITH_FORM' => 'OUT-WH-RM',
                     'ITH_DOC' => $d['DOC'],
                     'ITH_QTY' => $d['BALQT'] * -1,
-                    'ITH_WH' => $WHOut,
+                    'ITH_WH' => $locations['LOC_FROM'],
                     'ITH_REMARK' => 'Fix',
                     'ITH_USRID' => $d['SPLSCN_USRID'],
                     'ITH_LUPDT' => $d['SPLSCN_LUPDT'],
@@ -564,7 +537,7 @@ class SupplyController extends Controller
                     'ITH_FORM' => 'INC-PRD-RM',
                     'ITH_DOC' => $d['DOC'],
                     'ITH_QTY' => $d['BALQT'],
-                    'ITH_WH' => $WHInc,
+                    'ITH_WH' => $locations['LOC_TO'],
                     'ITH_REMARK' => 'Fix',
                     'ITH_USRID' => $d['SPLSCN_USRID'],
                     'ITH_LUPDT' => $d['SPLSCN_LUPDT'],
@@ -581,6 +554,115 @@ class SupplyController extends Controller
         }
         return [
             'data' => $data, '$documents' => $documents, 'affectedRows' => $affectedRows
+        ];
+    }
+
+    function reviseLine(Request $request)
+    {
+        $validator = Validator::make(
+            $request->all(),
+            [
+                'document' => 'required',
+                'userId' => 'required',
+                'rowId' => 'required',
+                'itemId' => 'required',
+                'qty' => 'required|numeric',
+                'transDate' => 'required|date',
+            ],
+            [
+                'document.required' => ':attribute is required',
+                'userId.required' => ':attribute is required',
+                'rowId.required' => ':attribute is required',
+                'itemId.required' => ':attribute is required',
+                'qty.required' => ':attribute is required',
+                'qty.numeric' => ':attribute should be numeric',
+                'transDate.date' => ':attribute should be date',
+                'transDate.required' => ':attribute is required',
+            ]
+        );
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors()->all(), 406);
+        }
+
+        $data = DB::table("SPLSCN_TBL")
+            ->where("SPLSCN_DOC", $request->document)
+            ->where("SPLSCN_ID", $request->rowId)
+            ->selectRaw("RTRIM(SPLSCN_CAT) SPLSCN_CAT,SPLSCN_LUPDT,SPLSCN_QTY,RTRIM(SPLSCN_LINE) SPLSCN_LINE,RTRIM(SPLSCN_FEDR) SPLSCN_FEDR")
+            ->get();
+        $PSNHeader = DB::table('SPL_TBL')
+            ->where("SPL_DOC", $request->document)
+            ->selectRaw("RTRIM(SPL_BG) SPL_BG")
+            ->first();
+        $locations = $this->getPartLocationRoutes($PSNHeader->SPL_BG, 'EDIT-ISSUE-PART');
+        $message = '';
+        if (count($data) === 1) {
+
+            $theDoc = '';
+            $fixedDateTime = NULL;
+            $qtyTx = 0;
+            $qtyBefore = NULL;
+            foreach ($data as $r) {
+                $theDoc = $request->document . "|" . $r->SPLSCN_CAT . "|" . $r->SPLSCN_LINE . "|" . $r->SPLSCN_FEDR;
+                $qtyTx = $r->SPLSCN_QTY - $request->qty;
+                $qtyBefore = $r->SPLSCN_QTY;
+
+                $kittingDateTime = new DateTime($r->SPLSCN_LUPDT);
+                $interval = new DateInterval('PT1S');
+                $kittingDateTime->add($interval);
+
+                $initFixedTime = $kittingDateTime->format('H:i:s');
+                $fixedTime = $initFixedTime < '07:00:00' ? '23:23:23' : $initFixedTime;
+                $fixedDateTime = $request->transDate . " " . $fixedTime;
+            }
+
+            DB::beginTransaction();
+            try {
+                $affectedRows = DB::table("SPLSCN_TBL")
+                    ->where("SPLSCN_DOC", $request->document)
+                    ->where("SPLSCN_ID", $request->rowId)
+                    ->update([
+                        "SPLSCN_QTY" => $request->qty,
+                        'SPLSCN_USRID' => $request->userId,
+                    ]);
+                if ($affectedRows) {
+                    logger("revise PSN " . $request->document  . " item " . $request->itemId . " by " . $request->userId);
+                    logger("from  " . $qtyBefore  . " to " . $request->qty);
+                    $dataTobeSaved[] = [
+                        'ITH_ITMCD' => $request->itemId,
+                        'ITH_DATE' => $request->transDate,
+                        'ITH_FORM' => 'CANCELING-RM-PSN-OUT',
+                        'ITH_DOC' => $theDoc,
+                        'ITH_QTY' => $qtyTx * -1,
+                        'ITH_WH' => $locations['LOC_FROM'],
+                        'ITH_LUPDT' => $fixedDateTime,
+                        'ITH_USRID' => $request->userId
+                    ];
+                    $dataTobeSaved[] = [
+                        'ITH_ITMCD' => $request->itemId,
+                        'ITH_DATE' => $request->transDate,
+                        'ITH_FORM' => 'CANCELING-RM-PSN-IN',
+                        'ITH_DOC' => $theDoc,
+                        'ITH_QTY' => $qtyTx,
+                        'ITH_WH' => $locations['LOC_TO'],
+                        'ITH_LUPDT' => $fixedDateTime,
+                        'ITH_USRID' => $request->userId
+                    ];
+
+                    DB::table('ITH_TBL')->insert($dataTobeSaved);
+                }
+                DB::commit();
+                $message = $affectedRows ? 'OK' : 'could not be updated';
+            } catch (Exception $e) {
+                DB::rollBack();
+            }
+        } else {
+            $message = 'could not update';
+        }
+
+        return [
+            'message' => $message,
+            'data' => $data
         ];
     }
 }
