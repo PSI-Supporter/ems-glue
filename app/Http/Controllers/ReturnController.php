@@ -38,6 +38,7 @@ class ReturnController extends Controller
             ->where("RETSCN_SPLDOC", $request->doc)
             ->where("RETSCN_CAT", $request->category)
             ->where("RETSCN_LINE", $request->line)
+            ->orderBy('created_At', 'desc')
             ->get();
         return ['data' => $RSCountedPart];
     }
