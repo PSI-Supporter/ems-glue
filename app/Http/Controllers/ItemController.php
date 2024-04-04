@@ -440,4 +440,22 @@ class ItemController extends Controller
     {
         return view('master.item_report');
     }
+
+    public function toXRAYItem()
+    {
+        $unregisterdItem = DB::table('wms_v_unregistered_item_in_xray')->get();
+        $dataTobeStored = [];
+        foreach ($unregisterdItem as $r) {
+            $dataTobeStored[] = [
+                'item_code' => $r->MITM_ITMCD,
+                'item_name' => $r->MITM_SPTNO,
+                'rack_code' => $r->ITMLOC_LOC,
+            ];
+        }
+        $affectedRows = 0;
+        foreach (array_chunk($dataTobeStored, (2100 / 3) - 2) as $chunk) {
+            $affectedRows += DB::connection('mysql_xray')->table('items')->insert($chunk);
+        }
+        return ['data' => $unregisterdItem, 'affecteRows' => $affectedRows];
+    }
 }
