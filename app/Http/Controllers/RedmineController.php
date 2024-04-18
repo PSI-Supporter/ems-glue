@@ -298,12 +298,13 @@ class RedmineController extends Controller
                 $sheet->setTitle('FORM REQUEST ICT');
                 $sheet->setCellValue([1, 3], 'No');
                 $sheet->setCellValue([2, 3], 'Request Date');
-                $sheet->setCellValue([3, 3], 'Subject');
-                $sheet->setCellValue([4, 3], 'User');
-                $sheet->setCellValue([5, 3], 'Department');
-                $sheet->setCellValue([6, 3], 'Completion Date');
-                $sheet->setCellValue([7, 3], 'PIC');
-                $sheet->setCellValue([8, 3], 'Status');
+                $sheet->setCellValue([3, 3], 'Target Date');
+                $sheet->setCellValue([4, 3], 'Subject');
+                $sheet->setCellValue([5, 3], 'User');
+                $sheet->setCellValue([6, 3], 'Department');
+                $sheet->setCellValue([7, 3], 'Completion Date');
+                $sheet->setCellValue([8, 3], 'PIC');
+                $sheet->setCellValue([9, 3], 'Status');
                 $sheet->freezePane([1, 4]);
 
                 $y = 4;
@@ -335,30 +336,38 @@ class RedmineController extends Controller
                             $fDateOfCompletion = '';
                         }
 
+                        if ($r->Target_Date ?? '' != '') {
+                            $DateOfTarget = strtotime($r->Target_Date);
+                            $fDateOfTarget = date('d/m/Y', $DateOfTarget);
+                        } else {
+                            $fDateOfTarget = '';
+                        }
+
                         $sheet->setCellValue([1, $y], $r->id);
                         $sheet->setCellValue([2, $y], $fDateOfRequest);
-                        $sheet->setCellValue([3, $y], $r->subject);
-                        $sheet->setCellValue([4, $y], $r->User);
-                        $sheet->setCellValue([5, $y], $r->Department);
-                        $sheet->setCellValue([6, $y], $fDateOfCompletion);
-                        $sheet->setCellValue([7, $y], $r->firstname);
-                        $sheet->setCellValue([8, $y], $r->status_name);
+                        $sheet->setCellValue([3, $y], $fDateOfTarget);
+                        $sheet->setCellValue([4, $y], $r->subject);
+                        $sheet->setCellValue([5, $y], $r->User);
+                        $sheet->setCellValue([6, $y], $r->Department);
+                        $sheet->setCellValue([7, $y], $fDateOfCompletion);
+                        $sheet->setCellValue([8, $y], $r->firstname);
+                        $sheet->setCellValue([9, $y], $r->status_name);
                         $y++;
                     }
                 }
 
-                foreach (range('A', 'H') as $columnID) {
+                foreach (range('A', 'I') as $columnID) {
                     $sheet->getColumnDimension($columnID)
                         ->setAutoSize(true);
                 }
 
-                $sheet->getStyle('A3:H3')->getAlignment()->setHorizontal('center')->setVertical('center');
-                $sheet->getStyle('A3:H3')->getFill()
+                $sheet->getStyle('A3:I3')->getAlignment()->setHorizontal('center')->setVertical('center');
+                $sheet->getStyle('A3:I3')->getFill()
                     ->setFillType(Fill::FILL_SOLID)
                     ->getStartColor()->setARGB('EFEAE2');
 
-                $sheet->getStyle('A3:H' . ($y - 1))->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
-                $sheet->getStyle('A3:H3')->getBorders()->getBottom()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_DOUBLE);
+                $sheet->getStyle('A3:I' . ($y - 1))->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+                $sheet->getStyle('A3:I3')->getBorders()->getBottom()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_DOUBLE);
                 break;
         }
         $fileName = 'fileNameSaja';
