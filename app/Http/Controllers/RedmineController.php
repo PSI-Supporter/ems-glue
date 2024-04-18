@@ -15,6 +15,7 @@ class RedmineController extends Controller
 {
     protected $FORM_REQUEST_ICT = 4;
     protected $FORM_HISTORICAL_PROBLEM = 6;
+    protected $FORM_FOLLOW_UP = 7;
     function getProject()
     {
         $data = DB::connection('sqlsrv_redmine')->table('projects')->get();
@@ -59,15 +60,22 @@ class RedmineController extends Controller
             ->select('issues.*', 'firstname')
             ->where('tracker_id', $where['tracker_id']);
 
-
-        if ($where['tracker_id'] == $this->FORM_HISTORICAL_PROBLEM) {
-            $data = $data->whereIn('custom_values.custom_field_id', [12, 13]); // closed date and date of event
-            $data = $data->where('custom_values.value', '>=', $where['dateFrom']); // date of event
-            $data = $data->where('custom_values.value', '<=', $where['dateTo']); // date of event
-        } else {
-            $data = $data->whereIn('custom_values.custom_field_id', [12, 4]); // closed date and date of event
-            $data = $data->where('custom_values.value', '>=', $where['dateFrom']); // date of event
-            $data = $data->where('custom_values.value', '<=', $where['dateTo']); // date of event
+        switch ($where['tracker_id']) {
+            case $this->FORM_HISTORICAL_PROBLEM:
+                $data = $data->whereIn('custom_values.custom_field_id', [12, 13]); // closed date and date of event
+                $data = $data->where('custom_values.value', '>=', $where['dateFrom']); // date of event
+                $data = $data->where('custom_values.value', '<=', $where['dateTo']); // date of event
+                break;
+            case $this->FORM_REQUEST_ICT:
+                $data = $data->whereIn('custom_values.custom_field_id', [12, 4]); // closed date and date of event
+                $data = $data->where('custom_values.value', '>=', $where['dateFrom']); // date of event
+                $data = $data->where('custom_values.value', '<=', $where['dateTo']); // date of event
+                break;
+            case $this->FORM_FOLLOW_UP:
+                $data = $data->whereIn('custom_values.custom_field_id', [12, 4]); // closed date and date of event
+                $data = $data->where('custom_values.value', '>=', $where['dateFrom']); // date of event
+                $data = $data->where('custom_values.value', '<=', $where['dateTo']); // date of event
+                break;
         }
         logger('AFTER ADD WHERE CLAUSE ' . $data->toSql());
         logger('bindingnya ' . json_encode($data->getBindings()));
@@ -83,7 +91,8 @@ class RedmineController extends Controller
         // to header
         $data = DB::connection('sqlsrv_redmine')->table('issues')
             ->leftJoin('users', 'assigned_to_id', '=', 'users.id')
-            ->select('issues.*', 'firstname')
+            ->leftJoin('issue_statuses', 'status_id', '=', 'issue_statuses.id')
+            ->select('issues.*', 'firstname', DB::raw("issue_statuses.name as status_name"))
             ->where('tracker_id', $where['tracker_id'])
             ->whereIn('issues.id', $listOfUniqueIssue)
             ->orderBy('issues.id')
@@ -120,167 +129,237 @@ class RedmineController extends Controller
         $spreadSheet = new Spreadsheet();
         $sheet = $spreadSheet->getActiveSheet();
 
-        if ($request->tracker_id == $this->FORM_REQUEST_ICT) {
-            $sheet->setTitle('FORM REQUEST ICT');
-            $sheet->setCellValue([1, 3], 'No');
-            $sheet->setCellValue([2, 3], 'Request Date');
-            $sheet->setCellValue([3, 3], 'Application Type');
-            $sheet->setCellValue([4, 3], 'Subject');
-            $sheet->setCellValue([5, 3], 'Description');
-            $sheet->setCellValue([6, 3], 'Reason');
-            $sheet->setCellValue([7, 3], 'User');
-            $sheet->setCellValue([8, 3], 'Department');
-            $sheet->setCellValue([9, 3], 'ICT Recommendation');
-            $sheet->setCellValue([10, 3], 'Target Date');
-            $sheet->setCellValue([11, 3], 'PIC');
-            $sheet->setCellValue([12, 3], 'Status');
-            $sheet->freezePane([1, 4]);
+        switch ($request->tracker_id) {
+            case $this->FORM_REQUEST_ICT:
 
-            $y = 4;
-            foreach ($data['data'] as $r) {
-                $skip = false;
-                if ($where['statusId'] != '-') {
-                    if ($where['statusId'] == 0) { // expected : show closed 
-                        if ($r->Closed_Date == '') { // when data still open
-                            $skip = true;
-                        } else { // when data already closed
-                            $skip = false;
-                        }
-                    } else { // expected : show open 
-                        if ($r->Closed_Date == '') { // when data still open
-                            $skip = false;
-                        } else { // when data already closed
-                            $skip = true;
-                        }
-                    }
-                }
-                if (!$skip) {
-                    $DateOfRequest = strtotime($r->Date_of_Request);
-                    $fDateOfRequest = date('d/m/Y', $DateOfRequest);
+                $sheet->setTitle('FORM REQUEST ICT');
+                $sheet->setCellValue([1, 3], 'No');
+                $sheet->setCellValue([2, 3], 'Request Date');
+                $sheet->setCellValue([3, 3], 'Application Type');
+                $sheet->setCellValue([4, 3], 'Subject');
+                $sheet->setCellValue([5, 3], 'Description');
+                $sheet->setCellValue([6, 3], 'Reason');
+                $sheet->setCellValue([7, 3], 'User');
+                $sheet->setCellValue([8, 3], 'Department');
+                $sheet->setCellValue([9, 3], 'ICT Recommendation');
+                $sheet->setCellValue([10, 3], 'Target Date');
+                $sheet->setCellValue([11, 3], 'PIC');
+                $sheet->setCellValue([12, 3], 'Status');
+                $sheet->freezePane([1, 4]);
 
-                    if ($r->Target_Date) {
-                        $DateOfTarget = strtotime($r->Target_Date);
-                        $fDateOfTarget = date('d/m/Y', $DateOfTarget);
-                    } else {
-                        $fDateOfTarget = NULL;
-                    }
-
-                    if ($r->Closed_Date) {
-                        $DateOfClosing = strtotime($r->Closed_Date);
-                        $fDateOfClosing = date('d/m/Y', $DateOfClosing);
-                    } else {
-                        $fDateOfClosing = '';
-                    }
-
-                    $sheet->setCellValue([1, $y], $r->id);
-                    $sheet->setCellValue([2, $y], $fDateOfRequest);
-                    $sheet->setCellValue([3, $y], $r->Application_Type);
-                    $sheet->setCellValue([4, $y], $r->subject);
-                    $sheet->setCellValue([5, $y], $r->description);
-                    $sheet->setCellValue([6, $y], $r->Reason ?? '-');
-                    $sheet->setCellValue([7, $y], $r->User);
-                    $sheet->setCellValue([8, $y], $r->Department);
-                    $sheet->setCellValue([9, $y], $r->ICT_Recommendation);
-                    $sheet->setCellValue([10, $y], $fDateOfTarget);
-                    $sheet->setCellValue([11, $y], $r->firstname);
-                    $sheet->setCellValue([12, $y], $fDateOfClosing == '' ? 'Open' : 'Closed at ' . $fDateOfClosing);
-                    $y++;
-                }
-            }
-
-            foreach (range('A', 'L') as $columnID) {
-                $sheet->getColumnDimension($columnID)
-                    ->setAutoSize(true);
-            }
-
-            $sheet->getStyle('A3:L3')->getAlignment()->setHorizontal('center')->setVertical('center');
-            $sheet->getStyle('A3:L3')->getFill()
-                ->setFillType(Fill::FILL_SOLID)
-                ->getStartColor()->setARGB('EFEAE2');
-
-            $sheet->getStyle('A3:L' . ($y - 1))->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
-            $sheet->getStyle('A3:L3')->getBorders()->getBottom()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_DOUBLE);
-        } else {
-            $sheet->setTitle('LIST');
-            $sheet->setCellValue([1, 1], 'PT. SMT INDONESIA');
-            $sheet->getStyle([4, 1])->getFont()->setBold(true);
-            $sheet->setCellValue([4, 1], 'ICT  HISTORICAL  PROBLEM  RECORD');
-            $sheet->setCellValue([12, 1], 'FPP-09-05, Rev.01');
-            $sheet->mergeCells('D1:H1');
-
-            $sheet->setCellValue([1, 3], 'Date');
-            $sheet->setCellValue([2, 3], 'Unit Name');
-            $sheet->setCellValue([3, 3], 'Device Type');
-            $sheet->setCellValue([4, 3], 'Unit Serial Number');
-            $sheet->setCellValue([5, 3], 'User');
-            $sheet->setCellValue([6, 3], 'Department');
-            $sheet->setCellValue([7, 3], 'Problem');
-            $sheet->setCellValue([8, 3], 'Root Cause');
-            $sheet->setCellValue([9, 3], 'Corrective Action');
-            $sheet->setCellValue([10, 3], 'Preventive Action');
-            $sheet->setCellValue([11, 3], 'PIC');
-            $sheet->setCellValue([12, 3], 'Status');
-            $sheet->freezePane([1, 4]);
-
-            $y = 4;
-            foreach ($data['data'] as $r) {
-                $skip = false;
-                if ($where['statusId'] != '-') {
-                    if ($where['statusId'] == 0) { // expected : show closed 
-                        if ($r->Closed_Date == '') { // when data still open
-                            $skip = true;
-                        } else { // when data already closed
-                            $skip = false;
-                        }
-                    } else { // expected : show open 
-                        if ($r->Closed_Date == '') { // when data still open
-                            $skip = false;
-                        } else { // when data already closed
-                            $skip = true;
+                $y = 4;
+                foreach ($data['data'] as $r) {
+                    $skip = false;
+                    if ($where['statusId'] != '-') {
+                        if ($where['statusId'] == 0) { // expected : show closed 
+                            if ($r->Closed_Date == '') { // when data still open
+                                $skip = true;
+                            } else { // when data already closed
+                                $skip = false;
+                            }
+                        } else { // expected : show open 
+                            if ($r->Closed_Date == '') { // when data still open
+                                $skip = false;
+                            } else { // when data already closed
+                                $skip = true;
+                            }
                         }
                     }
-                }
-                if (!$skip) {
-                    $DateOfEvent = strtotime($r->Date_of_Event);
-                    $fDateOfEvent = date('d/m/Y', $DateOfEvent);
+                    if (!$skip) {
+                        $DateOfRequest = strtotime($r->Date_of_Request);
+                        $fDateOfRequest = date('d/m/Y', $DateOfRequest);
 
-                    if ($r->Closed_Date) {
-                        $DateOfClosing = strtotime($r->Closed_Date);
-                        $fDateOfClosing = date('d/m/Y', $DateOfClosing);
-                    } else {
-                        $fDateOfClosing = '';
+                        if ($r->Target_Date) {
+                            $DateOfTarget = strtotime($r->Target_Date);
+                            $fDateOfTarget = date('d/m/Y', $DateOfTarget);
+                        } else {
+                            $fDateOfTarget = NULL;
+                        }
+
+                        if ($r->Closed_Date) {
+                            $DateOfClosing = strtotime($r->Closed_Date);
+                            $fDateOfClosing = date('d/m/Y', $DateOfClosing);
+                        } else {
+                            $fDateOfClosing = '';
+                        }
+
+                        $sheet->setCellValue([1, $y], $r->id);
+                        $sheet->setCellValue([2, $y], $fDateOfRequest);
+                        $sheet->setCellValue([3, $y], $r->Application_Type);
+                        $sheet->setCellValue([4, $y], $r->subject);
+                        $sheet->setCellValue([5, $y], $r->description);
+                        $sheet->setCellValue([6, $y], $r->Reason ?? '-');
+                        $sheet->setCellValue([7, $y], $r->User);
+                        $sheet->setCellValue([8, $y], $r->Department);
+                        $sheet->setCellValue([9, $y], $r->ICT_Recommendation);
+                        $sheet->setCellValue([10, $y], $fDateOfTarget);
+                        $sheet->setCellValue([11, $y], $r->firstname);
+                        $sheet->setCellValue([12, $y], $fDateOfClosing == '' ? 'Open' : 'Closed at ' . $fDateOfClosing);
+                        $y++;
                     }
-                    $sheet->setCellValue([1, $y], $fDateOfEvent);
-                    $sheet->setCellValue([2, $y], $r->Unit_Name);
-                    $sheet->setCellValue([3, $y], $r->Device_Type);
-                    $sheet->setCellValue([4, $y], $r->Unit_Serial_Number);
-                    $sheet->setCellValue([5, $y], $r->User);
-                    $sheet->setCellValue([6, $y], $r->Department);
-                    $sheet->setCellValue([7, $y], $r->Problem);
-                    $sheet->setCellValue([8, $y], $r->Root_Cause);
-                    $sheet->setCellValue([9, $y], $r->Corrective_Action);
-                    $sheet->setCellValue([10, $y], $r->Preventive_Action ?? '');
-                    $sheet->setCellValue([11, $y], $r->firstname);
-                    $sheet->setCellValue([12, $y], $fDateOfClosing == '' ? 'Open' : 'Closed at ' . $fDateOfClosing);
-                    $y++;
                 }
-            }
 
-            foreach (range('A', 'L') as $columnID) {
-                $sheet->getColumnDimension($columnID)
-                    ->setAutoSize(true);
-            }
+                foreach (range('A', 'L') as $columnID) {
+                    $sheet->getColumnDimension($columnID)
+                        ->setAutoSize(true);
+                }
 
-            $sheet->getStyle('D1:D1')->getAlignment()->setHorizontal('center');
-            $sheet->getStyle('A3:L3')->getAlignment()->setHorizontal('center')->setVertical('center');
-            $sheet->getStyle('A3:L3')->getFill()
-                ->setFillType(Fill::FILL_SOLID)
-                ->getStartColor()->setARGB('C5D9F1');
+                $sheet->getStyle('A3:L3')->getAlignment()->setHorizontal('center')->setVertical('center');
+                $sheet->getStyle('A3:L3')->getFill()
+                    ->setFillType(Fill::FILL_SOLID)
+                    ->getStartColor()->setARGB('EFEAE2');
 
-            $sheet->getStyle('A3:L' . ($y - 1))->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
-            $sheet->getStyle('A3:L3')->getBorders()->getBottom()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_DOUBLE);
+                $sheet->getStyle('A3:L' . ($y - 1))->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+                $sheet->getStyle('A3:L3')->getBorders()->getBottom()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_DOUBLE);
+                break;
+            case $this->FORM_HISTORICAL_PROBLEM:
+                $sheet->setTitle('LIST');
+                $sheet->setCellValue([1, 1], 'PT. SMT INDONESIA');
+                $sheet->getStyle([4, 1])->getFont()->setBold(true);
+                $sheet->setCellValue([4, 1], 'ICT  HISTORICAL  PROBLEM  RECORD');
+                $sheet->setCellValue([12, 1], 'FPP-09-05, Rev.01');
+                $sheet->mergeCells('D1:H1');
 
-            $sheet->getRowDimension(3)->setRowHeight(25);
+                $sheet->setCellValue([1, 3], 'Date');
+                $sheet->setCellValue([2, 3], 'Unit Name');
+                $sheet->setCellValue([3, 3], 'Device Type');
+                $sheet->setCellValue([4, 3], 'Unit Serial Number');
+                $sheet->setCellValue([5, 3], 'User');
+                $sheet->setCellValue([6, 3], 'Department');
+                $sheet->setCellValue([7, 3], 'Problem');
+                $sheet->setCellValue([8, 3], 'Root Cause');
+                $sheet->setCellValue([9, 3], 'Corrective Action');
+                $sheet->setCellValue([10, 3], 'Preventive Action');
+                $sheet->setCellValue([11, 3], 'PIC');
+                $sheet->setCellValue([12, 3], 'Status');
+                $sheet->freezePane([1, 4]);
+
+                $y = 4;
+                foreach ($data['data'] as $r) {
+                    $skip = false;
+                    if ($where['statusId'] != '-') {
+                        if ($where['statusId'] == 0) { // expected : show closed 
+                            if ($r->Closed_Date == '') { // when data still open
+                                $skip = true;
+                            } else { // when data already closed
+                                $skip = false;
+                            }
+                        } else { // expected : show open 
+                            if ($r->Closed_Date == '') { // when data still open
+                                $skip = false;
+                            } else { // when data already closed
+                                $skip = true;
+                            }
+                        }
+                    }
+                    if (!$skip) {
+                        $DateOfEvent = strtotime($r->Date_of_Event);
+                        $fDateOfEvent = date('d/m/Y', $DateOfEvent);
+
+                        if ($r->Closed_Date) {
+                            $DateOfClosing = strtotime($r->Closed_Date);
+                            $fDateOfClosing = date('d/m/Y', $DateOfClosing);
+                        } else {
+                            $fDateOfClosing = '';
+                        }
+                        $sheet->setCellValue([1, $y], $fDateOfEvent);
+                        $sheet->setCellValue([2, $y], $r->Unit_Name);
+                        $sheet->setCellValue([3, $y], $r->Device_Type);
+                        $sheet->setCellValue([4, $y], $r->Unit_Serial_Number);
+                        $sheet->setCellValue([5, $y], $r->User);
+                        $sheet->setCellValue([6, $y], $r->Department);
+                        $sheet->setCellValue([7, $y], $r->Problem);
+                        $sheet->setCellValue([8, $y], $r->Root_Cause);
+                        $sheet->setCellValue([9, $y], $r->Corrective_Action);
+                        $sheet->setCellValue([10, $y], $r->Preventive_Action ?? '');
+                        $sheet->setCellValue([11, $y], $r->firstname);
+                        $sheet->setCellValue([12, $y], $fDateOfClosing == '' ? 'Open' : 'Closed at ' . $fDateOfClosing);
+                        $y++;
+                    }
+                }
+
+                foreach (range('A', 'L') as $columnID) {
+                    $sheet->getColumnDimension($columnID)
+                        ->setAutoSize(true);
+                }
+
+                $sheet->getStyle('D1:D1')->getAlignment()->setHorizontal('center');
+                $sheet->getStyle('A3:L3')->getAlignment()->setHorizontal('center')->setVertical('center');
+                $sheet->getStyle('A3:L3')->getFill()
+                    ->setFillType(Fill::FILL_SOLID)
+                    ->getStartColor()->setARGB('C5D9F1');
+
+                $sheet->getStyle('A3:L' . ($y - 1))->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+                $sheet->getStyle('A3:L3')->getBorders()->getBottom()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_DOUBLE);
+
+                $sheet->getRowDimension(3)->setRowHeight(25);
+                break;
+            case $this->FORM_FOLLOW_UP:
+                $sheet->setTitle('FORM REQUEST ICT');
+                $sheet->setCellValue([1, 3], 'No');
+                $sheet->setCellValue([2, 3], 'Request Date');
+                $sheet->setCellValue([3, 3], 'Subject');
+                $sheet->setCellValue([4, 3], 'User');
+                $sheet->setCellValue([5, 3], 'Department');
+                $sheet->setCellValue([6, 3], 'Completion Date');
+                $sheet->setCellValue([7, 3], 'PIC');
+                $sheet->setCellValue([8, 3], 'Status');
+                $sheet->freezePane([1, 4]);
+
+                $y = 4;
+                foreach ($data['data'] as $r) {
+                    $skip = false;
+                    if ($where['statusId'] != '-') {
+                        if ($where['statusId'] == 0) { // expected : show closed 
+                            if ($r->Closed_Date == '') { // when data still open
+                                $skip = true;
+                            } else { // when data already closed
+                                $skip = false;
+                            }
+                        } else { // expected : show open 
+                            if ($r->Closed_Date == '') { // when data still open
+                                $skip = false;
+                            } else { // when data already closed
+                                $skip = true;
+                            }
+                        }
+                    }
+                    if (!$skip) {
+                        $DateOfRequest = strtotime($r->Date_of_Request);
+                        $fDateOfRequest = date('d/m/Y', $DateOfRequest);
+
+                        if ($r->Completion_Date) {
+                            $DateOfCompletion = strtotime($r->Completion_Date);
+                            $fDateOfCompletion = date('d/m/Y', $DateOfCompletion);
+                        } else {
+                            $fDateOfCompletion = '';
+                        }
+
+                        $sheet->setCellValue([1, $y], $r->id);
+                        $sheet->setCellValue([2, $y], $fDateOfRequest);
+                        $sheet->setCellValue([3, $y], $r->subject);
+                        $sheet->setCellValue([4, $y], $r->User);
+                        $sheet->setCellValue([5, $y], $r->Department);
+                        $sheet->setCellValue([6, $y], $fDateOfCompletion);
+                        $sheet->setCellValue([7, $y], $r->firstname);
+                        $sheet->setCellValue([8, $y], $r->status_name);
+                        $y++;
+                    }
+                }
+
+                foreach (range('A', 'H') as $columnID) {
+                    $sheet->getColumnDimension($columnID)
+                        ->setAutoSize(true);
+                }
+
+                $sheet->getStyle('A3:H3')->getAlignment()->setHorizontal('center')->setVertical('center');
+                $sheet->getStyle('A3:H3')->getFill()
+                    ->setFillType(Fill::FILL_SOLID)
+                    ->getStartColor()->setARGB('EFEAE2');
+
+                $sheet->getStyle('A3:H' . ($y - 1))->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+                $sheet->getStyle('A3:H3')->getBorders()->getBottom()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_DOUBLE);
+                break;
         }
         $fileName = 'fileNameSaja';
 
