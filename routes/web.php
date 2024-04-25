@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\ItemController;
+use App\Http\Controllers\ReceiveController;
 use App\Http\Controllers\RedmineController;
 use Illuminate\Support\Facades\Route;
 
@@ -47,3 +48,7 @@ Route::get('/Inv', [InventoryController::class, 'loadInventory']);
 Route::get('/form-inv', [InventoryController::class, 'formInventory']);
 Route::get('/export/inventory-fg', [InventoryController::class, 'exportInv']);
 Route::get('/export/testExport', [InventoryController::class, 'Export']);
+
+Route::prefix('receive')->group(function () {
+    Route::get('synchronize', [ReceiveController::class, 'synchronize_from_MEGAEMS']);
+});
