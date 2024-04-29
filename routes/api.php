@@ -123,6 +123,7 @@ Route::prefix('x-transfer')->group(function () {
     Route::post('document', [TransferLocationController::class, 'saveXdocument']);
     Route::get('document/{id}', [TransferLocationController::class, 'xGetDocumentDetail']);
     Route::get('auto-conform', [TransferLocationController::class, 'autoConformXdocument']);
+    Route::get('manual-conform', [TransferLocationController::class, 'manualConformXdocument']);
 });
 
 Route::prefix('delivery')->group(function () {

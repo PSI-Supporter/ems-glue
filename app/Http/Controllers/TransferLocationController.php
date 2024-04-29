@@ -500,4 +500,82 @@ class TransferLocationController extends Controller
         logger($outputMessage);
         return ['message' => $outputMessage];
     }
+
+    function manualConformXdocument(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'document_number' => 'required',
+        ], [
+            'document_number.required' => 'Document Number is required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors()->all(), 406);
+        }
+
+        // get list detail of the approved document
+        $XSigneddocumentDetail = DB::table('XITRN_TBL')
+            ->where('ITRN_DOCNO', trim($request->document_number))
+            ->select(
+                DB::raw("RTRIM(ITRN_LOCCD) ITRN_LOCCD"),
+                DB::raw("RTRIM(ITRN_ITMCD) ITRN_ITMCD"),
+                DB::raw("RTRIM(ITRN_USRID) ITRN_USRID"),
+                DB::raw("CONVERT(DATE,ITRN_ISUDT) ITRN_ISUDT"),
+                "IOQT",
+                "ITRN_LINE"
+            )
+            ->get();
+
+        // make a list tobe synchronized
+        $tobeSaved = [];
+        foreach ($XSigneddocumentDetail as $_r) {
+            $tobeSaved[] = [
+                "ITH_ITMCD" => $_r->ITRN_ITMCD,
+                "ITH_DATE" => $_r->ITRN_ISUDT,
+                "ITH_FORM" => $_r->IOQT > 0 ? 'TRFIN-RM' : 'TRFOUT-RM',
+                "ITH_DOC" => trim($request->document_number),
+                "ITH_QTY" => $_r->IOQT,
+                "ITH_WH" => $_r->ITRN_LOCCD,
+                "ITH_REMARK" => $_r->ITRN_LINE,
+                "ITH_LUPDT" => $_r->ITRN_ISUDT . ' 07:07:07',
+                "ITH_USRID" => $_r->ITRN_USRID,
+            ];
+        }
+
+        if (!empty($tobeSaved)) {
+            $synchronizedRows = DB::table("ITH_TBL")->where("ITH_DOC", trim($request->document_number))->count();
+
+            // check wheter the approved document already synchronized
+            if ($synchronizedRows === 0) {
+                try {
+                    DB::table("ITH_TBL")->insert($tobeSaved);
+                    logger('SYCXDOC Manually success message :' . trim($request->document_number));
+                    return [
+                        'message' => 'SYCXDOC Manually success message',
+                        'data' => [
+                            'document_number' => trim($request->document_number),
+                            'execution_datetime' => date('Y-m-d H:i:s')
+                        ]
+                    ];
+                } catch (Exception $e) {
+                    logger('SYCXDOC Manually exception message : ' . $e->getMessage());
+                    return [
+                        'message' => $e->getMessage(),
+                        'data' => [
+                            'document_number' => trim($request->document_number),
+                            'execution_datetime' => date('Y-m-d H:i:s')
+                        ]
+                    ];
+                }
+            }
+        } else {
+            return [
+                'message' => 'Not Found',
+                'data' => [
+                    'document_number' => trim($request->document_number),
+                    'execution_datetime' => date('Y-m-d H:i:s')
+                ]
+            ];
+        }
+    }
 }
