@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ITH;
 use App\Models\PartSupply;
+use App\Models\SPLSCN_LOG;
 use App\Traits\BusinessSelectionTrait;
 use DateInterval;
 use DateTime;
@@ -24,11 +25,13 @@ class SupplyController extends Controller
     function OutstandingUpload($data)
     {
         $whereExtension = [];
+        $whereExtensionMEGA = [];
         if (isset($data['category'])) {
             $whereExtension[] = ['SPLSCN_CAT', '=', $data['category']];
         }
         if (isset($data['line'])) {
             $whereExtension[] = ['SPLSCN_LINE', '=', $data['line']];
+            $whereExtensionMEGA[] = ['PPSN2_LINENO', '=', $data['line']];
         }
         $RSPartSupply = PartSupply::select(DB::raw("CONCAT('1',convert(varchar(30), SPLSCN_LUPDT,12),RIGHT(SPLSCN_ID,4) ) AS SPLSCN_ID"), DB::raw("RTRIM(SPLSCN_FEDR) SPLSCN_FEDR"), 'SPLSCN_ORDERNO', 'SPLSCN_LINE', DB::raw('UPPER(RTRIM(SPLSCN_ITMCD)) SPLSCN_ITMCD'), 'SPLSCN_USRID', 'SPLSCN_QTY', DB::raw('(convert(varchar(30), SPLSCN_LUPDT,21)) SPLSCN_LUPDT'), 'SPLSCN_LOTNO')
             ->where("SPLSCN_DOC", $data['doc'])
@@ -37,6 +40,7 @@ class SupplyController extends Controller
             ->orderByRaw('SPLSCN_FEDR ASC,SPLSCN_LUPDT ASC')
             ->get();
         $RSPartSupply = json_decode(json_encode($RSPartSupply), true);
+
         $RSBase = DB::table('XPPSN2')->select(
             'PPSN2_FR',
             DB::raw('RTRIM(PPSN2_MC) PPSN2_MC, RTRIM(PPSN2_MCZ) PPSN2_MCZ, UPPER(RTRIM(PPSN2_SUBPN)) PPSN2_SUBPN, 0 TTLSCN,RTRIM(PPSN2_PROCD) PPSN2_PROCD'),
@@ -59,6 +63,7 @@ class SupplyController extends Controller
             'PPSN2_PACKSZ8',
             'PPSN2_PICKQT8',
         )->where("PPSN2_PSNNO", $data['doc'])
+            ->where($whereExtensionMEGA)
             ->get()
             ->toArray();
         $RSBase = json_decode(json_encode($RSBase), true);
@@ -626,28 +631,50 @@ class SupplyController extends Controller
                         'SPLSCN_USRID' => $request->userId,
                     ]);
                 if ($affectedRows) {
-                    logger("revise PSN " . $request->document  . " item " . $request->itemId . " by " . $request->userId);
-                    logger("from  " . $qtyBefore  . " to " . $request->qty);
-                    $dataTobeSaved[] = [
+                    $isOriginal = SPLSCN_LOG::where('SPLSCN_ID', $request->rowId)->count() ? 1 : 0;
+                    SPLSCN_LOG::create([
+                        'SPLSCN_ID' => $request->rowId,
+                        'SPLSCN_DATATYPE' => $isOriginal,
+                        'SPLSCN_OLDQTY' => $qtyBefore,
+                        'SPLSCN_NEWQTY' => $request->qty,
+                        'created_by' => $request->userId,
+                    ]);
+                    $dataTobeSaved1 = [
                         'ITH_ITMCD' => $request->itemId,
                         'ITH_DATE' => $request->transDate,
-                        'ITH_FORM' => 'CANCELING-RM-PSN-OUT',
                         'ITH_DOC' => $theDoc,
-                        'ITH_QTY' => $qtyTx * -1,
-                        'ITH_WH' => $locations['LOC_FROM'],
                         'ITH_LUPDT' => $fixedDateTime,
                         'ITH_USRID' => $request->userId
                     ];
-                    $dataTobeSaved[] = [
+
+                    $dataTobeSaved2 = [
                         'ITH_ITMCD' => $request->itemId,
                         'ITH_DATE' => $request->transDate,
-                        'ITH_FORM' => 'CANCELING-RM-PSN-IN',
                         'ITH_DOC' => $theDoc,
-                        'ITH_QTY' => $qtyTx,
-                        'ITH_WH' => $locations['LOC_TO'],
                         'ITH_LUPDT' => $fixedDateTime,
                         'ITH_USRID' => $request->userId
                     ];
+
+                    if ($qtyTx > 0) {
+                        $dataTobeSaved1['ITH_FORM'] = 'CANCELING-RM-PSN-OUT';
+                        $dataTobeSaved1['ITH_QTY'] = $qtyTx * -1;
+                        $dataTobeSaved1['ITH_WH'] = $locations['LOC_FROM'];
+
+                        $dataTobeSaved2['ITH_FORM'] = 'CANCELING-RM-PSN-IN';
+                        $dataTobeSaved2['ITH_QTY'] = $qtyTx;
+                        $dataTobeSaved2['ITH_WH'] = $locations['LOC_TO'];
+                    } else {
+                        // Reverse
+                        $dataTobeSaved1['ITH_FORM'] = 'OUT-WH-RM';
+                        $dataTobeSaved1['ITH_QTY'] = $qtyTx;
+                        $dataTobeSaved1['ITH_WH'] = $locations['LOC_TO'];
+
+                        $dataTobeSaved2['ITH_FORM'] = 'INC-PRD-RM';
+                        $dataTobeSaved2['ITH_QTY'] = $qtyTx * -1;
+                        $dataTobeSaved2['ITH_WH'] = $locations['LOC_FROM'];
+                    }
+
+                    $dataTobeSaved = array_merge($dataTobeSaved1, $dataTobeSaved2);
 
                     DB::table('ITH_TBL')->insert($dataTobeSaved);
                 }
