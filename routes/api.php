@@ -92,6 +92,7 @@ Route::prefix('report')->group(function () {
     Route::get("return-without-psn", [ReturnController::class, 'reportReturnWithoutPSN']);
     Route::post("stock", [ITHController::class, 'getStockMultipleItem']);
     Route::post("stock-wms", [ITHController::class, 'getStockMultipleItemWMS']);
+    Route::get("fg-ng-customer", [ReceiveController::class, 'getReportFGNGCustomer']);
 });
 
 # Terkait Business Group
@@ -135,4 +136,8 @@ Route::prefix('redmine-wrapper')->group(function () {
     Route::get('', [RedmineController::class, 'wrapGetIssue']);
     Route::get('coba-input', [RedmineController::class, 'wrapPostIssue']);
     Route::get('coba-update', [RedmineController::class, 'wrapUpdateIssue']);
+});
+
+Route::prefix('receive')->group(function () {
+    Route::get('synchronize', [ReceiveController::class, 'synchronize_from_MEGAEMS']);
 });
