@@ -140,4 +140,5 @@ Route::prefix('redmine-wrapper')->group(function () {
 
 Route::prefix('receive')->group(function () {
     Route::get('synchronize', [ReceiveController::class, 'synchronize_from_MEGAEMS']);
+    Route::get('download-template', [ReceiveController::class, 'downloadTemplateUpload']);
 });

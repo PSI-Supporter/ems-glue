@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class ReceiveController extends Controller
 {
@@ -253,5 +256,46 @@ class ReceiveController extends Controller
             'datas' => $rs,
             'dataDO' => $rsResume, 'dataAPI' => $rsAPI
         ];
+    }
+
+    function getReportFGNGCustomer(Request $request)
+    {
+        $data = DB::table("RCV_TBL")->leftJoin("MITM_TBL", "RCV_ITMCD", '=', "MITM_ITMCD")
+            ->whereYear("RCV_BCDATE",  date('Y'))
+            ->groupBy("MITM_ITMCD", "MITM_ITMD1", "RCV_INVNO", "RCV_BCDATE")
+            ->select(
+                DB::raw("RTRIM(MITM_ITMCD) MITM_ITMCD"),
+                DB::raw("RTRIM(MITM_ITMD1) MITM_ITMD1"),
+                DB::raw("RTRIM(RCV_INVNO) RCV_INVNO"),
+                "RCV_BCDATE",
+                DB::raw("SUM(RCV_QTY) RQT")
+            )
+            ->orderBy("RCV_BCDATE")->get();
+        return ['data' => $data];
+    }
+
+    function downloadTemplateUpload()
+    {
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $sheet->setCellValue([1, 1], 'DO');
+        $sheet->setCellValue([2, 1], 'ITEMCODE');
+        $sheet->setCellValue([3, 1], 'HSCODE');
+        $sheet->setCellValue([4, 1], 'BM');
+        $sheet->setCellValue([5, 1], 'PPN');
+        $sheet->setCellValue([6, 1], 'PPH');
+        $sheet->setCellValue([7, 1], 'NOMOR_URUT');
+        $sheet->setCellValue([8, 1], 'NET_WEIGHT_PER_ITEM');
+        foreach (range('A', 'H') as $r) {
+            $sheet->getColumnDimension($r)->setAutoSize(true);
+        }
+        $sheet->freezePane('A2');
+        $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
+        $filename = "TMPL_RECEIVING";
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
+        header('Cache-Control: max-age=0');
+        $writer->save('php://output');
     }
 }
