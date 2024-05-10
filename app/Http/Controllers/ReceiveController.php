@@ -281,13 +281,14 @@ class ReceiveController extends Controller
 
         $sheet->setCellValue([1, 1], 'DO');
         $sheet->setCellValue([2, 1], 'ITEMCODE');
-        $sheet->setCellValue([3, 1], 'HSCODE');
-        $sheet->setCellValue([4, 1], 'BM');
-        $sheet->setCellValue([5, 1], 'PPN');
-        $sheet->setCellValue([6, 1], 'PPH');
-        $sheet->setCellValue([7, 1], 'NOMOR_URUT');
-        $sheet->setCellValue([8, 1], 'NET_WEIGHT_PER_ITEM');
-        foreach (range('A', 'H') as $r) {
+        $sheet->setCellValue([3, 1], 'QTY');
+        $sheet->setCellValue([4, 1], 'HSCODE');
+        $sheet->setCellValue([5, 1], 'BM');
+        $sheet->setCellValue([6, 1], 'PPN');
+        $sheet->setCellValue([7, 1], 'PPH');
+        $sheet->setCellValue([8, 1], 'NOMOR_URUT');
+        $sheet->setCellValue([9, 1], 'NET_WEIGHT_PER_ITEM');
+        foreach (range('A', 'I') as $r) {
             $sheet->getColumnDimension($r)->setAutoSize(true);
         }
         $sheet->freezePane('A2');
