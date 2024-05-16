@@ -74,7 +74,7 @@ class DeliveryController extends Controller
             }
             if (!empty($tobeSaved)) {
                 DB::table("DLVSCR_BB_TBL")->where('DLVSCR_BB_TXID', $request->document)->delete();
-                foreach (array_chunk($tobeSaved, (1500 / 13) - 2) as $chunk) {
+                foreach (array_chunk($tobeSaved, (1500 / 16) - 2) as $chunk) {
                     DB::table("DLVSCR_BB_TBL")->insert($chunk);
                 }
                 $message = "Saved successfully";
