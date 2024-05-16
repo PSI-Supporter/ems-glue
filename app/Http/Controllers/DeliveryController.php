@@ -68,13 +68,15 @@ class DeliveryController extends Controller
                     'DLVSCR_BB_REMARK' => $request->Remark[$i],
                     'DLVSCR_BB_MATA_UANG' => $request->MataUang[$i],
                     'DLVSCR_BB_ZPRPRC' => $request->Harga[$i],
-                    'DLVSCR_BB_BM' => $request->BM[$i],                  
+                    'DLVSCR_BB_BM' => $request->BM[$i],
                     'DLVSCR_BB_LINE' => ($i + 1),
                 ];
             }
             if (!empty($tobeSaved)) {
                 DB::table("DLVSCR_BB_TBL")->where('DLVSCR_BB_TXID', $request->document)->delete();
-                DB::table("DLVSCR_BB_TBL")->insert($tobeSaved);
+                foreach (array_chunk($tobeSaved, (1500 / 13) - 2) as $chunk) {
+                    DB::table("DLVSCR_BB_TBL")->insert($chunk);
+                }
                 $message = "Saved successfully";
             }
         } else {
