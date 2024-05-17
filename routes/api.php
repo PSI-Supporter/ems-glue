@@ -13,6 +13,7 @@ use App\Http\Controllers\ReturnController;
 use App\Http\Controllers\SimulationController;
 use App\Http\Controllers\SupplyController;
 use App\Http\Controllers\TransferLocationController;
+use App\Http\Controllers\WOController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -141,4 +142,13 @@ Route::prefix('redmine-wrapper')->group(function () {
 Route::prefix('receive')->group(function () {
     Route::get('synchronize', [ReceiveController::class, 'synchronize_from_MEGAEMS']);
     Route::get('download-template', [ReceiveController::class, 'downloadTemplateUpload']);
+    Route::get('upload-massively', [ReceiveController::class, 'uploadMassive']);
+});
+
+Route::prefix('work-order')->group(function () {
+    Route::get('outstanding', [WOController::class, 'getOutstanding']);
+    Route::get('process', [WOController::class, 'getProcess']);
+    Route::post('', [WOController::class, 'saveOutput']);
+    Route::get('resume', [WOController::class, 'resume']);
+    Route::get('output', [WOController::class, 'getOutput']);
 });
