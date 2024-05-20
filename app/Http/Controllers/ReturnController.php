@@ -420,13 +420,6 @@ class ReturnController extends Controller
                 ->where("SPL_LINE", $request->line)
                 ->where("SPL_ITMCD", $request->item[$v])->count();
             if ($DocumentCount > 0) {
-
-                #PREPARE NEW ROW ID
-                $mlastid = $this->getLastIdOfReturnRecord();
-                $mlastid++;
-                $newid = date('Ymd') . $mlastid;
-                #END
-
                 $RSBalncePerItem = DB::select("EXEC sp_getreturnbalance_peritem ?, ?, ?,  ?", [$request->doc, $request->line, $request->category,  $request->item[$v]]);
                 $RSBalncePerItem = json_decode(json_encode($RSBalncePerItem), true);
                 $RSBalncePerItem = count($RSBalncePerItem) > 0 ? reset($RSBalncePerItem) : ['BALQTY' => 0];
@@ -448,6 +441,13 @@ class ReturnController extends Controller
                     if (count($RSSPLSCN) > 0) {
 
                         $rsbefore = reset($RSSPLSCN);
+
+                        #PREPARE NEW ROW ID
+                        $mlastid = $this->getLastIdOfReturnRecord();
+                        $mlastid++;
+                        $newid = date('Ymd') . $mlastid;
+                        #END
+
                         $datas = [
                             'RETSCN_ID' =>  $newid,
                             'RETSCN_SPLDOC' => $request->doc,
