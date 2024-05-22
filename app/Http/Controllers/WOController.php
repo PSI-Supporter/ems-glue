@@ -105,7 +105,8 @@ class WOController extends Controller
                         ->update([
                             'ok_qty' => $r['outputOK'],
                             'ng_qty' => $r['outputNG'],
-                            'updated_by' => $data['user_id']
+                            'updated_by' => $data['user_id'],
+                            'input_qty' => $data['input_qty'],
                         ]);
                 } else {
                     $tobeSaved[] = [
@@ -121,6 +122,7 @@ class WOController extends Controller
                         'running_at' => $r['output_at'],
                         'ok_qty' => $r['outputOK'],
                         'ng_qty' => $r['outputNG'],
+                        'input_qty' => $data['input_qty'],
                     ];
                 }
             }
@@ -174,6 +176,13 @@ class WOController extends Controller
             ->where('production_date', $request->production_date)
             ->whereNull('deleted_at')
             ->orderBy('running_at');
-        return ['data' => $data->get()];
+
+        $dataInputPCB = DB::table('production_output')
+            ->select('input_qty')
+            ->where('wo_code', $request->wo_code)
+            ->where('process_code', $request->process_code)
+            ->whereNull('deleted_at')
+            ->orderBy('input_qty', 'desc')->first();
+        return ['data' => $data->get(), 'inputPCB' => $dataInputPCB->input_qty ?? 0];
     }
 }
