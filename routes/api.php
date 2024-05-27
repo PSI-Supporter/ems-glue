@@ -151,4 +151,6 @@ Route::prefix('work-order')->group(function () {
     Route::post('', [WOController::class, 'saveOutput']);
     Route::get('resume', [WOController::class, 'resume']);
     Route::get('output', [WOController::class, 'getOutput']);
+    Route::post('downtime', [WOController::class, 'saveDowntime']);
+    Route::get('downtime', [WOController::class, 'getDownTime']);
 });

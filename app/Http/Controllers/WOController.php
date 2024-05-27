@@ -95,13 +95,16 @@ class WOController extends Controller
                     ->where('wo_code', $data['wo_code'])
                     ->where('process_code', $data['process_code'])
                     ->where('item_code', $data['item_code'])
-                    ->where('running_at', $r['output_at'])->count();
+                    ->where('running_at', $r['output_at'])
+                    ->where('line_code', strtoupper($data['line_code']))
+                    ->count();
 
                 if ($countRows) {
                     DB::table("production_output")
                         ->where('wo_code', $data['wo_code'])
                         ->where('process_code', $data['process_code'])
                         ->where('running_at', $r['output_at'])
+                        ->where('line_code', strtoupper($data['line_code']))
                         ->update([
                             'ok_qty' => $r['outputOK'],
                             'ng_qty' => $r['outputNG'],
@@ -145,6 +148,66 @@ class WOController extends Controller
         }
     }
 
+    function saveDowntime(Request $request)
+    {
+        $data = $request->data;
+        $tobeSaved = [];
+        $message = '';
+        try {
+            DB::beginTransaction();
+
+            foreach ($data['downtimeMinute'] as $r) {
+                $countRows = DB::table("production_downtime")
+                    ->where('wo_code', $data['wo_code'])
+                    ->where('production_date', $data['production_date'])
+                    ->where('item_code', $data['item_code'])
+                    ->where('shift_code', $r['shift_code'])
+                    ->where('line_code', strtoupper($data['line_code']))
+                    ->where('downtime_code', $r['downtime_code'])
+                    ->count();
+                if ($countRows) {
+                    DB::table("production_downtime")
+                        ->where('wo_code', $data['wo_code'])
+                        ->where('production_date', $data['production_date'])
+                        ->where('item_code', $data['item_code'])
+                        ->where('shift_code', $r['shift_code'])
+                        ->where('line_code', strtoupper($data['line_code']))
+                        ->where('downtime_code', $r['downtime_code'])
+                        ->update([
+                            'updated_by' => $data['user_id'],
+                            'req_minutes' => $r['req_minutes'],
+                        ]);
+                } else {
+                    $tobeSaved[] = [
+                        'created_by' => $data['user_id'],
+                        'created_at' => date('Y-m-d H:i:s'),
+                        'wo_code' => $data['wo_code'],
+                        'item_code' => $data['item_code'],
+                        'shift_code' => $r['shift_code'],
+                        'production_date' => $data['production_date'],
+                        'line_code' => strtoupper($data['line_code']),
+                        'downtime_code' => $r['downtime_code'],
+                        'req_minutes' => $r['req_minutes'],
+                    ];
+                }
+            }
+
+            if (!empty($tobeSaved)) {
+                DB::table("production_downtime")->insert($tobeSaved);
+            }
+
+            DB::commit();
+
+            return [
+                'message' => 'Saved successfully', 'data' => $tobeSaved
+            ];
+        } catch (Exception $e) {
+            $message = $e->getMessage();
+            DB::rollBack();
+            return response()->json(['message' => $message], 400);
+        }
+    }
+
     function resume(Request $request)
     {
         $output = DB::table('production_output')
@@ -162,7 +225,12 @@ class WOController extends Controller
             ->where('wo_code', $request->wo_code)
             ->whereNull('deleted_at')
             ->groupBy('line_code')->orderBy('line_code');
-        return ['data' => $process->get(), 'lines' => $lines->get(), 'output' => $output->get()];
+
+        return [
+            'data' => $process->get(),
+            'lines' => $lines->get(),
+            'output' => $output->get()
+        ];
     }
 
     function getOutput(Request $request)
@@ -184,5 +252,18 @@ class WOController extends Controller
             ->whereNull('deleted_at')
             ->orderBy('input_qty', 'desc')->first();
         return ['data' => $data->get(), 'inputPCB' => $dataInputPCB->input_qty ?? 0];
+    }
+
+    function getDownTime(Request $request)
+    {
+        $downTime = DB::table('production_downtime')
+            ->select('shift_code', 'downtime_code', 'req_minutes')
+            ->where('line_code', $request->line_code)
+            ->where('production_date', $request->production_date)
+            ->whereNull('deleted_at')
+            ->orderBy('downtime_code');
+        return [
+            'data' => $downTime->get()
+        ];
     }
 }
