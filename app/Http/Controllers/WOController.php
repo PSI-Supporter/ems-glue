@@ -158,18 +158,14 @@ class WOController extends Controller
 
             foreach ($data['downtimeMinute'] as $r) {
                 $countRows = DB::table("production_downtime")
-                    ->where('wo_code', $data['wo_code'])
                     ->where('production_date', $data['production_date'])
-                    ->where('item_code', $data['item_code'])
                     ->where('shift_code', $r['shift_code'])
                     ->where('line_code', strtoupper($data['line_code']))
                     ->where('downtime_code', $r['downtime_code'])
                     ->count();
                 if ($countRows) {
                     DB::table("production_downtime")
-                        ->where('wo_code', $data['wo_code'])
                         ->where('production_date', $data['production_date'])
-                        ->where('item_code', $data['item_code'])
                         ->where('shift_code', $r['shift_code'])
                         ->where('line_code', strtoupper($data['line_code']))
                         ->where('downtime_code', $r['downtime_code'])
@@ -181,8 +177,6 @@ class WOController extends Controller
                     $tobeSaved[] = [
                         'created_by' => $data['user_id'],
                         'created_at' => date('Y-m-d H:i:s'),
-                        'wo_code' => $data['wo_code'],
-                        'item_code' => $data['item_code'],
                         'shift_code' => $r['shift_code'],
                         'production_date' => $data['production_date'],
                         'line_code' => strtoupper($data['line_code']),

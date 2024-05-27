@@ -17,8 +17,6 @@ return new class extends Migration
             $table->id();
             $table->timestamps();
             $table->dateTime('deleted_at')->nullable();
-            $table->string('wo_code', 50);
-            $table->string('item_code', 50);
             $table->string('shift_code', 2);
             $table->date('production_date');
             $table->string('line_code', 15);
