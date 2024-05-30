@@ -206,6 +206,10 @@ class WOController extends Controller
             }
             unset($r);
 
+            if(count($productionDataFinal) === 0) {
+                return response()->json(['message' => 'There is no output'], 400);
+            }
+
 
             foreach ($productionDataFinal as $r) {
                 if($r->working_hour != $r->working_time_total) {
