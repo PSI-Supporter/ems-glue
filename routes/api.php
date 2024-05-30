@@ -7,6 +7,7 @@ use App\Http\Controllers\ItemController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\ITHController;
 use App\Http\Controllers\LabelController;
+use App\Http\Controllers\ProcessMasterController;
 use App\Http\Controllers\ReceiveController;
 use App\Http\Controllers\RedmineController;
 use App\Http\Controllers\ReturnController;
@@ -153,4 +154,8 @@ Route::prefix('work-order')->group(function () {
     Route::get('output', [WOController::class, 'getOutput']);
     Route::post('downtime', [WOController::class, 'saveDowntime']);
     Route::get('downtime', [WOController::class, 'getDownTime']);
+});
+
+Route::prefix('process-master')->group(function () {
+    Route::get('cycle-time', [ProcessMasterController::class, 'getCycleTime']);
 });

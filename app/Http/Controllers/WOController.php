@@ -126,6 +126,7 @@ class WOController extends Controller
                         'ok_qty' => $r['outputOK'],
                         'ng_qty' => $r['outputNG'],
                         'input_qty' => $data['input_qty'],
+                        'cycle_time' => $data['cycle_time'],
                     ];
                 }
             }
@@ -163,6 +164,7 @@ class WOController extends Controller
                     ->where('line_code', strtoupper($data['line_code']))
                     ->where('downtime_code', $r['downtime_code'])
                     ->count();
+                    
                 if ($countRows) {
                     DB::table("production_downtime")
                         ->where('production_date', $data['production_date'])
@@ -188,6 +190,37 @@ class WOController extends Controller
 
             if (!empty($tobeSaved)) {
                 DB::table("production_downtime")->insert($tobeSaved);
+            }
+
+            $tobeSaved = [];
+
+            foreach ($data['productionTime'] as $r) {
+                $countRows = DB::table("production_times")
+                    ->where('production_date', $data['production_date'])
+                    ->where('shift_code', $r['shift_code'])
+                    ->count();
+
+                if ($countRows) {
+                    DB::table("production_times")
+                        ->where('production_date', $data['production_date'])
+                        ->where('shift_code', $r['shift_code'])
+                        ->update([
+                            'updated_by' => $data['user_id'],
+                            'working_hours' => $r['working_hours'],
+                        ]);
+                } else {
+                    $tobeSaved[] = [
+                        'created_by' => $data['user_id'],
+                        'created_at' => date('Y-m-d H:i:s'),
+                        'shift_code' => $r['shift_code'],
+                        'production_date' => $data['production_date'],
+                        'working_hours' => $r['working_hours'],
+                    ];
+                }
+            }
+
+            if (!empty($tobeSaved)) {
+                DB::table("production_times")->insert($tobeSaved);
             }
 
             DB::commit();
