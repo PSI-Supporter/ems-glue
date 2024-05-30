@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ProductionTime;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -155,6 +156,64 @@ class WOController extends Controller
         $tobeSaved = [];
         $message = '';
         try {
+
+            $productionData = DB::table('production_output')
+                ->select('shift_code', 'wo_code', DB::raw('MAX(input_qty)*max(cycle_time)/3600 as working_time'),)
+                ->where('line_code', strtoupper($data['line_code']))
+                ->where('production_date', $data['production_date'])
+                ->groupBy('shift_code', 'wo_code');
+
+            $productionDataFinal = DB::query()->fromSub($productionData, 'v1')
+                ->select('shift_code', DB::raw('SUM(working_time) working_time_total'))
+                ->groupBy('shift_code')
+                ->get();
+
+            $resumeDowntimeHour = [];
+            foreach ($data['downtimeMinute'] as $r) {
+                $isFound = false;
+                foreach ($resumeDowntimeHour as &$s) {
+                    if ($s['shift_code'] == $r['shift_code']) {
+                        $s['downtime'] += ($r['req_minutes'] / 60);
+                        $isFound = true;
+                        break;
+                    }
+                }
+                unset($s);
+
+                if (!$isFound) {
+                    $resumeDowntimeHour[] = [
+                        'shift_code' => $r['shift_code'],
+                        'downtime' => ($r['req_minutes'] / 60),
+                        'working_hour' => 0
+                    ];
+                }
+            }
+
+            foreach ($productionDataFinal as &$r) {
+                foreach ($data['productionTime'] as $i) {
+                    if ($i['shift_code'] == $r->shift_code) {
+                        $r->working_hour = $i['working_hours'];
+                        break;
+                    }
+                }
+                foreach ($resumeDowntimeHour as $k) {
+                    if ($k['shift_code'] == $r->shift_code) {
+                        $r->working_time_total += $k['downtime'];
+                        break;
+                    }
+                }
+                $r->working_time_total = round($r->working_time_total, 2);
+            }
+            unset($r);
+
+
+            foreach ($productionDataFinal as $r) {
+                if($r->working_hour != $r->working_time_total) {
+                    return response()->json(['message' => 'Working Hours vs (Actual Working Hour + Downtime) should be balance ['.$r->working_hour.' != '.$r->working_time_total.'] '], 400);
+                }
+            }
+
+
             DB::beginTransaction();
 
             foreach ($data['downtimeMinute'] as $r) {
@@ -164,7 +223,7 @@ class WOController extends Controller
                     ->where('line_code', strtoupper($data['line_code']))
                     ->where('downtime_code', $r['downtime_code'])
                     ->count();
-                    
+
                 if ($countRows) {
                     DB::table("production_downtime")
                         ->where('production_date', $data['production_date'])
@@ -198,12 +257,14 @@ class WOController extends Controller
                 $countRows = DB::table("production_times")
                     ->where('production_date', $data['production_date'])
                     ->where('shift_code', $r['shift_code'])
+                    ->where('line_code', strtoupper($data['line_code']))
                     ->count();
 
                 if ($countRows) {
                     DB::table("production_times")
                         ->where('production_date', $data['production_date'])
                         ->where('shift_code', $r['shift_code'])
+                        ->where('line_code', strtoupper($data['line_code']))
                         ->update([
                             'updated_by' => $data['user_id'],
                             'working_hours' => $r['working_hours'],
@@ -214,7 +275,8 @@ class WOController extends Controller
                         'created_at' => date('Y-m-d H:i:s'),
                         'shift_code' => $r['shift_code'],
                         'production_date' => $data['production_date'],
-                        'working_hours' => $r['working_hours'],
+                        'working_hours' => (float)$r['working_hours'],
+                        'line_code' => strtoupper($data['line_code']),
                     ];
                 }
             }
@@ -226,7 +288,10 @@ class WOController extends Controller
             DB::commit();
 
             return [
-                'message' => 'Saved successfully', 'data' => $tobeSaved
+                'message' => 'Saved successfully', 'data' => $tobeSaved,
+                'productionTime' => $productionDataFinal,
+                'resumeDowntimeHour' => $resumeDowntimeHour,
+                '$productionData' => $productionData->get()
             ];
         } catch (Exception $e) {
             $message = $e->getMessage();
@@ -292,5 +357,14 @@ class WOController extends Controller
         return [
             'data' => $downTime->get()
         ];
+    }
+
+    function getProductionTime(Request $request)
+    {
+        $data = ProductionTime::select('shift_code', 'working_hours')
+            ->where('production_date', $request->production_date)
+            ->where('line_code', strtoupper($request->line_code))
+            ->get();
+        return ['data' => $data];
     }
 }
