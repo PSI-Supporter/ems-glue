@@ -206,14 +206,14 @@ class WOController extends Controller
             }
             unset($r);
 
-            if(count($productionDataFinal) === 0) {
+            if (count($productionDataFinal) === 0) {
                 return response()->json(['message' => 'There is no output'], 400);
             }
 
 
             foreach ($productionDataFinal as $r) {
-                if($r->working_hour != $r->working_time_total) {
-                    return response()->json(['message' => 'Working Hours vs (Actual Working Hour + Downtime) should be balance ['.$r->working_hour.' != '.$r->working_time_total.'] '], 400);
+                if ($r->working_hour != $r->working_time_total) {
+                    return response()->json(['message' => 'Working Hours vs (Actual Working Hour + Downtime) should be balance [' . $r->working_hour . ' != ' . $r->working_time_total . '] '], 400);
                 }
             }
 
@@ -352,14 +352,27 @@ class WOController extends Controller
 
     function getDownTime(Request $request)
     {
+
         $downTime = DB::table('production_downtime')
             ->select('shift_code', 'downtime_code', 'req_minutes')
             ->where('line_code', $request->line_code)
             ->where('production_date', $request->production_date)
             ->whereNull('deleted_at')
-            ->orderBy('downtime_code');
+            ->orderBy('downtime_code')->get();
+
+        $productionData = DB::table('production_output')
+            ->select('shift_code', 'wo_code', DB::raw('MAX(input_qty)*max(cycle_time)/3600 as working_time'),)
+            ->where('line_code',  $request->line_code)
+            ->where('production_date', $request->production_date)
+            ->groupBy('shift_code', 'wo_code');
+
+        $productionDataFinal = DB::query()->fromSub($productionData, 'v1')
+            ->select('shift_code', DB::raw('SUM(working_time) working_time_total'))
+            ->groupBy('shift_code')
+            ->get();
+        
         return [
-            'data' => $downTime->get()
+            'data' => $downTime, 'workingTime' => $productionDataFinal
         ];
     }
 
