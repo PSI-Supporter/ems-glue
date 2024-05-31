@@ -159,4 +159,6 @@ Route::prefix('work-order')->group(function () {
 
 Route::prefix('process-master')->group(function () {
     Route::get('cycle-time', [ProcessMasterController::class, 'getCycleTime']);
+    Route::get('history', [ProcessMasterController::class, 'getHistory']);
+    Route::post('', [ProcessMasterController::class, 'save']);
 });

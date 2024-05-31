@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\ProcessMaster;
+use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class ProcessMasterController extends Controller
@@ -47,5 +49,47 @@ class ProcessMasterController extends Controller
             ->whereDate('created_at', '<=', $request->production_date)
             ->orderBy('created_at', 'desc')->first();
         return ['data' => $data];
+    }
+
+    function getHistory(Request $request)
+    {
+        $data = ProcessMaster::select('*')
+            ->where($request->searchBy, $request->searchValue)
+            ->orderBy('created_at', 'asc')
+            ->get();
+        return ['data' => $data];
+    }
+
+    function save(Request $request)
+    {
+        $data = $request->data;
+        $tobeSaved = [];
+        foreach ($data['master'] as $r) {
+            $tobeSaved[] = [
+                'line_code' => $r['line_code'],
+                'assy_code' => $r['assy_code'],
+                'cycle_time' => (float)$r['cycle_time'],
+                'model_code' => $r['model_code'],
+                'model_type' => $r['model_type'],
+                'process_code' => $r['process_code'],
+                'created_by' => $data['user_id'],
+                'created_at' => date('Y-m-d H:i:s')
+            ];
+        }
+
+        try {
+            DB::beginTransaction();
+
+            foreach (array_chunk($tobeSaved, (1500 / 6) - 2) as $chunk) {
+                ProcessMaster::insert($chunk);
+            }
+
+            DB::commit();
+        } catch (Exception $e) {
+            $message = $e->getMessage();
+            DB::rollBack();
+            return response()->json(['message' => $message], 400);
+        }
+        return ['message' => 'Saved successfully', 'data' => $tobeSaved];
     }
 }
