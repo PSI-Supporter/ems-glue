@@ -12,14 +12,19 @@ use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use App\Classes\EMSFpdf;
+
 
 class SupplyController extends Controller
 {
     use BusinessSelectionTrait;
 
+    protected $fpdf;
+
     public function __construct()
     {
         date_default_timezone_set('Asia/Jakarta');
+        $this->fpdf = new EMSFpdf();
     }
 
     function OutstandingUpload($data)
@@ -691,5 +696,1340 @@ class SupplyController extends Controller
             'message' => $message,
             'data' => $data
         ];
+    }
+
+    function toPickingInstruction(Request $request)
+    {
+        if (!isset($request->psn)) {
+            exit('no data to be found');
+        }
+        $cpsn = $request->psn;
+        $rspsn_group = DB::table('SPL_TBL')->select('SPL_DOC', 'SPL_CAT', 'SPL_LINE', 'SPL_FEDR')->where('SPL_DOC', $cpsn)->get();
+        $rspsn_group = json_decode(json_encode($rspsn_group), true);
+
+        if (substr($cpsn, 0, 2) == 'SP') {
+            # validasi [assy code type] vs [assy code type in wo]
+            $PPSN1 = DB::table('XPPSN1')->select('PPSN1_WONO', 'PPSN1_MDLCD', 'MITM_ITMD1', 'PPSN1_SIMQT')
+                ->join('XMITM_V', 'PPSN1_MDLCD', '=', 'MITM_ITMCD')
+                ->where('PPSN1_PSNNO', $cpsn)
+                ->groupBy('PPSN1_WONO', 'PPSN1_MDLCD', 'MITM_ITMD1', 'PPSN1_SIMQT')->get();
+            $PPSN1 = json_decode(json_encode($PPSN1), true);
+
+            $WorkOrdersNumber = [];
+            if (count($PPSN1) > 0) {
+                foreach ($PPSN1 as $r) {
+                    $WorkOrdersNumber[] = $r['PPSN1_WONO'];
+                }
+            }
+
+            $DifferentAssyTypes = DB::table('DIFFERENT_TYPE_ASSY_WO')->select('*')->whereIn('PDPP_WONO', $WorkOrdersNumber)->get();
+            $DifferentAssyTypes = json_decode(json_encode($DifferentAssyTypes), true);
+
+            if (count($DifferentAssyTypes) > 0) {
+                foreach ($DifferentAssyTypes as $r) {
+                    die($r['PDPP_WONO'] . ' TYPE should be ' . $r['TYPE_FIX']);
+                }
+            }
+
+            if (DB::table('SPLSCN_TBL')->where('SPLSCN_DOC', $cpsn)->count() > 0) {
+
+                $rshead = DB::select("exec xsp_megapsnhead_bypsn ?", [$cpsn]);
+                $rshead = json_decode(json_encode($rshead), true);
+
+                $rsdiff_mch = DB::table('SPL_TBL')->select('SPL_DOC', 'SPL_CAT', 'SPL_LINE', 'SPL_FEDR', 'SPL_ORDERNO', 'SPL_ITMCD')
+                    ->where('SPL_DOC', $cpsn)
+                    ->groupBy('SPL_DOC', 'SPL_CAT', 'SPL_LINE', 'SPL_FEDR', 'SPL_ORDERNO', 'SPL_ITMCD')
+                    ->having(DB::raw("count(*)", '>', 0))
+                    ->get();
+                $rsdiff_mch = json_decode(json_encode($rsdiff_mch), true);
+
+                $cwos = [];
+                $cmodels = [];
+                $clotsize = [];
+                foreach ($rshead as $r) {
+                    if (count($cwos) == 0) {
+                        $cwos[] = trim($r['PPSN1_WONO']);
+                        $cmodels[] = trim($r['MITM_ITMD1']);
+                        $clotsize[] = trim($r['PPSN1_SIMQT']);
+                    } else {
+                        $ttlwo = count($cwos);
+                        $isexist = false;
+                        for ($i = 0; $i < $ttlwo; $i++) {
+                            if ($cwos[$i] == trim($r['PPSN1_WONO'])) {
+                                $isexist = true;
+                                break;
+                            }
+                        }
+                        if (!$isexist) {
+                            $cwos[] = trim($r['PPSN1_WONO']);
+                            $cmodels[] = trim($r['MITM_ITMD1']);
+                            $clotsize[] = trim($r['PPSN1_SIMQT']);
+                        }
+                    }
+                }
+
+                $_vrak = DB::table('vinitlocation')->select('MSTLOC_CD', DB::raw("MAX(aliasrack) aliasrack"))->groupBy('MSTLOC_CD');
+                $_a = DB::table('SPL_TBL')->leftJoinSub($_vrak, 'VRAK', 'SPL_RACKNO', '=', 'MSTLOC_CD')
+                    ->where('SPL_DOC',  $cpsn)
+                    ->select(
+                        'SPL_PROCD',
+                        DB::raw("RTRIM(SPL_ORDERNO) SPL_ORDERNO"),
+                        'SPL_RACKNO',
+                        'aliasrack',
+                        'SPL_ITMCD',
+                        DB::raw("max(SPL_QTYUSE) SPL_QTYUSE"),
+                        'SPL_MS',
+                        DB::raw("RTRIM(SPL_MC) SPL_MC"),
+                        DB::raw("SUM(SPL_QTYREQ) TTLREQ"),
+                        DB::raw("0 TTLSCN"),
+                        DB::raw("max(SPL_ITMRMRK) SPL_ITMRMRK"),
+                        'SPL_LINE',
+                        'SPL_CAT',
+                        'SPL_FEDR'
+                    )->groupBy('SPL_LINE', 'SPL_CAT', 'SPL_FEDR', 'SPL_PROCD', 'SPL_ORDERNO', 'SPL_RACKNO', 'aliasrack', 'SPL_ITMCD',  'SPL_MC', 'SPL_MS');
+                $rs = DB::query()->fromSub($_a, 'a')
+                    ->leftJoin('MITM_TBL', 'SPL_ITMCD', '=', 'MITM_ITMCD')
+                    ->orderByRaw('SPL_CAT, SPL_LINE, SPL_FEDR, aliasrack, SPL_RACKNO, SPL_ORDERNO, SPL_MC, SPL_ITMCD, SPL_PROCD')
+                    ->selectRaw("SPL_PROCD,SPL_ORDERNO,SPL_RACKNO, rtrim(SPL_ITMCD) SPL_ITMCD,rtrim(MITM_SPTNO) MITM_SPTNO, SPL_QTYUSE, SPL_MC, SPL_MS, TTLREQ, TTLSCN, SPL_ITMRMRK,TTLREQ TTLREQB4,SPL_LINE,SPL_CAT,SPL_FEDR")
+                    ->get();
+                $rs = json_decode(json_encode($rs), true);
+
+                $rsdetail = DB::table("SPLSCN_TBL")
+                    ->where('SPLSCN_DOC', $cpsn)
+                    ->select(
+                        'SPLSCN_ID',
+                        'SPLSCN_DOC',
+                        'SPLSCN_CAT',
+                        'SPLSCN_LINE',
+                        'SPLSCN_FEDR',
+                        'SPLSCN_ORDERNO',
+                        DB::raw("UPPER(SPLSCN_ITMCD) SPLSCN_ITMCD"),
+                        'SPLSCN_LOTNO',
+                        'SPLSCN_SAVED',
+                        'SPLSCN_QTY',
+                        'SPLSCN_LUPDT',
+                        'SPLSCN_USRID',
+                        'SPLSCN_EXPORTED'
+                    )->orderBy('SPLSCN_FEDR')
+                    ->orderBy('SPLSCN_LUPDT')->get();
+                $rsdetail = json_decode(json_encode($rsdetail), true);
+
+                foreach ($rsdetail as &$d) {
+                    if (!array_key_exists("USED", $d)) {
+                        $d["USED"] = false;
+                    }
+                }
+                unset($d);
+
+                $firstCategory = '';
+
+                foreach ($rs as &$r) {
+                    if ($firstCategory === '') {
+                        $firstCategory = $r['SPL_CAT'];
+                    }
+                    $think = true;
+                    while ($think) {
+                        $grasp = false;
+                        foreach ($rsdetail as $d) {
+                            if ((trim($r['SPL_ORDERNO']) == trim($d['SPLSCN_ORDERNO'])) && (trim($r['SPL_ITMCD']) == trim($d['SPLSCN_ITMCD'])) && $d['USED'] == false) {
+                                $grasp = true;
+                                break;
+                            }
+                        }
+                        if ($grasp) {
+                            foreach ($rsdetail as &$d) {
+                                if ((trim($r['SPL_ORDERNO']) == trim($d['SPLSCN_ORDERNO'])) && (trim($r['SPL_ITMCD']) == trim($d['SPLSCN_ITMCD'])) && $d['USED'] == false) {
+                                    $think2 = true;
+                                    while ($think2) {
+                                        if ($r['TTLREQ'] > $r['TTLSCN']) {
+                                            if ($d['USED'] == false) {
+                                                $r['TTLSCN'] += $d['SPLSCN_QTY'];
+                                                $d['USED'] = true;
+                                            } else {
+                                                $think2 = false;
+                                            }
+                                        } else {
+                                            $think2 = false;
+                                            $think = false;
+                                        }
+                                    }
+                                }
+                            }
+                            unset($d);
+                        } else {
+                            $think = false;
+                        }
+                    }
+                }
+                unset($r);
+
+                foreach ($rs as &$r) {
+                    $r['TTLREQ'] -= $r['TTLSCN'];
+                    foreach ($rsdiff_mch as $k) {
+                        if (trim($r['SPL_ORDERNO']) == trim($k['SPL_ORDERNO']) && trim($r['SPL_ITMCD']) == trim($k['SPL_ITMCD'])) {
+                            $r['SPL_ITMCD'] = trim($r['SPL_ITMCD']) . ' *';
+                        }
+                    }
+                }
+                unset($r);
+
+                $this->fpdf->AliasNbPages();
+                $this->fpdf->AddPage();
+                $hgt_p = $this->fpdf->GetPageHeight();
+                $this->fpdf->SetAutoPageBreak(true, 1);
+                $this->fpdf->SetMargins(0, 0);
+                $this->fpdf->SetFont('Arial', '', 6);
+                $strheader = '';
+                $cury = 4;
+                $td_h = 7;
+                $xWOcount = count($cwos);
+                $firstPage = false;
+                $i = 0;
+                foreach ($rs as $r) {
+                    #Print Outstanding QTY Only
+                    if ($r['TTLREQ'] > 0) {
+                        $ccat = $r['SPL_CAT'];
+                        $cline = $r['SPL_LINE'];
+                        $cfedr = $r['SPL_FEDR'];
+                        #print header
+                        if ($strheader != $r['SPL_CAT'] . "|" . $r['SPL_LINE'] . "|" . $r['SPL_FEDR']) {
+                            if (($cury + 20) > $hgt_p) {
+                                $cury = 4;
+                                $this->fpdf->AddPage();
+                                if ($firstCategory != $ccat) {
+                                    $firstCategory = $ccat;
+                                }
+                            } else {
+                                if (!$firstPage) {
+                                    $cury = 4;
+                                    $firstPage = true;
+                                } else {
+                                    $cury += 4;
+                                }
+                                if ($firstCategory != $ccat) {
+                                    $firstCategory = $ccat;
+                                    $cury = 4;
+                                    $this->fpdf->AddPage();
+                                }
+                            }
+
+                            $strheader = $r['SPL_CAT'] . "|" . $r['SPL_LINE'] . "|" . $r['SPL_FEDR'];
+                            $this->fpdf->SetFont('Arial', '', 6);
+                            $clebar = $this->fpdf->GetStringWidth($cpsn) + 40;
+                            $this->fpdf->Code128(3, $cury, $cpsn, $clebar, 4);
+                            $this->fpdf->Text(3, $cury + 7, $cpsn);
+                            $clebar = $this->fpdf->GetStringWidth($ccat) + 17;
+                            $this->fpdf->Code128(170, $cury, trim($ccat), $clebar, 4);
+                            $this->fpdf->Text(170, $cury + 7, $ccat);
+                            $clebar = $this->fpdf->GetStringWidth($cline) + 17;
+                            $this->fpdf->Code128(3, $cury + 9, $cline, $clebar, 4);
+                            $this->fpdf->Text(3, $cury + 16, $cline);
+                            $clebar = $this->fpdf->GetStringWidth($cfedr) + 17;
+                            $this->fpdf->Code128(170, $cury + 9, $cfedr, $clebar, 4);
+                            $this->fpdf->Text(170, $cury + 16, $cfedr);
+                            $this->fpdf->SetXY(90, $cury);
+                            $this->fpdf->SetFont('Arial', 'BU', 10);
+                            $this->fpdf->Cell(35, 4, 'Picking Instruction', 0, 0, 'C');
+                            $this->fpdf->SetXY(100, $cury + 11);
+                            $this->fpdf->SetFont('Arial', '', 6);
+                            $this->fpdf->Cell(15, 4, 'Page ' . $this->fpdf->PageNo() . ' / {nb}', 1, 0, 'R');
+                            $this->fpdf->SetFont('Arial', 'B', 7);
+                            $cury = $cury + 18;
+                            $isleft = true;
+                            for ($j = 0; $j < $xWOcount; $j++) {
+                                if (($cury + 10) > $hgt_p) {
+                                    $cury = 4;
+                                    $this->fpdf->AddPage();
+                                    $this->fpdf->SetFont('Arial', '', 6);
+                                    $clebar = $this->fpdf->GetStringWidth($cpsn) + 40;
+                                    $this->fpdf->Code128(3, $cury, $cpsn, $clebar, 4);
+                                    $this->fpdf->Text(3, $cury + 7, $cpsn);
+                                    $clebar = $this->fpdf->GetStringWidth($ccat) + 17;
+                                    $this->fpdf->Code128(170, $cury, trim($ccat), $clebar, 4);
+                                    $this->fpdf->Text(170, $cury + 7, $ccat);
+                                    $clebar = $this->fpdf->GetStringWidth($cline) + 17;
+                                    $this->fpdf->Code128(3, $cury + 9, $cline, $clebar, 4);
+                                    $this->fpdf->Text(3, $cury + 16, $cline);
+                                    $clebar = $this->fpdf->GetStringWidth($cfedr) + 17;
+                                    $this->fpdf->Code128(170, $cury + 9, $cfedr, $clebar, 4);
+                                    $this->fpdfText(170, $cury + 16, $cfedr);
+                                    $this->fpdfSetXY(90, $cury);
+                                    $this->fpdfSetFont('Arial', 'BU', 10);
+                                    $this->fpdf->Cell(35, 4, 'Picking Instruction', 0, 0, 'C');
+                                    $this->fpdf->SetXY(100, $cury + 11);
+                                    $this->fpdf->SetFont('Arial', '', 6);
+                                    $this->fpdf->Cell(15, 4, 'Page ' . $this->fpdf->PageNo() . ' / {nb}', 1, 0, 'R');
+                                    $this->fpdf->SetFont('Arial', 'B', 7);
+                                    $cury = $cury + 18;
+                                    $isleft = true;
+                                }
+                                if (($j % 2) == 0) {
+                                    $this->fpdf->SetXY(3, $cury);
+                                    $this->fpdf->Cell(50, 4, 'Model', 1, 0, 'L');
+                                    $this->fpdf->Cell(40, 4, 'Job', 1, 0, 'L');
+                                    $this->fpdf->Cell(10, 4, 'Lot Size', 1, 0, 'C');
+                                    $this->fpdf->SetXY(3, $cury + 4);
+                                    $ttlwidth = $this->fpdf->GetStringWidth($cmodels[$j]);
+                                    if ($ttlwidth > 50) {
+                                        $ukuranfont = 6.5;
+                                        while ($ttlwidth > 50) {
+                                            $this->fpdf->SetFont('Arial', '', $ukuranfont);
+                                            $ttlwidth = $this->fpdf->GetStringWidth($cmodels[$j]);
+                                            $ukuranfont = $ukuranfont - 0.5;
+                                        }
+                                    }
+                                    $this->fpdf->Cell(50, 4, $cmodels[$j], 1, 0, 'L');
+                                    $this->fpdf->SetFont('Arial', 'B', 7);
+                                    $this->fpdf->Cell(40, 4, $cwos[$j], 1, 0, 'L');
+                                    $this->fpdf->Cell(10, 4, number_format($clotsize[$j]), 1, 0, 'L');
+                                    $isleft = true;
+                                } else {
+                                    $this->fpdf->SetXY(105, $cury);
+                                    $this->fpdf->Cell(50, 4, 'Model', 1, 0, 'L');
+                                    $this->fpdf->Cell(40, 4, 'Job', 1, 0, 'L');
+                                    $this->fpdf->Cell(10, 4, 'Lot Size', 1, 0, 'C');
+                                    $this->fpdf->SetXY(105, $cury + 4);
+                                    $ttlwidth = $this->fpdf->GetStringWidth($cmodels[$j]);
+                                    if ($ttlwidth > 50) {
+                                        $ukuranfont = 6.5;
+                                        while ($ttlwidth > 50) {
+                                            $this->fpdf->SetFont('Arial', '', $ukuranfont);
+                                            $ttlwidth = $this->fpdf->GetStringWidth($cmodels[$j]);
+                                            $ukuranfont = $ukuranfont - 0.5;
+                                        }
+                                    }
+                                    $this->fpdf->Cell(50, 4, $cmodels[$j], 1, 0, 'L');
+                                    $this->fpdf->SetFont('Arial', 'B', 7);
+                                    $this->fpdf->Cell(40, 4, $cwos[$j], 1, 0, 'L');
+                                    $this->fpdf->Cell(10, 4, number_format($clotsize[$j]), 1, 0, 'L');
+                                    $cury += 8;
+                                    $isleft = false;
+                                }
+                            }
+
+                            $cury += $isleft ? 9 : 1;
+                            if (($cury + 10) > $hgt_p) {
+                                $cury = 4;
+                                $this->fpdf->AddPage();
+                            }
+                            $this->fpdf->SetXY(3, $cury);
+                            $this->fpdf->Cell(20, 4, 'No Rak', 1, 0, 'L');
+                            $this->fpdf->Cell(80, 4, 'Machine No', 1, 0, 'C');
+                            $this->fpdf->Cell(25, 4, 'Part No', 1, 0, 'L');
+                            $this->fpdf->Cell(30, 4, 'Part Name', 1, 0, 'L');
+                            $this->fpdf->Cell(8, 4, 'Use', 1, 0, 'C');
+                            $this->fpdf->Cell(13, 4, 'Req.', 1, 0, 'R');
+                            $this->fpdf->Cell(13, 4, 'Issued', 1, 0, 'R');
+                            $this->fpdf->Cell(13, 4, 'Remain', 1, 0, 'R');
+                            $wd2col = 3 + 20 + 80;
+                            $cury += 4;
+                        } else {
+                            if (($cury + 10) > $hgt_p) {
+                                $cury = 4;
+                                $this->fpdf->AddPage();
+                                $this->fpdf->SetFont('Arial', '', 6);
+                                $clebar = $this->fpdf->GetStringWidth($cpsn) + 40;
+                                $this->fpdf->Code128(3, $cury, $cpsn, $clebar, 4);
+                                $this->fpdf->Text(3, $cury + 7, $cpsn);
+                                $clebar = $this->fpdf->GetStringWidth($ccat) + 17;
+                                $this->fpdf->Code128(170, $cury, trim($ccat), $clebar, 4);
+                                $this->fpdf->Text(170, $cury + 7, $ccat);
+                                $clebar = $this->fpdf->GetStringWidth($cline) + 17;
+                                $this->fpdf->Code128(3, $cury + 9, $cline, $clebar, 4);
+                                $this->fpdf->Text(3, $cury + 16, $cline);
+                                $clebar = $this->fpdf->GetStringWidth($cfedr) + 17;
+                                $this->fpdf->Code128(170, 13, $cfedr, $clebar, 4);
+                                $this->fpdf->Text(170, $cury + 16, $cfedr);
+                                $this->fpdf->SetXY(90, $cury);
+                                $this->fpdf->SetFont('Arial', 'BU', 10);
+                                $this->fpdf->Cell(35, 4, 'Picking Instruction', 0, 0, 'C');
+                                $this->fpdf->SetXY(100, $cury + 11);
+                                $this->fpdf->SetFont('Arial', '', 6);
+                                $this->fpdf->Cell(15, 4, 'Page ' . $this->fpdf->PageNo() . ' / {nb}', 1, 0, 'R');
+                                $this->fpdf->SetFont('Arial', 'B', 7);
+                                $cury = $cury + 18;
+                                $isleft = true;
+                                for ($j = 0; $j < $xWOcount; $j++) {
+                                    if (($cury + 10) > $hgt_p) {
+                                        $cury = 4;
+                                        $this->fpdf->AddPage();
+                                        $this->fpdf->SetFont('Arial', '', 6);
+                                        $clebar = $this->fpdf->GetStringWidth($cpsn) + 40;
+                                        $this->fpdf->Code128(3, $cury, $cpsn, $clebar, 4);
+                                        $this->fpdf->Text(3, $cury + 7, $cpsn);
+                                        $clebar = $this->fpdf->GetStringWidth($ccat) + 17;
+                                        $this->fpdf->Code128(170, $cury, trim($ccat), $clebar, 4);
+                                        $this->fpdf->Text(170, $cury + 7, $ccat);
+                                        $clebar = $this->fpdf->GetStringWidth($cline) + 17;
+                                        $this->fpdf->Code128(3, $cury + 9, $cline, $clebar, 4);
+                                        $this->fpdf->Text(3, $cury + 16, $cline);
+                                        $clebar = $this->fpdf->GetStringWidth($cfedr) + 17;
+                                        $this->fpdf->Code128(170, $cury + 9, $cfedr, $clebar, 4);
+                                        $this->fpdf->Text(170, $cury + 16, $cfedr);
+                                        $this->fpdf->SetXY(90, $cury);
+                                        $this->fpdf->SetFont('Arial', 'BU', 10);
+                                        $this->fpdf->Cell(35, 4, 'Picking Instruction', 0, 0, 'C');
+                                        $this->fpdf->SetXY(100, $cury + 11);
+                                        $this->fpdf->SetFont('Arial', '', 6);
+                                        $this->fpdf->Cell(15, 4, 'Page ' . $this->fpdf->PageNo() . ' / {nb}', 1, 0, 'R');
+                                        $this->fpdf->SetFont('Arial', 'B', 7);
+                                        $cury = $cury + 18;
+                                        $isleft = true;
+                                    }
+                                    if (($j % 2) == 0) {
+                                        $this->fpdf->SetXY(3, $cury);
+                                        $this->fpdf->Cell(50, 4, 'Model', 1, 0, 'L');
+                                        $this->fpdf->Cell(40, 4, 'Job', 1, 0, 'L');
+                                        $this->fpdf->Cell(10, 4, 'Lot Size', 1, 0, 'C');
+                                        $this->fpdf->SetXY(3, $cury + 4);
+                                        $ttlwidth = $this->fpdf->GetStringWidth($cmodels[$j]);
+                                        if ($ttlwidth > 50) {
+                                            $ukuranfont = 6.5;
+                                            while ($ttlwidth > 50) {
+                                                $this->fpdf->SetFont('Arial', '', $ukuranfont);
+                                                $ttlwidth = $this->fpdf->GetStringWidth($cmodels[$j]);
+                                                $ukuranfont = $ukuranfont - 0.5;
+                                            }
+                                        }
+                                        $this->fpdf->Cell(50, 4, $cmodels[$j], 1, 0, 'L');
+                                        $this->fpdf->SetFont('Arial', 'B', 7);
+                                        $this->fpdf->Cell(40, 4, $cwos[$j], 1, 0, 'L');
+                                        $this->fpdf->Cell(10, 4, number_format($clotsize[$j]), 1, 0, 'L');
+                                        $isleft = true;
+                                    } else {
+                                        $this->fpdf->SetXY(105, $cury);
+                                        $this->fpdf->Cell(50, 4, 'Model', 1, 0, 'L');
+                                        $this->fpdf->Cell(40, 4, 'Job', 1, 0, 'L');
+                                        $this->fpdf->Cell(10, 4, 'Lot Size', 1, 0, 'C');
+                                        $this->fpdf->SetXY(105, $cury + 4);
+                                        $ttlwidth = $this->fpdf->GetStringWidth($cmodels[$j]);
+                                        if ($ttlwidth > 50) {
+                                            $ukuranfont = 6.5;
+                                            while ($ttlwidth > 50) {
+                                                $this->fpdf->SetFont('Arial', '', $ukuranfont);
+                                                $ttlwidth = $this->fpdf->GetStringWidth($cmodels[$j]);
+                                                $ukuranfont = $ukuranfont - 0.5;
+                                            }
+                                        }
+                                        $this->fpdf->Cell(50, 4, $cmodels[$j], 1, 0, 'L');
+                                        $this->fpdf->SetFont('Arial', 'B', 7);
+                                        $this->fpdf->Cell(40, 4, $cwos[$j], 1, 0, 'L');
+                                        $this->fpdf->Cell(10, 4, number_format($clotsize[$j]), 1, 0, 'L');
+                                        $cury += 8;
+                                        $isleft = false;
+                                    }
+                                }
+                                $cury += $isleft ? 9 : 1;
+                                if (($cury + 10) > $hgt_p) {
+                                    $cury = 4;
+                                    $this->fpdf->AddPage();
+                                }
+                                $this->fpdf->SetXY(3, $cury);
+                                $this->fpdf->Cell(20, 4, 'No Rak', 1, 0, 'L');
+                                $this->fpdf->Cell(80, 4, 'Machine No', 1, 0, 'C');
+                                $this->fpdf->Cell(25, 4, 'Part No', 1, 0, 'L');
+                                $this->fpdf->Cell(30, 4, 'Part Name', 1, 0, 'L');
+                                $this->fpdf->Cell(8, 4, 'Use', 1, 0, 'C');
+                                $this->fpdf->Cell(13, 4, 'Req.', 1, 0, 'R');
+                                $this->fpdf->Cell(13, 4, 'Issued', 1, 0, 'R');
+                                $this->fpdf->Cell(13, 4, 'Remain', 1, 0, 'R');
+                                $wd2col = 3 + 20 + 80;
+                                $cury += 4;
+                            }
+                        }
+                        $this->fpdf->SetFont('Arial', '', 8);
+                        $this->fpdf->SetXY(3, $cury);
+                        if (strpos($r['SPL_RACKNO'], '-') !== false) {
+                            $this->fpdf->Cell(20, $td_h, '', 1, 0, 'L');
+                            $achar = explode('-', $r['SPL_RACKNO']);
+                            $this->fpdf->Text(3.5, $cury + 3, $achar[0]);
+                            $this->fpdf->Text(3.5, $cury + 6, $achar[1]);
+                        } else {
+                            $this->fpdf->Cell(20, $td_h, $r['SPL_RACKNO'], 1, 0, 'L');
+                        }
+                        $_contentToEncode = $r['SPL_MC'] . '|' . $r['SPL_PROCD'] . '|' . $r['SPL_ORDERNO'];
+                        $lebar = $this->fpdf->GetStringWidth($_contentToEncode) + 17;
+                        $clebar = $this->fpdf->GetStringWidth($_contentToEncode) + 16;
+                        $strx = $wd2col - ($lebar + 3);
+                        if (($i % 2) > 0) {
+                            $this->fpdf->Code128($wd2col - 80 + 2, $cury + 1.5, $_contentToEncode, $clebar, 3);
+                            $this->fpdf->Cell(80, $td_h, $r['SPL_ORDERNO'], 1, 0, 'R');
+                            $this->fpdf->SetFont('Arial', '', 4);
+                            $this->fpdf->Text($wd2col - 5, $cury + 1.5, $r['SPL_PROCD']);
+                            $this->fpdf->SetFont('Arial', '', 8);
+                        } else {
+                            $this->fpdf->Code128($strx, $cury + 1.5, $_contentToEncode, $clebar, 3);
+                            $this->fpdf->Cell(80, $td_h, $r['SPL_ORDERNO'], 1, 0, 'L');
+                            $this->fpdf->SetFont('Arial', '', 4);
+                            $this->fpdf->Text($wd2col - 79, $cury + 1.5, $r['SPL_PROCD']);
+                            $this->fpdf->SetFont('Arial', '', 8);
+                        }
+                        $this->fpdf->Cell(25, $td_h, trim($r['SPL_ITMCD']), 1, 0, 'L');
+                        $ttlwidth = $this->fpdf->GetStringWidth(trim($r['MITM_SPTNO']));
+                        if ($ttlwidth > 28) {
+                            $ukuranfont = 7.5;
+                            while ($ttlwidth > 28) {
+                                $this->fpdf->SetFont('Arial', '', $ukuranfont);
+                                $ttlwidth = $this->fpdf->GetStringWidth(trim($r['MITM_SPTNO']));
+                                $ukuranfont = $ukuranfont - 0.5;
+                            }
+                        }
+                        $this->fpdf->Cell(30, $td_h, trim($r['MITM_SPTNO']), 1, 0, 'L');
+                        $this->fpdf->SetFont('Arial', '', 8);
+                        $this->fpdf->Cell(8, $td_h, $r['SPL_QTYUSE'] * 1, 1, 0, 'C');
+                        $this->fpdf->Cell(13, $td_h, number_format($r['TTLREQB4']), 1, 0, 'R');
+                        $this->fpdf->Cell(13, $td_h, number_format($r['TTLREQB4'] - $r['TTLREQ']), 1, 0, 'R');
+                        $this->fpdf->Cell(13, $td_h, number_format($r['TTLREQ']), 1, 0, 'R');
+                        $cury += $td_h;
+                        $i++;
+                    }
+                }
+            } else {
+                foreach ($rspsn_group as $rh) {
+                    $ccat = trim($rh['SPL_CAT']);
+                    $cline = trim($rh['SPL_LINE']);
+                    $cfedr = trim($rh['SPL_FEDR']);
+
+                    $rshead = DB::select("exec xsp_megapsnhead ?, ?, ?", [$cpsn, $cline, $cfedr]);
+                    $rshead = json_decode(json_encode($rshead), true);
+
+                    $rsdiff_mch = DB::table("SPL_TBL")->selectRaw("SPL_DOC, SPL_CAT, SPL_LINE, SPL_FEDR,SPL_ORDERNO,SPL_ITMCD")
+                        ->where('SPL_DOC', $cpsn)
+                        ->where('SPL_CAT', $ccat)
+                        ->where('SPL_LINE', $cline)
+                        ->where('SPL_FEDR', $cfedr)
+                        ->groupByRaw('SPL_DOC, SPL_CAT, SPL_LINE, SPL_FEDR,SPL_ORDERNO,SPL_ITMCD')
+                        ->havingRaw("COUNT(*)>1")->get();
+                    $rsdiff_mch = json_decode(json_encode($rsdiff_mch), true);
+
+                    $cwos = [];
+                    $cmodels = [];
+                    $clotsize = [];
+                    foreach ($rshead as $r) {
+                        if (count($cwos) == 0) {
+                            $cwos[] = trim($r['PPSN1_WONO']);
+                            $cmodels[] = trim($r['MITM_ITMD1']);
+                            $clotsize[] = trim($r['PPSN1_SIMQT']);
+                        } else {
+                            $ttlwo = count($cwos);
+                            $isexist = false;
+                            for ($i = 0; $i < $ttlwo; $i++) {
+                                if ($cwos[$i] == trim($r['PPSN1_WONO'])) {
+                                    $isexist = true;
+                                    break;
+                                }
+                            }
+                            if (!$isexist) {
+                                $cwos[] = trim($r['PPSN1_WONO']);
+                                $cmodels[] = trim($r['MITM_ITMD1']);
+                                $clotsize[] = trim($r['PPSN1_SIMQT']);
+                            }
+                        }
+                    }
+
+                    $_vrak = DB::table('vinitlocation')->select('MSTLOC_CD', DB::raw("MAX(aliasrack) aliasrack"))->groupBy('MSTLOC_CD');
+                    $_a = DB::table('SPL_TBL')->leftJoinSub($_vrak, 'VRAK', 'SPL_RACKNO', '=', 'MSTLOC_CD')
+                        ->where('SPL_DOC',  $cpsn)
+                        ->where('SPL_CAT',  $ccat)
+                        ->where('SPL_LINE',  $cline)
+                        ->where('SPL_FEDR',  $cfedr)
+                        ->select(
+                            'SPL_PROCD',
+                            DB::raw("RTRIM(SPL_ORDERNO) SPL_ORDERNO"),
+                            'SPL_RACKNO',
+                            'aliasrack',
+                            'SPL_ITMCD',
+                            DB::raw("max(SPL_QTYUSE) SPL_QTYUSE"),
+                            'SPL_MS',
+                            DB::raw("RTRIM(SPL_MC) SPL_MC"),
+                            DB::raw("SUM(SPL_QTYREQ) TTLREQ"),
+                            DB::raw("0 TTLSCN"),
+                            DB::raw("max(SPL_ITMRMRK) SPL_ITMRMRK"),
+                            'SPL_LINE',
+                            'SPL_CAT',
+                            'SPL_FEDR'
+                        )->groupBy('SPL_LINE', 'SPL_CAT', 'SPL_FEDR', 'SPL_PROCD', 'SPL_ORDERNO', 'SPL_RACKNO', 'aliasrack', 'SPL_ITMCD',  'SPL_MC', 'SPL_MS');
+
+                    $rs = DB::query()->fromSub($_a, 'a')
+                        ->leftJoin('MITM_TBL', 'SPL_ITMCD', '=', 'MITM_ITMCD')
+                        ->orderByRaw('SPL_CAT, SPL_LINE, SPL_FEDR, aliasrack, SPL_RACKNO, SPL_ORDERNO, SPL_MC, SPL_ITMCD, SPL_PROCD')
+                        ->selectRaw("SPL_PROCD,SPL_ORDERNO,SPL_RACKNO, rtrim(SPL_ITMCD) SPL_ITMCD,rtrim(MITM_SPTNO) MITM_SPTNO, SPL_QTYUSE, SPL_MC, SPL_MS, TTLREQ, TTLSCN, SPL_ITMRMRK,TTLREQ TTLREQB4,SPL_LINE,SPL_CAT,SPL_FEDR")
+                        ->get();
+                    $rs = json_decode(json_encode($rs), true);
+
+
+                    $rsdetail = DB::table("SPLSCN_TBL")->selectRaw("SPLSCN_ID,SPLSCN_DOC,SPLSCN_CAT,SPLSCN_LINE,SPLSCN_FEDR,SPLSCN_ORDERNO,UPPER(SPLSCN_ITMCD) SPLSCN_ITMCD,SPLSCN_LOTNO,SPLSCN_SAVED,
+                                SPLSCN_QTY,SPLSCN_LUPDT,SPLSCN_USRID,SPLSCN_EXPORTED")
+                        ->where('SPLSCN_DOC', $cpsn)
+                        ->where('SPLSCN_CAT', $ccat)
+                        ->where('SPLSCN_LINE', $cline)
+                        ->where('SPLSCN_FEDR', $cfedr)
+                        ->orderByRaw("SPLSCN_FEDR,SPLSCN_LUPDT ASC")->get();
+                    $rsdetail = json_decode(json_encode($rsdetail), true);
+
+                    foreach ($rsdetail as &$d) {
+                        if (!array_key_exists("USED", $d)) {
+                            $d["USED"] = false;
+                        }
+                    }
+                    unset($d);
+
+                    $this->fpdf->AliasNbPages();
+                    $this->fpdf->AddPage();
+                    $hgt_p = $this->fpdf->GetPageHeight();
+                    $this->fpdf->SetAutoPageBreak(true, 1);
+                    $this->fpdf->SetMargins(0, 0);
+                    $this->fpdf->SetFont('Arial', '', 6);
+
+                    $clebar = $this->fpdf->GetStringWidth($cpsn) + 40;
+                    $this->fpdf->Code128(3, 4, $cpsn, $clebar, 4);
+                    $this->fpdf->Text(3, 11, $cpsn);
+                    $clebar = $this->fpdf->GetStringWidth($ccat) + 17;
+                    if ($ccat == '') {
+                        $ccat = '??';
+                    }
+                    $this->fpdf->Code128(170, 4, $ccat, $clebar, 4);
+                    $this->fpdf->Text(170, 11, $ccat);
+                    $clebar = $this->fpdf->GetStringWidth($cline) + 17;
+                    $this->fpdf->Code128(3, 13, $cline, $clebar, 4);
+                    $this->fpdf->Text(3, 20, $cline);
+                    $clebar = $this->fpdf->GetStringWidth($cfedr) + 17;
+                    $this->fpdf->Code128(170, 13, $cfedr, $clebar, 4);
+                    $this->fpdf->Text(170, 20, $cfedr);
+                    $this->fpdf->SetXY(90, 4);
+                    $this->fpdf->SetFont('Arial', 'BU', 10);
+                    $this->fpdf->Cell(35, 4, 'Picking Instruction', 0, 0, 'C');
+                    $this->fpdf->SetXY(100, 15);
+                    $this->fpdf->SetFont('Arial', '', 6);
+                    $this->fpdf->Cell(15, 4, 'Page ' . $this->fpdf->PageNo() . ' / {nb}', 1, 0, 'R');
+                    $this->fpdf->SetFont('Arial', 'B', 7);
+                    $cury = 22;
+                    $isleft = true;
+
+                    $xWOcount = count($cwos);
+
+                    for ($j = 0; $j < $xWOcount; $j++) { // print job info
+                        if (($j % 2) == 0) {
+                            $this->fpdf->SetXY(3, $cury);
+                            $this->fpdf->SetFont('Arial', '', 7);
+                            $this->fpdf->Cell(50, 4, 'Model', 1, 0, 'L');
+                            $this->fpdf->Cell(40, 4, 'Job', 1, 0, 'L');
+                            $this->fpdf->Cell(10, 4, 'Lot Size', 1, 0, 'C');
+                            $this->fpdf->SetFont('Arial', 'B', 7);
+                            $this->fpdf->SetXY(3, $cury + 4);
+                            $ttlwidth = $this->fpdf->GetStringWidth($cmodels[$j]);
+                            if ($ttlwidth > 50) {
+                                $ukuranfont = 6.5;
+                                while ($ttlwidth > 50) {
+                                    $this->fpdf->SetFont('Arial', '', $ukuranfont);
+                                    $ttlwidth = $this->fpdf->GetStringWidth($cmodels[$j]);
+                                    $ukuranfont = $ukuranfont - 0.5;
+                                }
+                            }
+                            $this->fpdf->Cell(50, 4, $cmodels[$j], 1, 0, 'L');
+                            $this->fpdf->SetFont('Arial', 'B', 7);
+                            $this->fpdf->Cell(40, 4, $cwos[$j], 1, 0, 'L');
+                            $this->fpdf->Cell(10, 4, number_format($clotsize[$j]), 1, 0, 'L');
+                            $isleft = true;
+                        } else {
+                            $this->fpdf->SetXY(105, $cury);
+                            $this->fpdf->SetFont('Arial', '', 7);
+                            $this->fpdf->Cell(50, 4, 'Model', 1, 0, 'L');
+                            $this->fpdf->Cell(40, 4, 'Job', 1, 0, 'L');
+                            $this->fpdf->Cell(10, 4, 'Lot Size', 1, 0, 'C');
+                            $this->fpdf->SetFont('Arial', 'B', 7);
+                            $this->fpdf->SetXY(105, $cury + 4);
+                            $ttlwidth = $this->fpdf->GetStringWidth($cmodels[$j]);
+                            if ($ttlwidth > 50) {
+                                $ukuranfont = 6.5;
+                                while ($ttlwidth > 50) {
+                                    $this->fpdf->SetFont('Arial', '', $ukuranfont);
+                                    $ttlwidth = $this->fpdf->GetStringWidth($cmodels[$j]);
+                                    $ukuranfont = $ukuranfont - 0.5;
+                                }
+                            }
+                            $this->fpdf->Cell(50, 4, $cmodels[$j], 1, 0, 'L');
+                            $this->fpdf->SetFont('Arial', 'B', 7);
+                            $this->fpdf->Cell(40, 4, $cwos[$j], 1, 0, 'L');
+                            $this->fpdf->Cell(10, 4, number_format($clotsize[$j]), 1, 0, 'L');
+                            $cury += 8;
+                            $isleft = false;
+                        }
+                    }
+
+                    $cury += $isleft ? 9 : 1;
+                    #old way
+                    $this->fpdf->SetXY(3, $cury);
+                    $this->fpdf->Cell(20, 4, 'No Rak', 1, 0, 'L');
+                    $this->fpdf->Cell(80, 4, 'Machine No', 1, 0, 'C');
+                    $this->fpdf->Cell(25, 4, 'Part No', 1, 0, 'L');
+                    $this->fpdf->Cell(30, 4, 'Part Name', 1, 0, 'L');
+                    $this->fpdf->Cell(8, 4, 'Use', 1, 0, 'C');
+                    $this->fpdf->Cell(13, 4, 'Req.', 1, 0, 'R');
+                    $this->fpdf->Cell(13, 4, 'Issued', 1, 0, 'R');
+                    $this->fpdf->Cell(13, 4, 'Remain', 1, 0, 'R');
+                    #end old way
+                    $wd2col = 3 + 20 + 80;
+                    $cury += 4;
+                    $td_h = 7;
+
+                    foreach ($rs as &$r) {
+                        $think = true;
+                        while ($think) {
+                            $grasp = false;
+                            foreach ($rsdetail as $d) {
+                                if ((trim($r['SPL_ORDERNO']) == trim($d['SPLSCN_ORDERNO'])) && (trim($r['SPL_ITMCD']) == trim($d['SPLSCN_ITMCD'])) && $d['USED'] == false) {
+                                    $grasp = true;
+                                    break;
+                                }
+                            }
+                            if ($grasp) {
+                                foreach ($rsdetail as &$d) {
+                                    if ((trim($r['SPL_ORDERNO']) == trim($d['SPLSCN_ORDERNO'])) && (trim($r['SPL_ITMCD']) == trim($d['SPLSCN_ITMCD'])) && $d['USED'] == false) {
+                                        $think2 = true;
+                                        while ($think2) {
+                                            if ($r['TTLREQ'] > $r['TTLSCN']) {
+                                                if ($d['USED'] == false) {
+                                                    $r['TTLSCN'] += $d['SPLSCN_QTY'];
+                                                    $d['USED'] = true;
+                                                } else {
+                                                    $think2 = false;
+                                                }
+                                            } else {
+                                                $think2 = false;
+                                                $think = false;
+                                            }
+                                        }
+                                    }
+                                }
+                                unset($d);
+                            } else {
+                                $think = false;
+                            }
+                        }
+                    }
+                    unset($r);
+
+                    foreach ($rs as &$r) {
+                        $r['TTLREQ'] -= $r['TTLSCN'];
+                        foreach ($rsdiff_mch as $k) {
+                            if (trim($r['SPL_ORDERNO']) == trim($k['SPL_ORDERNO']) && trim($r['SPL_ITMCD']) == trim($k['SPL_ITMCD'])) {
+                                $r['SPL_ITMCD'] = trim($r['SPL_ITMCD']) . ' *';
+                            }
+                        }
+                    }
+                    unset($r);
+
+                    #current way
+                    $i = 1;
+                    foreach ($rs as $r) {
+                        if ($r['TTLREQ'] > 0) {
+                            if (($cury + 10) > $hgt_p) {
+                                $this->fpdf->AddPage();
+                                $this->fpdf->SetFont('Arial', '', 6);
+                                $clebar = $this->fpdf->GetStringWidth($cpsn) + 40;
+                                $this->fpdf->Code128(3, 4, $cpsn, $clebar, 4);
+                                $this->fpdf->Text(3, 11, $cpsn);
+                                $clebar = $this->fpdf->GetStringWidth($ccat) + 17;
+                                $this->fpdf->Code128(170, 4, trim($ccat), $clebar, 4);
+                                $this->fpdf->Text(170, 11, $ccat);
+                                $clebar = $this->fpdf->GetStringWidth($cline) + 17;
+                                $this->fpdf->Code128(3, 13, $cline, $clebar, 4);
+                                $this->fpdf->Text(3, 20, $cline);
+                                $clebar = $this->fpdf->GetStringWidth($cfedr) + 17;
+                                $this->fpdf->Code128(170, 13, $cfedr, $clebar, 4);
+                                $this->fpdf->Text(170, 20, $cfedr);
+                                $this->fpdf->SetXY(90, 4);
+                                $this->fpdf->SetFont('Arial', 'BU', 10);
+                                $this->fpdf->Cell(35, 4, 'Picking Instruction', 0, 0, 'C');
+                                $this->fpdf->SetXY(100, 15);
+                                $this->fpdf->SetFont('Arial', '', 6);
+                                $this->fpdf->Cell(15, 4, 'Page ' . $this->fpdf->PageNo() . ' / {nb}', 1, 0, 'R');
+                                $this->fpdf->SetFont('Arial', 'B', 7);
+                                $cury = 22;
+                                $isleft = true;
+                                for ($j = 0; $j < $xWOcount; $j++) {
+                                    if (($j % 2) == 0) {
+                                        $this->fpdf->SetXY(3, $cury);
+                                        $this->fpdf->Cell(50, 4, 'Model', 1, 0, 'L');
+                                        $this->fpdf->Cell(40, 4, 'Job', 1, 0, 'L');
+                                        $this->fpdf->Cell(10, 4, 'Lot Size', 1, 0, 'C');
+                                        $this->fpdf->SetXY(3, $cury + 4);
+                                        $ttlwidth = $this->fpdf->GetStringWidth($cmodels[$j]);
+                                        if ($ttlwidth > 50) {
+                                            $ukuranfont = 6.5;
+                                            while ($ttlwidth > 50) {
+                                                $this->fpdf->SetFont('Arial', '', $ukuranfont);
+                                                $ttlwidth = $this->fpdf->GetStringWidth($cmodels[$j]);
+                                                $ukuranfont = $ukuranfont - 0.5;
+                                            }
+                                        }
+                                        $this->fpdf->Cell(50, 4, $cmodels[$j], 1, 0, 'L');
+                                        $this->fpdf->SetFont('Arial', 'B', 7);
+                                        $this->fpdf->Cell(40, 4, $cwos[$j], 1, 0, 'L');
+                                        $this->fpdf->Cell(10, 4, number_format($clotsize[$j]), 1, 0, 'L');
+                                        $isleft = true;
+                                    } else {
+                                        $this->fpdf->SetXY(105, $cury);
+                                        $this->fpdf->Cell(50, 4, 'Model', 1, 0, 'L');
+                                        $this->fpdf->Cell(40, 4, 'Job', 1, 0, 'L');
+                                        $this->fpdf->Cell(10, 4, 'Lot Size', 1, 0, 'C');
+                                        $this->fpdf->SetXY(105, $cury + 4);
+                                        $ttlwidth = $this->fpdf->GetStringWidth($cmodels[$j]);
+                                        if ($ttlwidth > 50) {
+                                            $ukuranfont = 6.5;
+                                            while ($ttlwidth > 50) {
+                                                $this->fpdf->SetFont('Arial', '', $ukuranfont);
+                                                $ttlwidth = $this->fpdf->GetStringWidth($cmodels[$j]);
+                                                $ukuranfont = $ukuranfont - 0.5;
+                                            }
+                                        }
+                                        $this->fpdf->Cell(50, 4, $cmodels[$j], 1, 0, 'L');
+                                        $this->fpdf->SetFont('Arial', 'B', 7);
+                                        $this->fpdf->Cell(40, 4, $cwos[$j], 1, 0, 'L');
+                                        $this->fpdf->Cell(10, 4, number_format($clotsize[$j]), 1, 0, 'L');
+                                        $cury += 8;
+                                        $isleft = false;
+                                    }
+                                }
+
+                                $cury += $isleft ? 9 : 1;
+                                $this->fpdf->SetXY(3, $cury);
+                                $this->fpdf->Cell(20, 4, 'No Rak', 1, 0, 'L');
+                                $this->fpdf->Cell(80, 4, 'Machine No', 1, 0, 'C');
+                                $this->fpdf->Cell(25, 4, 'Part No', 1, 0, 'L');
+                                $this->fpdf->Cell(30, 4, 'Part Name', 1, 0, 'L');
+                                $this->fpdf->Cell(8, 4, 'Use', 1, 0, 'C');
+                                $this->fpdf->Cell(13, 4, 'Req.', 1, 0, 'R');
+                                $this->fpdf->Cell(13, 4, 'Issued', 1, 0, 'R');
+                                $this->fpdf->Cell(13, 4, 'Remain', 1, 0, 'R');
+                                $wd2col = 3 + 20 + 80;
+                                $cury += 4;
+                            }
+                            $this->fpdf->SetFont('Arial', '', 8);
+                            $this->fpdf->SetXY(3, $cury);
+
+                            if (strpos($r['SPL_RACKNO'], '-') !== false) {
+                                $this->fpdf->Cell(20, $td_h, '', 1, 0, 'L');
+                                $achar = explode('-', $r['SPL_RACKNO']);
+                                $this->fpdf->Text(3.5, $cury + 3, $achar[0]);
+                                $this->fpdf->Text(3.5, $cury + 6, $achar[1]);
+                            } else {
+                                $this->fpdf->Cell(20, $td_h, $r['SPL_RACKNO'], 1, 0, 'L');
+                            }
+                            $_contentToEncode = $r['SPL_MC'] . '|' . $r['SPL_PROCD'] . '|' . trim($r['SPL_ORDERNO']);
+                            $lebar = $this->fpdf->GetStringWidth($_contentToEncode) + 17;
+                            $clebar = $this->fpdf->GetStringWidth($_contentToEncode) + 16;
+                            $strx = $wd2col - ($lebar + 3);
+                            if (($i % 2) > 0) {
+                                $this->fpdf->Code128($wd2col - 80 + 2, $cury + 1.5, $_contentToEncode, $clebar, 3);
+                                $this->fpdf->Cell(80, $td_h, $r['SPL_ORDERNO'], 1, 0, 'R');
+                                $this->fpdf->SetFont('Arial', '', 4);
+                                $this->fpdf->Text($wd2col - 5, $cury + 1.5, $r['SPL_PROCD']);
+                                $this->fpdf->SetFont('Arial', '', 8);
+                            } else {
+                                $this->fpdf->Code128($strx, $cury + 1.5, $_contentToEncode, $clebar, 3);
+                                $this->fpdf->Cell(80, $td_h, $r['SPL_ORDERNO'], 1, 0, 'L');
+                                $this->fpdf->SetFont('Arial', '', 4);
+                                $this->fpdf->Text($wd2col - 79, $cury + 1.5, $r['SPL_PROCD']);
+                                $this->fpdf->SetFont('Arial', '', 8);
+                            }
+
+                            $this->fpdf->Cell(25, $td_h, trim($r['SPL_ITMCD']), 1, 0, 'L');
+                            $ttlwidth = $this->fpdf->GetStringWidth(trim($r['MITM_SPTNO']));
+                            if ($ttlwidth > 28) {
+                                $ukuranfont = 7.5;
+                                while ($ttlwidth > 28) {
+                                    $this->fpdf->SetFont('Arial', '', $ukuranfont);
+                                    $ttlwidth = $this->fpdf->GetStringWidth(trim($r['MITM_SPTNO']));
+                                    $ukuranfont = $ukuranfont - 0.5;
+                                }
+                            }
+                            $this->fpdf->Cell(30, $td_h, trim($r['MITM_SPTNO']), 1, 0, 'L');
+                            $this->fpdf->SetFont('Arial', '', 8);
+                            $this->fpdf->Cell(8, $td_h, $r['SPL_QTYUSE'] * 1, 1, 0, 'C');
+                            $this->fpdf->Cell(13, $td_h, number_format($r['TTLREQB4']), 1, 0, 'R');
+                            $this->fpdf->Cell(13, $td_h, number_format($r['TTLREQB4'] - $r['TTLREQ']), 1, 0, 'R');
+                            $this->fpdf->Cell(13, $td_h, number_format($r['TTLREQ']), 1, 0, 'R');
+                            $cury += $td_h;
+                            $i++;
+                        }
+                    }
+                    #end current way
+                }
+            }
+        } else {
+            if (DB::table("SPL_TBL")->select("SPL_DOC")->where('SPL_DOC', $cpsn)->whereNotNull('SPL_APPRV_TM')->count() == 0) {
+                die($cpsn . ' should be approved first');
+            }
+
+            foreach ($rspsn_group as $rh) {
+                $ccat = trim($rh['SPL_CAT']);
+                $cline = trim($rh['SPL_LINE']);
+                $cfedr = trim($rh['SPL_FEDR']);
+                // $rshead = $this->SPL_mod->select_reffdoc($cpsn);
+                $rshead = DB::table("SPL_TBL")->selectRaw("SPL_REFDOCNO,MAX(SPL_REFDOCCAT) REFDOCCAT")
+                    ->groupBy('SPL_REFDOCNO')
+                    ->where('SPL_DOC', $cpsn)->get();
+                $rsdetail = json_decode(json_encode($rshead), true);
+
+                $_vrak = DB::table('vinitlocation')->select('MSTLOC_CD', DB::raw("MAX(aliasrack) aliasrack"))->groupBy('MSTLOC_CD');
+                $_a = DB::table('SPL_TBL')->leftJoinSub($_vrak, 'VRAK', 'SPL_RACKNO', '=', 'MSTLOC_CD')
+                    ->where('SPL_DOC',  $cpsn)
+                    ->where('SPL_CAT',  $ccat)
+                    ->where('SPL_LINE',  $cline)
+                    ->where('SPL_FEDR',  $cfedr)
+                    ->select(
+                        'SPL_PROCD',
+                        DB::raw("RTRIM(SPL_ORDERNO) SPL_ORDERNO"),
+                        'SPL_RACKNO',
+                        'aliasrack',
+                        'SPL_ITMCD',
+                        DB::raw("max(SPL_QTYUSE) SPL_QTYUSE"),
+                        'SPL_MS',
+                        DB::raw("RTRIM(SPL_MC) SPL_MC"),
+                        DB::raw("SUM(SPL_QTYREQ) TTLREQ"),
+                        DB::raw("0 TTLSCN"),
+                        DB::raw("max(SPL_ITMRMRK) SPL_ITMRMRK"),
+                        'SPL_LINE',
+                        'SPL_CAT',
+                        'SPL_FEDR'
+                    )->groupBy('SPL_LINE', 'SPL_CAT', 'SPL_FEDR', 'SPL_PROCD', 'SPL_ORDERNO', 'SPL_RACKNO', 'aliasrack', 'SPL_ITMCD',  'SPL_MC', 'SPL_MS');
+
+                $rs = DB::query()->fromSub($_a, 'a')
+                    ->leftJoin('MITM_TBL', 'SPL_ITMCD', '=', 'MITM_ITMCD')
+                    ->orderByRaw('SPL_CAT, SPL_LINE, SPL_FEDR, aliasrack, SPL_RACKNO, SPL_ORDERNO, SPL_MC, SPL_ITMCD, SPL_PROCD')
+                    ->selectRaw("SPL_PROCD,SPL_ORDERNO,SPL_RACKNO, rtrim(SPL_ITMCD) SPL_ITMCD,rtrim(MITM_SPTNO) MITM_SPTNO, SPL_QTYUSE, SPL_MC, SPL_MS, TTLREQ, TTLSCN, SPL_ITMRMRK,TTLREQ TTLREQB4,SPL_LINE,SPL_CAT,SPL_FEDR")
+                    ->get();
+                $rs = json_decode(json_encode($rs), true);
+
+                $rsdetail = DB::table("SPLSCN_TBL")->selectRaw("SPLSCN_ID,SPLSCN_DOC,SPLSCN_CAT,SPLSCN_LINE,SPLSCN_FEDR,SPLSCN_ORDERNO,UPPER(SPLSCN_ITMCD) SPLSCN_ITMCD,SPLSCN_LOTNO,SPLSCN_SAVED,
+                                SPLSCN_QTY,SPLSCN_LUPDT,SPLSCN_USRID,SPLSCN_EXPORTED")
+                    ->where('SPLSCN_DOC', $cpsn)
+                    ->where('SPLSCN_CAT', $ccat)
+                    ->where('SPLSCN_LINE', $cline)
+                    ->where('SPLSCN_FEDR', $cfedr)
+                    ->orderByRaw("SPLSCN_FEDR,SPLSCN_LUPDT ASC")->get();
+                $rsdetail = json_decode(json_encode($rsdetail), true);
+
+                foreach ($rs as &$r) {
+                    foreach ($rsdetail as &$d) {
+                        if ($d['SPLSCN_QTY'] > 0) {
+                            if ($r['SPL_ITMCD'] == $d['SPLSCN_ITMCD']) {
+                                if ($r['TTLREQ'] > 0) {
+                                    if ($r['TTLREQ'] == $d['SPLSCN_QTY']) {
+                                        $r['TTLREQ'] = 0;
+                                        $d['SPLSCN_QTY'] = 0;
+                                    } elseif ($r['TTLREQ'] > $d['SPLSCN_QTY']) {
+                                        $r['TTLREQ'] -= $d['SPLSCN_QTY'];
+                                        $d['SPLSCN_QTY'] = 0;
+                                    } elseif ($r['TTLREQ'] < $d['SPLSCN_QTY']) {
+                                        $d['SPLSCN_QTY'] -= $r['TTLREQ'];
+                                        $r['TTLREQ'] = 0;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    unset($d);
+                }
+                unset($r);
+
+                $this->fpdf->AliasNbPages();
+                $this->fpdf->AddPage();
+                $hgt_p = $this->fpdf->GetPageHeight();
+                $this->fpdf->SetAutoPageBreak(true, 1);
+                $this->fpdf->SetMargins(0, 0);
+                $this->fpdf->SetFont('Arial', '', 6);
+                $clebar = $this->fpdf->GetStringWidth($cpsn) + 40;
+                $this->fpdf->Code128(3, 4, $cpsn, $clebar, 4);
+                $this->fpdf->Text(3, 11, $cpsn);
+                $clebar = $this->fpdf->GetStringWidth($ccat) + 17;
+                if ($ccat == '') {
+                    $ccat = '??';
+                }
+                $this->fpdf->Code128(170, 4, $ccat, $clebar, 4);
+                $this->fpdf->Text(170, 11, $ccat);
+                $clebar = $this->fpdf->GetStringWidth($cline) + 17;
+                $this->fpdf->Code128(3, 13, $cline, $clebar, 4);
+                $this->fpdf->Text(3, 20, $cline);
+                $clebar = $this->fpdf->GetStringWidth($cfedr) + 17;
+                $this->fpdf->Code128(170, 13, $cfedr, $clebar, 4);
+                $this->fpdf->Text(170, 20, $cfedr);
+                $this->fpdf->SetFont('Arial', 'BU', 10);
+                $this->fpdf->SetXY(90, 4);
+                $this->fpdf->Cell(35, 4, 'Picking Instruction', 0, 0, 'C');
+                $this->fpdf->SetXY(100, 15);
+                $this->fpdf->SetFont('Arial', '', 6);
+                $this->fpdf->Cell(15, 4, 'Page ' . $this->fpdf->PageNo() . ' / {nb}', 1, 0, 'R');
+                $this->fpdf->SetFont('Arial', 'B', 7);
+                $cury = 22;
+                $isleft = true;
+                $nom = 0;
+                $PSNDocAsReff = [];
+                foreach ($rshead as $r) {
+                    if ($r['REFDOCCAT'] == 'PSN') {
+                        $PSNDocAsReff[] = $r['SPL_REFDOCNO'];
+                    }
+                    if (($nom % 2) == 0) {
+                        $this->fpdf->SetXY(3, $cury);
+                        $this->fpdf->SetFont('Arial', '', 7);
+                        $this->fpdf->Cell(100, 4, 'Reff Document', 1, 0, 'C');
+                        $this->fpdf->SetFont('Arial', 'B', 7);
+                        $this->fpdf->SetXY(3, $cury + 4);
+                        $ttlwidth = $this->fpdf->GetStringWidth($r['SPL_REFDOCNO']);
+                        if ($ttlwidth > 100) {
+                            $ukuranfont = 6.5;
+                            while ($ttlwidth > 50) {
+                                $this->fpdf->SetFont('Arial', '', $ukuranfont);
+                                $ttlwidth = $this->fpdf->GetStringWidth($r['SPL_REFDOCNO']);
+                                $ukuranfont = $ukuranfont - 0.5;
+                            }
+                        }
+                        $this->fpdf->Cell(100, 4, $r['SPL_REFDOCNO'], 1, 0, 'L');
+                        $isleft = true;
+                    } else {
+                        $this->fpdf->SetXY(105, $cury);
+                        $this->fpdf->SetFont('Arial', '', 7);
+                        $this->fpdf->Cell(100, 4, 'Reff Document', 1, 0, 'C');
+                        $this->fpdf->SetFont('Arial', 'B', 7);
+                        $this->fpdf->SetXY(105, $cury + 4);
+                        $ttlwidth = $this->fpdf->GetStringWidth($r['SPL_REFDOCNO']);
+                        if ($ttlwidth > 100) {
+                            $ukuranfont = 6.5;
+                            while ($ttlwidth > 50) {
+                                $this->fpdf->SetFont('Arial', '', $ukuranfont);
+                                $ttlwidth = $this->fpdf->GetStringWidth($r['SPL_REFDOCNO']);
+                                $ukuranfont = $ukuranfont - 0.5;
+                            }
+                        }
+                        $this->fpdf->Cell(100, 4, $r['SPL_REFDOCNO'], 1, 0, 'L');
+                        $cury += 8;
+                        $isleft = false;
+                    }
+                    $nom++;
+                }
+                $cury += $isleft ? 9 : 1;
+
+                if (count($PSNDocAsReff) > 0) {
+
+                    $rsJob = DB::table('XPPSN1')->join('XMITM_V', 'PPSN1_MDLCD', '=', 'MITM_ITMCD')
+                        ->whereIn('PPSN1_PSNNO', $PSNDocAsReff)
+                        ->groupByRaw("PPSN1_WONO,PPSN1_MDLCD,MITM_ITMD1,PPSN1_SIMQT")
+                        ->selectRaw("PPSN1_WONO,PPSN1_MDLCD,MITM_ITMD1,PPSN1_SIMQT");
+                    $rsJob = json_decode(json_encode($rsJob), true);
+
+                    $cwos = [];
+                    $cmodels = [];
+                    $clotsize = [];
+                    foreach ($rsJob as $r) {
+                        if (count($cwos) == 0) {
+                            $cwos[] = trim($r['PPSN1_WONO']);
+                            $cmodels[] = trim($r['MITM_ITMD1']);
+                            $clotsize[] = trim($r['PPSN1_SIMQT']);
+                        } else {
+                            $ttlwo = count($cwos);
+                            $isexist = false;
+                            for ($i = 0; $i < $ttlwo; $i++) {
+                                if ($cwos[$i] == trim($r['PPSN1_WONO'])) {
+                                    $isexist = true;
+                                    break;
+                                }
+                            }
+                            if (!$isexist) {
+                                $cwos[] = trim($r['PPSN1_WONO']);
+                                $cmodels[] = trim($r['MITM_ITMD1']);
+                                $clotsize[] = trim($r['PPSN1_SIMQT']);
+                            }
+                        }
+                    }
+                    $xWOcount = count($cwos);
+                    if ($xWOcount > 0) {
+                        for ($j = 0; $j < $xWOcount; $j++) {
+                            if (($j % 2) == 0) {
+                                $this->fpdf->SetXY(3, $cury);
+                                $this->fpdf->SetFont('Arial', '', 7);
+                                $this->fpdf->Cell(50, 4, 'Model', 1, 0, 'L');
+                                $this->fpdf->Cell(40, 4, 'Job', 1, 0, 'L');
+                                $this->fpdf->Cell(10, 4, 'Lot Size', 1, 0, 'C');
+                                $this->fpdf->SetFont('Arial', 'B', 7);
+                                $this->fpdf->SetXY(3, $cury + 4);
+                                $ttlwidth = $this->fpdf->GetStringWidth($cmodels[$j]);
+                                if ($ttlwidth > 50) {
+                                    $ukuranfont = 6.5;
+                                    while ($ttlwidth > 50) {
+                                        $this->fpdf->SetFont('Arial', '', $ukuranfont);
+                                        $ttlwidth = $this->fpdf->GetStringWidth($cmodels[$j]);
+                                        $ukuranfont = $ukuranfont - 0.5;
+                                    }
+                                }
+                                $this->fpdf->Cell(50, 4, $cmodels[$j], 1, 0, 'L');
+                                $this->fpdf->SetFont('Arial', 'B', 7);
+                                $this->fpdf->Cell(40, 4, $cwos[$j], 1, 0, 'L');
+                                $this->fpdf->Cell(10, 4, number_format($clotsize[$j]), 1, 0, 'L');
+                                $isleft = true;
+                            } else {
+                                $this->fpdf->SetXY(105, $cury);
+                                $this->fpdf->SetFont('Arial', '', 7);
+                                $this->fpdf->Cell(50, 4, 'Model', 1, 0, 'L');
+                                $this->fpdf->Cell(40, 4, 'Job', 1, 0, 'L');
+                                $this->fpdf->Cell(10, 4, 'Lot Size', 1, 0, 'C');
+                                $this->fpdf->SetFont('Arial', 'B', 7);
+                                $this->fpdf->SetXY(105, $cury + 4);
+                                $ttlwidth = $this->fpdf->GetStringWidth($cmodels[$j]);
+                                if ($ttlwidth > 50) {
+                                    $ukuranfont = 6.5;
+                                    while ($ttlwidth > 50) {
+                                        $this->fpdf->SetFont('Arial', '', $ukuranfont);
+                                        $ttlwidth = $this->fpdf->GetStringWidth($cmodels[$j]);
+                                        $ukuranfont = $ukuranfont - 0.5;
+                                    }
+                                }
+                                $this->fpdf->Cell(50, 4, $cmodels[$j], 1, 0, 'L');
+                                $this->fpdf->SetFont('Arial', 'B', 7);
+                                $this->fpdf->Cell(40, 4, $cwos[$j], 1, 0, 'L');
+                                $this->fpdf->Cell(10, 4, number_format($clotsize[$j]), 1, 0, 'L');
+                                $cury += 8;
+                                $isleft = false;
+                            }
+                        }
+                        $cury += $isleft ? 9 : 1;
+                    }
+                }
+
+                $this->fpdf->SetXY(3, $cury);
+                $this->fpdf->Cell(20, 4, 'No Rak', 1, 0, 'L');
+                $this->fpdf->Cell(60, 4, 'Machine No', 1, 0, 'C');
+                $this->fpdf->Cell(25, 4, 'Part No', 1, 0, 'L');
+                $this->fpdf->Cell(40, 4, 'Part Name', 1, 0, 'L');
+                $this->fpdf->Cell(15, 4, 'Req', 1, 0, 'R');
+                $this->fpdf->Cell(43, 4, 'Remark', 1, 0, 'L');
+                $wd2col = 3 + 20 + 60;
+                $cury += 4;
+                $td_h = 7;
+                $i = 1;
+                foreach ($rs as $r) {
+                    if ($r['TTLREQ'] > 0) {
+                        if (($cury + 10) > $hgt_p) {
+                            $this->fpdf->AddPage();
+                            $this->fpdf->SetFont('Arial', '', 6);
+                            $clebar = $this->fpdf->GetStringWidth($cpsn) + 40;
+                            $this->fpdf->Code128(3, 4, $cpsn, $clebar, 4);
+                            $this->fpdf->Text(3, 11, $cpsn);
+                            $clebar = $this->fpdf->GetStringWidth($ccat) + 17;
+                            if ($ccat == '') {
+                                $ccat = '??';
+                            }
+                            $this->fpdf->Code128(170, 4, $ccat, $clebar, 4);
+                            $this->fpdf->Text(170, 11, $ccat);
+                            $clebar = $this->fpdf->GetStringWidth($cline) + 17;
+                            $this->fpdf->Code128(3, 13, $cline, $clebar, 4);
+                            $this->fpdf->Text(3, 20, $cline);
+                            $clebar = $this->fpdf->GetStringWidth($cfedr) + 17;
+                            $this->fpdf->Code128(170, 13, $cfedr, $clebar, 4);
+                            $this->fpdf->Text(170, 20, $cfedr);
+                            $this->fpdf->SetFont('Arial', 'BU', 10);
+                            $this->fpdf->SetXY(90, 4);
+                            $this->fpdf->Cell(35, 4, 'Picking Instruction', 0, 0, 'C');
+                            $this->fpdf->SetXY(100, 15);
+                            $this->fpdf->SetFont('Arial', '', 6);
+                            $this->fpdf->Cell(15, 4, 'Page ' . $this->fpdf->PageNo() . ' / {nb}', 1, 0, 'R');
+                            $this->fpdf->SetFont('Arial', 'B', 7);
+                            $cury = 22;
+                            $isleft = true;
+                            $nom = 0;
+                            foreach ($rshead as $h) {
+                                if (($nom % 2) == 0) {
+                                    $this->fpdf->SetXY(3, $cury);
+                                    $this->fpdf->SetFont('Arial', '', 7);
+                                    $this->fpdf->Cell(100, 4, 'Reff Document', 1, 0, 'C');
+                                    $this->fpdf->SetFont('Arial', 'B', 7);
+                                    $this->fpdf->SetXY(3, $cury + 4);
+                                    $ttlwidth = $this->fpdf->GetStringWidth($h['SPL_REFDOCNO']);
+                                    if ($ttlwidth > 100) {
+                                        $ukuranfont = 6.5;
+                                        while ($ttlwidth > 50) {
+                                            $this->fpdf->SetFont('Arial', '', $ukuranfont);
+                                            $ttlwidth = $this->fpdf->GetStringWidth($h['SPL_REFDOCNO']);
+                                            $ukuranfont = $ukuranfont - 0.5;
+                                        }
+                                    }
+                                    $this->fpdf->Cell(100, 4, $h['SPL_REFDOCNO'], 1, 0, 'L');
+                                    $isleft = true;
+                                } else {
+                                    $this->fpdf->SetXY(105, $cury);
+                                    $this->fpdf->SetFont('Arial', '', 7);
+                                    $this->fpdf->Cell(100, 4, 'Model', 1, 0, 'C');
+                                    $this->fpdf->SetFont('Arial', 'B', 7);
+                                    $this->fpdf->SetXY(105, $cury + 4);
+                                    $ttlwidth = $this->fpdf->GetStringWidth($h['SPL_REFDOCNO']);
+                                    if ($ttlwidth > 100) {
+                                        $ukuranfont = 6.5;
+                                        while ($ttlwidth > 50) {
+                                            $this->fpdf->SetFont('Arial', '', $ukuranfont);
+                                            $ttlwidth = $this->fpdf->GetStringWidth($h['SPL_REFDOCNO']);
+                                            $ukuranfont = $ukuranfont - 0.5;
+                                        }
+                                    }
+                                    $this->fpdf->Cell(100, 4, $h['SPL_REFDOCNO'], 1, 0, 'L');
+                                    $cury += 8;
+                                    $isleft = false;
+                                }
+                                $nom++;
+                            }
+                            $cury += $isleft ? 9 : 1;
+                            if (count($PSNDocAsReff) > 0) {
+                                $rsJob = DB::table('XPPSN1')->join('XMITM_V', 'PPSN1_MDLCD', '=', 'MITM_ITMCD')
+                                    ->whereIn('PPSN1_PSNNO', $PSNDocAsReff)
+                                    ->groupByRaw("PPSN1_WONO,PPSN1_MDLCD,MITM_ITMD1,PPSN1_SIMQT")
+                                    ->selectRaw("PPSN1_WONO,PPSN1_MDLCD,MITM_ITMD1,PPSN1_SIMQT");
+                                $rsJob = json_decode(json_encode($rsJob), true);
+
+                                $cwos = [];
+                                $cmodels = [];
+                                $clotsize = [];
+                                foreach ($rsJob as $rj) {
+                                    if (count($cwos) == 0) {
+                                        $cwos[] = trim($rj['PPSN1_WONO']);
+                                        $cmodels[] = trim($rj['MITM_ITMD1']);
+                                        $clotsize[] = trim($rj['PPSN1_SIMQT']);
+                                    } else {
+                                        $ttlwo = count($cwos);
+                                        $isexist = false;
+                                        for ($i = 0; $i < $ttlwo; $i++) {
+                                            if ($cwos[$i] == trim($rj['PPSN1_WONO'])) {
+                                                $isexist = true;
+                                                break;
+                                            }
+                                        }
+                                        if (!$isexist) {
+                                            $cwos[] = trim($rj['PPSN1_WONO']);
+                                            $cmodels[] = trim($rj['MITM_ITMD1']);
+                                            $clotsize[] = trim($rj['PPSN1_SIMQT']);
+                                        }
+                                    }
+                                }
+                            }
+                            $xWOcount = count($cwos);
+                            for ($j = 0; $j < $xWOcount; $j++) {
+                                if (($j % 2) == 0) {
+                                    $this->fpdf->SetXY(3, $cury);
+                                    $this->fpdf->SetFont('Arial', '', 7);
+                                    $this->fpdf->Cell(50, 4, 'Model', 1, 0, 'L');
+                                    $this->fpdf->Cell(40, 4, 'Job', 1, 0, 'L');
+                                    $this->fpdf->Cell(10, 4, 'Lot Size', 1, 0, 'C');
+                                    $this->fpdf->SetFont('Arial', 'B', 7);
+                                    $this->fpdf->SetXY(3, $cury + 4);
+                                    $ttlwidth = $this->fpdf->GetStringWidth($cmodels[$j]);
+                                    if ($ttlwidth > 50) {
+                                        $ukuranfont = 6.5;
+                                        while ($ttlwidth > 50) {
+                                            $this->fpdf->SetFont('Arial', '', $ukuranfont);
+                                            $ttlwidth = $this->fpdf->GetStringWidth($cmodels[$j]);
+                                            $ukuranfont = $ukuranfont - 0.5;
+                                        }
+                                    }
+                                    $this->fpdf->Cell(50, 4, $cmodels[$j], 1, 0, 'L');
+                                    $this->fpdf->SetFont('Arial', 'B', 7);
+                                    $this->fpdf->Cell(40, 4, $cwos[$j], 1, 0, 'L');
+                                    $this->fpdf->Cell(10, 4, number_format($clotsize[$j]), 1, 0, 'L');
+                                    $isleft = true;
+                                } else {
+                                    $this->fpdf->SetXY(105, $cury);
+                                    $this->fpdf->SetFont('Arial', '', 7);
+                                    $this->fpdf->Cell(50, 4, 'Model', 1, 0, 'L');
+                                    $this->fpdf->Cell(40, 4, 'Job', 1, 0, 'L');
+                                    $this->fpdf->Cell(10, 4, 'Lot Size', 1, 0, 'C');
+                                    $this->fpdf->SetFont('Arial', 'B', 7);
+                                    $this->fpdf->SetXY(105, $cury + 4);
+                                    $ttlwidth = $this->fpdf->GetStringWidth($cmodels[$j]);
+                                    if ($ttlwidth > 50) {
+                                        $ukuranfont = 6.5;
+                                        while ($ttlwidth > 50) {
+                                            $this->fpdf->SetFont('Arial', '', $ukuranfont);
+                                            $ttlwidth = $this->fpdf->GetStringWidth($cmodels[$j]);
+                                            $ukuranfont = $ukuranfont - 0.5;
+                                        }
+                                    }
+                                    $this->fpdf->Cell(50, 4, $cmodels[$j], 1, 0, 'L');
+                                    $this->fpdf->SetFont('Arial', 'B', 7);
+                                    $this->fpdf->Cell(40, 4, $cwos[$j], 1, 0, 'L');
+                                    $this->fpdf->Cell(10, 4, number_format($clotsize[$j]), 1, 0, 'L');
+                                    $cury += 8;
+                                    $isleft = false;
+                                }
+                            }
+                            $cury += $isleft ? 9 : 1;
+                            $this->fpdf->SetXY(3, $cury);
+                            $this->fpdf->Cell(20, 4, 'No Rak', 1, 0, 'L');
+                            $this->fpdf->Cell(60, 4, 'Machine No', 1, 0, 'C');
+                            $this->fpdf->Cell(25, 4, 'Part No', 1, 0, 'L');
+                            $this->fpdf->Cell(40, 4, 'Part Name', 1, 0, 'L');
+                            $this->fpdf->Cell(15, 4, 'Req', 1, 0, 'R');
+                            $this->fpdf->Cell(43, 4, 'Remark', 1, 0, 'L');
+
+                            $wd2col = 3 + 20 + 60;
+                            $cury += 4;
+                        }
+                        $this->fpdf->SetFont('Arial', '', 8);
+                        $this->fpdf->SetXY(3, $cury);
+
+                        if (strpos($r['SPL_RACKNO'], '-') !== false) {
+                            $this->fpdf->Cell(20, $td_h, '', 1, 0, 'L');
+                            $achar = explode('-', $r['SPL_RACKNO']);
+                            $this->fpdf->Text(3.5, $cury + 3, $achar[0]);
+                            $this->fpdf->Text(3.5, $cury + 6, $achar[1]);
+                        } else {
+                            $this->fpdf->Cell(20, $td_h, $r['SPL_RACKNO'], 1, 0, 'L');
+                        }
+                        $lebar = $this->fpdf->GetStringWidth(trim($r['SPL_ORDERNO'])) + 17;
+                        $clebar = $this->fpdf->GetStringWidth(trim($r['SPL_ORDERNO'])) + 16;
+                        $strx = $wd2col - ($lebar + 3);
+                        if (($i % 2) > 0) {
+                            $this->fpdf->Code128($wd2col - 60 + 2, $cury + 1.5, trim($r['SPL_ORDERNO']), $clebar, 3);
+                            $this->fpdf->Cell(60, $td_h, $r['SPL_ORDERNO'], 1, 0, 'R');
+                            $this->fpdf->SetFont('Arial', '', 4);
+                            $this->fpdf->Text($wd2col - 5, $cury + 1.5, $r['SPL_PROCD']);
+                            $this->fpdf->SetFont('Arial', '', 8);
+                        } else {
+                            $this->fpdf->Code128($strx, $cury + 1.5, trim($r['SPL_ORDERNO']), $clebar, 3);
+                            $this->fpdf->Cell(60, $td_h, $r['SPL_ORDERNO'], 1, 0, 'L');
+                            $this->fpdf->SetFont('Arial', '', 4);
+                            $this->fpdf->Text($wd2col - 79, $cury + 1.5, $r['SPL_PROCD']);
+                            $this->fpdf->SetFont('Arial', '', 8);
+                        }
+
+                        $this->fpdf->Cell(25, $td_h, trim($r['SPL_ITMCD']), 1, 0, 'L');
+                        $ttlwidth = $this->fpdf->GetStringWidth(trim($r['MITM_SPTNO']));
+                        if ($ttlwidth > 40) {
+                            $ukuranfont = 7.5;
+                            while ($ttlwidth > 39) {
+                                $this->fpdf->SetFont('Arial', '', $ukuranfont);
+                                $ttlwidth = $this->fpdf->GetStringWidth(trim($r['MITM_SPTNO']));
+                                $ukuranfont = $ukuranfont - 0.5;
+                            }
+                        }
+                        $this->fpdf->Cell(40, $td_h, trim($r['MITM_SPTNO']), 1, 0, 'L');
+                        $this->fpdf->SetFont('Arial', '', 8);
+                        $this->fpdf->Cell(15, $td_h, number_format($r['TTLREQ']), 1, 0, 'R');
+                        $ttlwidth = $this->fpdf->GetStringWidth(trim($r['SPL_ITMRMRK']));
+                        if ($ttlwidth > 43) {
+                            $ukuranfont = 7.5;
+                            while ($ttlwidth > 43) {
+                                $this->fpdf->SetFont('Arial', '', $ukuranfont);
+                                $ttlwidth = $this->fpdf->GetStringWidth(trim($r['SPL_ITMRMRK']));
+                                $ukuranfont = $ukuranfont - 0.5;
+                            }
+                        }
+                        $this->fpdf->Cell(43, $td_h, $r['SPL_ITMRMRK'], 1, 0, 'L');
+                        $this->fpdf->SetFont('Arial', '', 8);
+                        $cury += $td_h;
+                        $i++;
+                    }
+                }
+            }
+        }
+        $this->fpdf->Output('picking instruction' . '.pdf', 'I');
+        exit;
     }
 }

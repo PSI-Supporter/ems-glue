@@ -46,6 +46,7 @@ Route::prefix('supply')->group(function () {
     Route::post('validate-supplied-item', [SupplyController::class, 'isPartAlreadySuppliedInDocument']);
     Route::post('fix-transaction', [SupplyController::class, 'fixTransactionBySuppplyNumber']);
     Route::put('revise', [SupplyController::class, 'reviseLine']);
+    Route::get('supply-pdf', [SupplyController::class, 'toPickingInstruction']);
 });
 # Terkait Return Part
 Route::prefix('return')->group(function () {
