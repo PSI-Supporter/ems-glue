@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ProductionInput;
 use App\Models\ProductionTime;
 use Exception;
 use Illuminate\Http\Request;
@@ -44,6 +45,35 @@ class WOController extends Controller
                 ->where('MBO2_MDLCD', $data['item_code'])
                 ->where('MBO2_BOMRV', $data['item_bom_rev'])
                 ->orderBy('MBO2_SEQNO')->get();
+
+            // validate input vs lot size
+            $ProductionSavedInputs = DB::table('production_inputs')
+                ->whereNull('deleted_at')
+                ->where('wo_code', $data['wo_code'])
+                ->where('process_code', $data['process_code'])
+                ->select('production_date', 'shift_code', 'line_code', 'input_qty')->get();
+
+            $savedInputTotal = 0;
+            // .#1            
+
+            foreach ($ProductionSavedInputs as $r) {
+                if (
+                    $r->production_date == $data['production_date']
+                    && $r->shift_code == $data['shift_code']
+                    && $r->line_code == $data['line_code']
+                ) {
+                } else {
+                    $savedInputTotal += $r->input_qty;
+                }
+            }
+
+            if (($savedInputTotal + $data['input_qty']) > $data['wo_size']) {
+                return response()->json([
+                    'message' => 'Input greater than lot size ',
+                    'data' => $savedInputTotal . ' + ' . $data['input_qty'] . '>' . $data['wo_size']
+                ], 400);
+            }
+            // end of validation
 
             // validate previous process output
             $savedRows = DB::table("production_output")->select('process_code', 'process_seq', DB::raw("SUM(ok_qty)+SUM(ng_qty) as total_qty"))
@@ -88,9 +118,44 @@ class WOController extends Controller
                     break;
                 }
             }
-            // end of validation           
+            // end of validation
+
 
             DB::beginTransaction();
+
+            $countRowsInput = DB::table('production_inputs')
+                ->where('wo_code', $data['wo_code'])
+                ->where('production_date', $data['production_date'])
+                ->where('shift_code', $data['shift_code'])
+                ->where('line_code', $data['line_code'])
+                ->where('process_code', $data['process_code'])
+                ->count();
+            if ($countRowsInput) {
+                DB::table('production_inputs')
+                    ->where('wo_code', $data['wo_code'])
+                    ->where('production_date', $data['production_date'])
+                    ->where('shift_code', $data['shift_code'])
+                    ->where('line_code', $data['line_code'])
+                    ->where('process_code', $data['process_code'])
+                    ->update([
+                        'input_qty' => $data['input_qty'],
+                        'updated_at' => date('Y-m-d H:i:s'),
+                        'updated_by' => $data['user_id'],
+                    ]);
+            } else {
+                ProductionInput::create([
+                    'created_by' => $data['user_id'],
+                    'wo_code' => $data['wo_code'],
+                    'item_code' => $data['item_code'],
+                    'production_date' => $data['production_date'],
+                    'shift_code' => $data['shift_code'],
+                    'line_code' => $data['line_code'],
+                    'process_code' => $data['process_code'],
+                    'input_qty' => $data['input_qty'],
+                    'process_seq' => $data['process_seq'],
+                ]);
+            }
+
             foreach ($data['output'] as $r) {
                 $countRows = DB::table("production_output")
                     ->where('wo_code', $data['wo_code'])
@@ -110,7 +175,7 @@ class WOController extends Controller
                             'ok_qty' => $r['outputOK'],
                             'ng_qty' => $r['outputNG'],
                             'updated_by' => $data['user_id'],
-                            'input_qty' => $data['input_qty'],
+                            'updated_at' => date('Y-m-d H:i:s'),
                         ]);
                 } else {
                     $tobeSaved[] = [
@@ -126,7 +191,6 @@ class WOController extends Controller
                         'running_at' => $r['output_at'],
                         'ok_qty' => $r['outputOK'],
                         'ng_qty' => $r['outputNG'],
-                        'input_qty' => $data['input_qty'],
                         'cycle_time' => $data['cycle_time'],
                     ];
                 }
@@ -341,10 +405,12 @@ class WOController extends Controller
             ->whereNull('deleted_at')
             ->orderBy('running_at');
 
-        $dataInputPCB = DB::table('production_output')
+        $dataInputPCB = DB::table('production_inputs')
             ->select('input_qty')
             ->where('wo_code', $request->wo_code)
             ->where('process_code', $request->process_code)
+            ->where('line_code', $request->line_code)
+            ->where('shift_code', $request->shift_code)
             ->whereNull('deleted_at')
             ->orderBy('input_qty', 'desc')->first();
         return ['data' => $data->get(), 'inputPCB' => $dataInputPCB->input_qty ?? 0];
@@ -361,16 +427,23 @@ class WOController extends Controller
             ->orderBy('downtime_code')->get();
 
         $productionData = DB::table('production_output')
-            ->select('shift_code', 'wo_code', DB::raw('MAX(input_qty)*max(cycle_time)/3600 as working_time'),)
-            ->where('line_code',  $request->line_code)
-            ->where('production_date', $request->production_date)
-            ->groupBy('shift_code', 'wo_code');
+            ->select('production_output.shift_code', 'production_output.wo_code', DB::raw('MAX(input_qty)*max(cycle_time)/3600 as working_time'))
+            ->leftJoin('production_inputs', function ($join) {
+                $join->on('production_output.wo_code', '=', 'production_inputs.wo_code')
+                    ->on('production_output.production_date', '=', 'production_inputs.production_date')
+                    ->on('production_output.shift_code', '=', 'production_inputs.shift_code')
+                    ->on('production_output.line_code', '=', 'production_inputs.line_code')
+                    ->on('production_output.process_code', '=', 'production_inputs.process_code');
+            })
+            ->where('production_output.line_code',  $request->line_code)
+            ->where('production_output.production_date', $request->production_date)
+            ->groupBy('production_output.shift_code', 'production_output.wo_code');
 
         $productionDataFinal = DB::query()->fromSub($productionData, 'v1')
             ->select('shift_code', DB::raw('SUM(working_time) working_time_total'))
             ->groupBy('shift_code')
             ->get();
-        
+
         return [
             'data' => $downTime, 'workingTime' => $productionDataFinal
         ];
@@ -381,6 +454,17 @@ class WOController extends Controller
         $data = ProductionTime::select('shift_code', 'working_hours')
             ->where('production_date', $request->production_date)
             ->where('line_code', strtoupper($request->line_code))
+            ->get();
+        return ['data' => $data];
+    }
+
+    function getInput(Request $request)
+    {
+        $data = DB::table('production_inputs')
+            ->where('wo_code', $request->wo_code)
+            ->whereNull('deleted_at')
+            ->orderBy('production_date')
+            ->orderBy('shift_code')
             ->get();
         return ['data' => $data];
     }

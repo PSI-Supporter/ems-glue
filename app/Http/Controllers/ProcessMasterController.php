@@ -92,4 +92,12 @@ class ProcessMasterController extends Controller
         }
         return ['message' => 'Saved successfully', 'data' => $tobeSaved];
     }
+
+    function getLine()
+    {
+        $data = DB::table('process_masters')->select(DB::raw('UPPER(line_code) line_code'))
+            ->whereNull('deleted_at')
+            ->groupBy('line_code')->orderBy('line_code')->get();
+        return ['data' => $data];
+    }
 }

@@ -156,10 +156,12 @@ Route::prefix('work-order')->group(function () {
     Route::post('downtime', [WOController::class, 'saveDowntime']);
     Route::get('downtime', [WOController::class, 'getDownTime']);
     Route::get('production-time', [WOController::class, 'getProductionTime']);
+    Route::get('input', [WOController::class, 'getInput']);
 });
 
 Route::prefix('process-master')->group(function () {
     Route::get('cycle-time', [ProcessMasterController::class, 'getCycleTime']);
     Route::get('history', [ProcessMasterController::class, 'getHistory']);
     Route::post('', [ProcessMasterController::class, 'save']);
+    Route::get('line-code', [ProcessMasterController::class, 'getLine']);
 });
