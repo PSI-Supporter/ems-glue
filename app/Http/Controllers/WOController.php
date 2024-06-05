@@ -256,10 +256,17 @@ class WOController extends Controller
         try {
 
             $productionData = DB::table('production_output')
-                ->select('shift_code', 'wo_code', DB::raw('MAX(input_qty)*max(cycle_time)/3600 as working_time'),)
-                ->where('line_code', strtoupper($data['line_code']))
-                ->where('production_date', $data['production_date'])
-                ->groupBy('shift_code', 'wo_code');
+                ->leftJoin('production_inputs', function ($join) {
+                    $join->on('production_output.wo_code', '=', 'production_inputs.wo_code')
+                        ->on('production_output.production_date', '=', 'production_inputs.production_date')
+                        ->on('production_output.shift_code', '=', 'production_inputs.shift_code')
+                        ->on('production_output.line_code', '=', 'production_inputs.line_code')
+                        ->on('production_output.process_code', '=', 'production_inputs.process_code');
+                })
+                ->select('production_output.shift_code', 'production_output.wo_code', DB::raw('MAX(input_qty)*max(cycle_time)/3600 as working_time'),)
+                ->where('production_output.line_code', strtoupper($data['line_code']))
+                ->where('production_output.production_date', $data['production_date'])
+                ->groupBy('production_output.shift_code', 'production_output.wo_code');
 
             $productionDataFinal = DB::query()->fromSub($productionData, 'v1')
                 ->select('shift_code', DB::raw('SUM(working_time) working_time_total'))
@@ -281,8 +288,7 @@ class WOController extends Controller
                 if (!$isFound) {
                     $resumeDowntimeHour[] = [
                         'shift_code' => $r['shift_code'],
-                        'downtime' => ($r['req_minutes'] / 60),
-                        'working_hour' => 0
+                        'downtime' => ($r['req_minutes'] / 60)
                     ];
                 }
             }
@@ -310,8 +316,17 @@ class WOController extends Controller
 
 
             foreach ($productionDataFinal as $r) {
-                if ($r->working_hour != $r->working_time_total) {
-                    return response()->json(['message' => 'Working Hours vs (Actual Working Hour + Downtime) should be balance [' . $r->working_hour . ' != ' . $r->working_time_total . '] '], 400);
+                $shouldBlock = true;
+                foreach ($resumeDowntimeHour as $d) {
+                    if ($r->shift_code === $d['shift_code'] && $d['downtime'] == 0) {
+                        $shouldBlock = false;
+                        break;
+                    }
+                }
+                if ($r->working_hour != $r->working_time_total && $shouldBlock) {
+                    return response()->json([
+                        'message' => 'Working Hours vs (Actual Working Hour + Downtime) should be balance [' . $r->working_hour . ' != ' . $r->working_time_total . '] '
+                    ], 400);
                 }
             }
 
