@@ -763,6 +763,7 @@ class ReturnController extends Controller
                             'ITH_QTY' => $r['RETSCN_QTYAFT'],
                             'ITH_WH' => $cwh_inc,
                             'ITH_REMARK' => $r['RETSCN_ID'],
+                            'ITH_SER' => $r['RETSCN_UNIQUEKEY'],
                             'ITH_LUPDT' => $thelupdt,
                             'ITH_USRID' => $request->userId
                         ];
@@ -776,6 +777,7 @@ class ReturnController extends Controller
                             'ITH_QTY' => -$r['RETSCN_QTYAFT'],
                             'ITH_WH' => $cwh_out,
                             'ITH_REMARK' => $r['RETSCN_ID'],
+                            'ITH_SER' => $r['RETSCN_UNIQUEKEY'],
                             'ITH_LUPDT' => $thelupdt,
                             'ITH_USRID' => $request->userId
                         ];
