@@ -47,6 +47,7 @@ class WOController extends Controller
                 ->orderBy('MBO2_SEQNO')->get();
 
             // validate input vs lot size
+            // .query saved entry of input
             $ProductionSavedInputs = DB::table('production_inputs')
                 ->whereNull('deleted_at')
                 ->where('wo_code', $data['wo_code'])
@@ -67,7 +68,9 @@ class WOController extends Controller
                 }
             }
 
-            if (($savedInputTotal + $data['input_qty']) > $data['wo_size']) {
+            $_currentContextInput = $savedInputTotal + $data['input_qty'];
+
+            if ($_currentContextInput > $data['wo_size']) {
                 return response()->json([
                     'message' => 'Input greater than lot size ',
                     'data' => $savedInputTotal . ' + ' . $data['input_qty'] . '>' . $data['wo_size']
@@ -95,10 +98,41 @@ class WOController extends Controller
             }
             unset($m);
 
-            // .total ouput current input
+
+            // .query saved entry of output
+            $ProductionSavedOutputs = DB::table('production_output')
+                ->whereNull('deleted_at')
+                ->where('wo_code', $data['wo_code'])
+                ->where('process_code', $data['process_code'])
+                ->select('production_date', 'shift_code', 'line_code', 'ok_qty', 'ng_qty')->get();
+
+            $savedOutputotal = 0;
+
+            foreach ($ProductionSavedOutputs as $r) {
+                if (
+                    $r->production_date == $data['production_date']
+                    && $r->shift_code == $data['shift_code']
+                    && $r->line_code == $data['line_code']
+                ) {
+                } else {
+                    $savedOutputotal += ($r->ok_qty + $r->ng_qty);
+                }
+            }
+
+            // .total output current request input
             $_TotalCurrentInput = 0;
             foreach ($data['output'] as $r) {
                 $_TotalCurrentInput += ($r['outputOK'] + $r['outputNG']);
+            }
+
+            $_currentContextOutput = $savedOutputotal + $_TotalCurrentInput;
+
+            // is {context current entry of output} greater than {context entry of input} per process
+            if ($_currentContextOutput > $_currentContextInput) {
+                return response()->json([
+                    'message' => 'output of production > input-qty',
+                    'data' => $_currentContextOutput . '>' . $_currentContextInput
+                ], 400);
             }
 
             foreach ($ProcessMaster as $r) {
@@ -411,6 +445,7 @@ class WOController extends Controller
             ->where('process_code', $request->process_code)
             ->where('line_code', $request->line_code)
             ->where('shift_code', $request->shift_code)
+            ->where('production_date', $request->production_date)
             ->whereNull('deleted_at')
             ->orderBy('input_qty', 'desc')->first();
         return ['data' => $data->get(), 'inputPCB' => $dataInputPCB->input_qty ?? 0];
@@ -462,6 +497,7 @@ class WOController extends Controller
     {
         $data = DB::table('production_inputs')
             ->where('wo_code', $request->wo_code)
+            ->where('process_code', $request->process_code)
             ->whereNull('deleted_at')
             ->orderBy('production_date')
             ->orderBy('shift_code')
