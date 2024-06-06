@@ -144,8 +144,15 @@ class WOController extends Controller
                     $_seq = $r->MBO2_SEQNO;
                     if ($_seq != 1) {
                         foreach ($ProcessMaster as $_s) { // iterasi dari atas ke bawah (lagi) dengan batasan
-                            if ($_s->MBO2_SEQNO < $_seq && $_s->total_qty < $_TotalCurrentInput) {
-                                return response()->json(['message' => 'output of process #' . $_seq . ' > #' . $_s->MBO2_SEQNO], 400);
+                            if ($_s->MBO2_SEQNO < $_seq) {
+                                if ($_s->total_qty < $_TotalCurrentInput) {
+                                    return response()->json(['message' => 'output of process #' . $_seq . ' > #' . $_s->MBO2_SEQNO], 400);
+                                }
+
+                                // is {context entry of input} > {output of previous process}
+                                if ($_currentContextInput > $_s->total_qty) {
+                                    return response()->json(['message' => 'input of process #' . $_seq . ' > output of #' . $_s->MBO2_SEQNO], 400);
+                                }
                             }
                         }
                     }
@@ -420,7 +427,13 @@ class WOController extends Controller
     function resume(Request $request)
     {
         $output = DB::table('production_output')
-            ->select('line_code', 'process_code', DB::raw("SUM(ok_qty) ok_qty"), DB::raw("SUM(ng_qty) ng_qty"))
+            ->select(
+                'line_code',
+                'process_code',
+                DB::raw("SUM(ok_qty) ok_qty"),
+                DB::raw("SUM(ng_qty) ng_qty"),
+                DB::raw("MAX(production_date) max_production_date")
+            )
             ->where('wo_code', $request->wo_code)
             ->whereNull('deleted_at')
             ->groupBy('line_code', 'process_code', 'process_seq')->orderBy('process_seq');
