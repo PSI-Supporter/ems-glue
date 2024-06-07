@@ -704,7 +704,9 @@ class SupplyController extends Controller
             exit('no data to be found');
         }
         $cpsn = $request->psn;
-        $rspsn_group = DB::table('SPL_TBL')->select('SPL_DOC', 'SPL_CAT', 'SPL_LINE', 'SPL_FEDR')->where('SPL_DOC', $cpsn)->get();
+        $rspsn_group = DB::table('SPL_TBL')->select('SPL_DOC', 'SPL_CAT', 'SPL_LINE', 'SPL_FEDR')
+            ->groupByRaw('SPL_DOC, SPL_CAT,SPL_LINE,SPL_FEDR')
+            ->where('SPL_DOC', $cpsn)->get();
         $rspsn_group = json_decode(json_encode($rspsn_group), true);
 
         if (substr($cpsn, 0, 2) == 'SP') {
@@ -732,7 +734,6 @@ class SupplyController extends Controller
             }
 
             if (DB::table('SPLSCN_TBL')->where('SPLSCN_DOC', $cpsn)->count() > 0) {
-
                 $rshead = DB::select("exec xsp_megapsnhead_bypsn ?", [$cpsn]);
                 $rshead = json_decode(json_encode($rshead), true);
 
