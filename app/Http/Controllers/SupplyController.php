@@ -893,6 +893,8 @@ class SupplyController extends Controller
                         $cline = $r['SPL_LINE'];
                         $cfedr = $r['SPL_FEDR'];
                         #print header
+                        $QrHeadContent = $cpsn . '|' . $r['SPL_CAT'] . "|" . $r['SPL_LINE'] . "|" . $r['SPL_FEDR'];
+                        $headQRImage = $this->generateQR(['content' => $QrHeadContent]);
                         if ($strheader != $r['SPL_CAT'] . "|" . $r['SPL_LINE'] . "|" . $r['SPL_FEDR']) {
                             if (($cury + 20) > $hgt_p) {
                                 $cury = 4;
@@ -915,6 +917,7 @@ class SupplyController extends Controller
                             }
 
                             $strheader = $r['SPL_CAT'] . "|" . $r['SPL_LINE'] . "|" . $r['SPL_FEDR'];
+                            $this->fpdf->Image($headQRImage, 120, $cury + 7);
                             $this->fpdf->SetFont('Arial', '', 6);
                             $clebar = $this->fpdf->GetStringWidth($cpsn) + 40;
                             $this->fpdf->Code128(3, $cury, $cpsn, $clebar, 4);
@@ -941,6 +944,8 @@ class SupplyController extends Controller
                                 if (($cury + 10) > $hgt_p) {
                                     $cury = 4;
                                     $this->fpdf->AddPage();
+                                    $QrHeadContent = $cpsn . '|' . $strheader;
+                                    $this->fpdf->Image($this->generateQR(['content' => $QrHeadContent]), 120, 10);
                                     $this->fpdf->SetFont('Arial', '', 6);
                                     $clebar = $this->fpdf->GetStringWidth($cpsn) + 40;
                                     $this->fpdf->Code128(3, $cury, $cpsn, $clebar, 4);
@@ -1028,6 +1033,7 @@ class SupplyController extends Controller
                             if (($cury + 10) > $hgt_p) {
                                 $cury = 4;
                                 $this->fpdf->AddPage();
+                                $this->fpdf->Image($headQRImage, 120, $cury + 7);
                                 $this->fpdf->SetFont('Arial', '', 6);
                                 $clebar = $this->fpdf->GetStringWidth($cpsn) + 40;
                                 $this->fpdf->Code128(3, $cury, $cpsn, $clebar, 4);
@@ -1054,6 +1060,7 @@ class SupplyController extends Controller
                                     if (($cury + 10) > $hgt_p) {
                                         $cury = 4;
                                         $this->fpdf->AddPage();
+                                        $this->fpdf->Image($headQRImage, 120, $cury + 7);
                                         $this->fpdf->SetFont('Arial', '', 6);
                                         $clebar = $this->fpdf->GetStringWidth($cpsn) + 40;
                                         $this->fpdf->Code128(3, $cury, $cpsn, $clebar, 4);
@@ -1190,7 +1197,8 @@ class SupplyController extends Controller
                     $ccat = trim($rh['SPL_CAT']);
                     $cline = trim($rh['SPL_LINE']);
                     $cfedr = trim($rh['SPL_FEDR']);
-
+                    $QrHeadContent = $cpsn . '|' . $rh['SPL_CAT'] . "|" . $rh['SPL_LINE'] . "|" . $rh['SPL_FEDR'];
+                    $headQRImage = $this->generateQR(['content' => $QrHeadContent]);
                     $rshead = DB::select("exec xsp_megapsnhead ?, ?, ?", [$cpsn, $cline, $cfedr]);
                     $rshead = json_decode(json_encode($rshead), true);
 
@@ -1280,8 +1288,8 @@ class SupplyController extends Controller
                     $hgt_p = $this->fpdf->GetPageHeight();
                     $this->fpdf->SetAutoPageBreak(true, 1);
                     $this->fpdf->SetMargins(0, 0);
+                    $this->fpdf->Image($headQRImage, 120, 10);
                     $this->fpdf->SetFont('Arial', '', 6);
-
                     $clebar = $this->fpdf->GetStringWidth($cpsn) + 40;
                     $this->fpdf->Code128(3, 4, $cpsn, $clebar, 4);
                     $this->fpdf->Text(3, 11, $cpsn);
@@ -2034,11 +2042,17 @@ class SupplyController extends Controller
         exit;
     }
 
-    function generateQR($data = []) {
-        $op = new Process(["Python", base_path("smt.py"), $data['content'], "1"], );
+    function generateQR($data = [])
+    {
+        $op = new Process(["Python", base_path("smt.py"), $data['content'], "1"],);
         $op->run();
         if (!$op->isSuccessful()) {
             throw new \RuntimeException($op->getErrorOutput());
         }
+        $image_name = str_replace("/", "xxx", $data['content']);
+        $image_name = str_replace(" ", "___", $image_name);
+        $image_name = str_replace("|", "lll", $image_name);
+        $image_name = str_replace("\t", "ttt", $image_name);
+        return storage_path('app/public/' . $image_name . '.png');
     }
 }
