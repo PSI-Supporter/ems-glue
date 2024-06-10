@@ -13,7 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use App\Classes\EMSFpdf;
-
+use Symfony\Component\Process\Process;
 
 class SupplyController extends Controller
 {
@@ -1253,7 +1253,7 @@ class SupplyController extends Controller
 
                     $rs = DB::query()->fromSub($_a, 'a')
                         ->leftJoin('MITM_TBL', 'SPL_ITMCD', '=', 'MITM_ITMCD')
-                        ->orderByRaw('SPL_CAT, SPL_LINE, SPL_FEDR, aliasrack, SPL_RACKNO, SPL_ORDERNO, SPL_MC, SPL_ITMCD, SPL_PROCD')
+                        ->orderByRaw('aliasrack,SPL_RACKNO,SPL_ORDERNO,SPL_MC,SPL_ITMCD,SPL_PROCD')
                         ->selectRaw("SPL_PROCD,SPL_ORDERNO,SPL_RACKNO, rtrim(SPL_ITMCD) SPL_ITMCD,rtrim(MITM_SPTNO) MITM_SPTNO, SPL_QTYUSE, SPL_MC, SPL_MS, TTLREQ, TTLSCN, SPL_ITMRMRK,TTLREQ TTLREQB4,SPL_LINE,SPL_CAT,SPL_FEDR")
                         ->get();
                     $rs = json_decode(json_encode($rs), true);
@@ -2032,5 +2032,13 @@ class SupplyController extends Controller
         }
         $this->fpdf->Output('picking instruction' . '.pdf', 'I');
         exit;
+    }
+
+    function generateQR($data = []) {
+        $op = new Process(["Python", base_path("smt.py"), $data['content'], "1"], );
+        $op->run();
+        if (!$op->isSuccessful()) {
+            throw new \RuntimeException($op->getErrorOutput());
+        }
     }
 }
