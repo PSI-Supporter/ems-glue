@@ -157,6 +157,7 @@ Route::prefix('work-order')->group(function () {
     Route::get('downtime', [WOController::class, 'getDownTime']);
     Route::get('production-time', [WOController::class, 'getProductionTime']);
     Route::get('input', [WOController::class, 'getInput']);
+    Route::get('export', [WOController::class, 'exportDailyOutput']);
 });
 
 Route::prefix('process-master')->group(function () {

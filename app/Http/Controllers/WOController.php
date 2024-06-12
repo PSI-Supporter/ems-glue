@@ -7,6 +7,8 @@ use App\Models\ProductionTime;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
 class WOController extends Controller
 {
@@ -531,5 +533,160 @@ class WOController extends Controller
             ->orderBy('shift_code')
             ->get();
         return ['data' => $data];
+    }
+
+    function exportDailyOutput(Request $request)
+    {
+        $productionOutput = DB::table('production_output')
+            ->whereNull('deleted_at')
+            ->where('production_date', '>=', $request->dateFrom)
+            ->where('production_date', '<=', $request->dateTo)
+            ->groupBy('line_code', 'production_date', 'shift_code', 'item_code', 'process_seq', 'wo_code')
+            ->select(
+                'line_code',
+                'production_date',
+                'shift_code',
+                'item_code',
+                'process_seq',
+                'wo_code',
+                DB::raw('MAX(cycle_time) max_cycle_time'),
+                DB::raw('SUM(ok_qty) + SUM(ng_qty) sum_output_qty')
+            );
+
+        $itemProcesMaster = DB::table('process_masters')->select(
+            'assy_code',
+            DB::raw("MAX(model_code) model_code"),
+            DB::raw("MAX(model_type) model_type"),
+        )->groupBy('assy_code');
+
+        $woMaster = DB::table('XWO')->select('PDPP_WONO', DB::raw("MAX(PDPP_WORQT) PDPP_WORQT"))
+            ->groupBy('PDPP_WONO');
+
+        $productionInput = DB::table('production_inputs')
+            ->where('production_date', '>=', $request->dateFrom)
+            ->where('production_date', '<=', $request->dateTo)
+            ->select('line_code', 'production_date', 'shift_code', 'item_code', 'process_seq', 'wo_code', DB::raw("sum(input_qty) sum_input_qty"))
+            ->groupBy('line_code', 'production_date', 'shift_code', 'item_code', 'process_seq', 'wo_code');
+
+        $productionDowntime = DB::table('production_downtime')
+            ->where('production_date', '>=', $request->dateFrom)
+            ->where('production_date', '<=', $request->dateTo)
+            ->select(
+                'line_code',
+                'production_date',
+                'shift_code',
+                DB::raw("SUM(CASE WHEN downtime_code=1 THEN req_minutes END)/60 dt1"),
+                DB::raw("SUM(CASE WHEN downtime_code=2 THEN req_minutes END)/60 dt2"),
+                DB::raw("SUM(CASE WHEN downtime_code=3 THEN req_minutes END)/60 dt3"),
+                DB::raw("SUM(CASE WHEN downtime_code=4 THEN req_minutes END)/60 dt4"),
+                DB::raw("SUM(CASE WHEN downtime_code=5 THEN req_minutes END)/60 dt5"),
+                DB::raw("SUM(CASE WHEN downtime_code=6 THEN req_minutes END)/60 dt6"),
+                DB::raw("SUM(CASE WHEN downtime_code=7 THEN req_minutes END)/60 dt7"),
+            )
+            ->groupBy('line_code', 'production_date', 'shift_code');
+
+        $data = DB::query()->fromSub($productionOutput, 'prodOutput')
+            ->leftJoinSub($itemProcesMaster, 'itemMaster', 'item_code', '=', 'assy_code')
+            ->leftJoinSub($woMaster, 'woMaster', 'wo_code', '=', 'PDPP_WONO')
+            ->leftJoinSub($productionInput, 'prodInput', function ($join) {
+                $join->on('prodOutput.line_code', '=', 'prodInput.line_code')
+                    ->on('prodOutput.production_date', '=', 'prodInput.production_date')
+                    ->on('prodOutput.shift_code', '=', 'prodInput.shift_code')
+                    ->on('prodOutput.item_code', '=', 'prodInput.item_code')
+                    ->on('prodOutput.process_seq', '=', 'prodInput.process_seq')
+                    ->on('prodOutput.wo_code', '=', 'prodInput.wo_code');
+            })
+            ->leftJoin('production_times', function ($join) {
+                $join->on('prodOutput.line_code', '=', 'production_times.line_code')
+                    ->on('prodOutput.production_date', '=', 'production_times.production_date')
+                    ->on('prodOutput.shift_code', '=', 'production_times.shift_code');
+            })
+            ->leftJoinSub($productionDowntime, 'prodDowtime', function ($join) {
+                $join->on('prodOutput.line_code', '=', 'prodDowtime.line_code')
+                    ->on('prodOutput.production_date', '=', 'prodDowtime.production_date')
+                    ->on('prodOutput.shift_code', '=', 'prodDowtime.shift_code');
+            })
+            ->select(
+                'prodOutput.*',
+                DB::raw("RTRIM(model_code) model_code"),
+                DB::raw("RTRIM(model_type) model_type"),
+                'PDPP_WORQT',
+                'max_cycle_time',
+                'sum_input_qty',
+                'working_hours',
+                'dt1',
+                'dt2',
+                'dt3',
+                'dt4',
+                'dt5',
+                'dt6',
+                'dt7',
+            )
+            ->orderBy('line_code')
+            ->orderBy('production_date')
+            ->orderBy('process_seq')
+            ->get();
+        
+        $spreadSheet = new Spreadsheet();
+        $sheet = $spreadSheet->getActiveSheet();
+        $sheet->setTitle('daily_output_resume');
+        $sheet->setCellValue([1, 1], 'Line');
+        $sheet->setCellValue([2, 1], 'Date');
+        $sheet->setCellValue([3, 1], 'Shift');
+        $sheet->setCellValue([4, 1], 'Model');
+        $sheet->setCellValue([5, 1], 'Type');
+        $sheet->setCellValue([6, 1], 'Assy Code');
+        $sheet->setCellValue([7, 1], 'Proses');
+        $sheet->setCellValue([8, 1], 'Job No.');
+        $sheet->setCellValue([9, 1], 'Lot Size');
+        $sheet->setCellValue([10, 1], 'CT');
+        $sheet->setCellValue([11, 1], 'Input');
+        $sheet->setCellValue([12, 1], 'Output');
+        $sheet->setCellValue([13, 1], 'Jam Kerja');
+        $sheet->setCellValue([14, 1], 'Maintenance');
+        $sheet->setCellValue([15, 1], 'M/C Trouble');
+        $sheet->setCellValue([16, 1], 'Change model');
+        $sheet->setCellValue([17, 1], '4M (New model)');
+        $sheet->setCellValue([18, 1], 'Not Production 15 min');
+        $sheet->setCellValue([19, 1], 'Not Production');
+        $sheet->setCellValue([20, 1], 'Not Production No Plan');
+        $y = 2;
+        foreach ($data as $r) {
+            $sheet->setCellValue([1, $y], $r->line_code);
+            $sheet->setCellValue([2, $y], $r->production_date);
+            $sheet->setCellValue([3, $y], $r->shift_code);
+            $sheet->setCellValue([4, $y], $r->model_code);
+            $sheet->setCellValue([5, $y], $r->model_type);
+            $sheet->setCellValue([6, $y], $r->item_code);
+            $sheet->setCellValue([7, $y], $r->process_seq);
+            $sheet->setCellValue([8, $y], $r->wo_code);
+            $sheet->setCellValue([9, $y], $r->PDPP_WORQT);
+            $sheet->setCellValue([10, $y], $r->max_cycle_time);
+            $sheet->setCellValue([11, $y], $r->sum_input_qty);
+            $sheet->setCellValue([12, $y], $r->sum_output_qty);
+            $sheet->setCellValue([13, $y], $r->working_hours);
+            $sheet->setCellValue([14, $y], $r->dt1);
+            $sheet->setCellValue([15, $y], $r->dt2);
+            $sheet->setCellValue([16, $y], $r->dt3);
+            $sheet->setCellValue([17, $y], $r->dt4);
+            $sheet->setCellValue([18, $y], $r->dt5);
+            $sheet->setCellValue([19, $y], $r->dt6);
+            $sheet->setCellValue([20, $y], $r->dt7);
+            $y++;
+        }
+
+        foreach (range('A', 'T') as $v) {
+            $sheet->getColumnDimension($v)->setAutoSize(true);
+        }
+
+        $sheet->freezePane('A2');
+
+        $stringjudul = "Daily Report from " . $request->dateFrom . " to " . $request->dateTo;
+        $writer = IOFactory::createWriter($spreadSheet, 'Xlsx');
+        $filename = $stringjudul;
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
+        header('Cache-Control: max-age=0');
+        $writer->save('php://output');
     }
 }
