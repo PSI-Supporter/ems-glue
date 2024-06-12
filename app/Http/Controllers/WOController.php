@@ -626,7 +626,7 @@ class WOController extends Controller
             ->orderBy('production_date')
             ->orderBy('process_seq')
             ->get();
-        
+
         $spreadSheet = new Spreadsheet();
         $sheet = $spreadSheet->getActiveSheet();
         $sheet->setTitle('daily_output_resume');
@@ -682,6 +682,102 @@ class WOController extends Controller
         $sheet->freezePane('A2');
 
         $stringjudul = "Daily Report from " . $request->dateFrom . " to " . $request->dateTo;
+        $writer = IOFactory::createWriter($spreadSheet, 'Xlsx');
+        $filename = $stringjudul;
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
+        header('Cache-Control: max-age=0');
+        $writer->save('php://output');
+    }
+
+    function exportCost(Request $request)
+    {
+        $productionOutput = DB::table('production_output')
+            ->whereNull('deleted_at')
+            ->where('production_date', '>=', $request->dateFrom)
+            ->where('production_date', '<=', $request->dateTo)
+            ->groupBy('item_code', 'process_seq', 'wo_code')
+            ->select(
+                'item_code',
+                'process_seq',
+                'wo_code',
+                DB::raw('MAX(cycle_time) max_cycle_time'),
+                DB::raw('SUM(ok_qty) + SUM(ng_qty) sum_output_qty')
+            );
+
+        $itemProcesMaster = DB::table('process_masters')->select(
+            'assy_code',
+            DB::raw("MAX(model_code) model_code"),
+            DB::raw("MAX(model_type) model_type"),
+        )->groupBy('assy_code');
+
+
+
+        $productionInput = DB::table('production_inputs')
+            ->where('production_date', '>=', $request->dateFrom)
+            ->where('production_date', '<=', $request->dateTo)
+            ->select('item_code', 'process_seq', 'wo_code', DB::raw("sum(input_qty) sum_input_qty"))
+            ->groupBy('item_code', 'process_seq', 'wo_code');
+
+        $data = DB::query()->fromSub($productionOutput, 'prodOutput')
+            ->leftJoinSub($itemProcesMaster, 'itemMaster', 'item_code', '=', 'assy_code')
+            ->leftJoinSub($productionInput, 'prodInput', function ($join) {
+                $join->on('prodOutput.item_code', '=', 'prodInput.item_code')
+                    ->on('prodOutput.process_seq', '=', 'prodInput.process_seq')
+                    ->on('prodOutput.wo_code', '=', 'prodInput.wo_code');
+            })
+            ->select(
+                'prodOutput.*',
+                DB::raw("RTRIM(model_code) model_code"),
+                DB::raw("RTRIM(model_type) model_type"),
+                'max_cycle_time',
+                'sum_input_qty',
+            )
+            ->orderBy('wo_code')
+            ->orderBy('process_seq')
+            ->get();
+
+        $spreadSheet = new Spreadsheet();
+        $sheet = $spreadSheet->getActiveSheet();
+        $sheet->setTitle('wip');
+        $sheet->setCellValue([1, 1], 'Assy Code');
+        $sheet->setCellValue([2, 1], 'Job No');
+        $sheet->setCellValue([3, 1], 'Process');
+        $sheet->setCellValue([4, 1], 'CT / Process');
+        $sheet->setCellValue([5, 1], 'CT Total');
+        $sheet->setCellValue([6, 1], 'Cost / second');
+        $sheet->setCellValue([7, 1], 'Input Qty');
+        $sheet->setCellValue([8, 1], 'Output Qty');
+        $sheet->setCellValue([9, 1], 'Inventory Cost');
+        $sheet->setCellValue([10, 1], 'Actual Qty');
+
+        $y = 2;
+        $CTWOStage = 0;
+        $tempFlag = '';
+        foreach ($data as $r) {
+            if ($tempFlag != $r->wo_code) {
+                $CTWOStage = $r->max_cycle_time;
+                $tempFlag = $r->wo_code;
+            } else {
+                $CTWOStage += $r->max_cycle_time;
+            }
+            $sheet->setCellValue([1, $y], $r->item_code);
+            $sheet->setCellValue([2, $y], $r->wo_code);
+            $sheet->setCellValue([3, $y], $r->process_seq);
+            $sheet->setCellValue([4, $y], $r->max_cycle_time);
+            $sheet->setCellValue([5, $y], $CTWOStage);
+            $sheet->setCellValue([7, $y], $r->sum_input_qty);
+            $sheet->setCellValue([8, $y], $r->sum_output_qty);
+            $y++;
+        }
+
+        foreach (range('A', 'J') as $v) {
+            $sheet->getColumnDimension($v)->setAutoSize(true);
+        }
+
+        $sheet->freezePane('A2');
+
+        $stringjudul = "WIP Cost Report from " . $request->dateFrom . " to " . $request->dateTo;
         $writer = IOFactory::createWriter($spreadSheet, 'Xlsx');
         $filename = $stringjudul;
         header('Content-Type: application/vnd.ms-excel');

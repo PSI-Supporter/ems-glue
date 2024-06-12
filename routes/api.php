@@ -158,6 +158,7 @@ Route::prefix('work-order')->group(function () {
     Route::get('production-time', [WOController::class, 'getProductionTime']);
     Route::get('input', [WOController::class, 'getInput']);
     Route::get('export', [WOController::class, 'exportDailyOutput']);
+    Route::get('export-cost', [WOController::class, 'exportCost']);
 });
 
 Route::prefix('process-master')->group(function () {
