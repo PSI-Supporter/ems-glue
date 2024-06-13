@@ -692,10 +692,10 @@ class WOController extends Controller
 
     function exportCost(Request $request)
     {
+        # filter 1 : mendapatkan daftar Job
         $productionOutput = DB::table('production_output')
             ->whereNull('deleted_at')
-            ->where('production_date', '>=', $request->dateFrom)
-            ->where('production_date', '<=', $request->dateTo)
+            ->where('production_date', '<=', $request->dateFrom)
             ->groupBy('item_code', 'process_seq', 'wo_code')
             ->select(
                 'item_code',
@@ -714,14 +714,56 @@ class WOController extends Controller
 
 
         $productionInput = DB::table('production_inputs')
-            ->where('production_date', '>=', $request->dateFrom)
-            ->where('production_date', '<=', $request->dateTo)
+            ->where('production_date', '<=', $request->dateFrom)
             ->select('item_code', 'process_seq', 'wo_code', DB::raw("sum(input_qty) sum_input_qty"))
             ->groupBy('item_code', 'process_seq', 'wo_code');
 
         $data = DB::query()->fromSub($productionOutput, 'prodOutput')
             ->leftJoinSub($itemProcesMaster, 'itemMaster', 'item_code', '=', 'assy_code')
             ->leftJoinSub($productionInput, 'prodInput', function ($join) {
+                $join->on('prodOutput.item_code', '=', 'prodInput.item_code')
+                    ->on('prodOutput.process_seq', '=', 'prodInput.process_seq')
+                    ->on('prodOutput.wo_code', '=', 'prodInput.wo_code');
+            })
+            ->select(
+                'prodOutput.*',
+                DB::raw("RTRIM(model_code) model_code"),
+                DB::raw("RTRIM(model_type) model_type"),
+                'max_cycle_time',
+                'sum_input_qty',
+            )
+            ->whereRaw("sum_input_qty>isnull(sum_output_qty,0)")
+            ->orderBy('wo_code')
+            ->orderBy('process_seq')
+            ->get();
+        $UniqueJobList = [];
+
+        foreach ($data as $r) {
+            if (!in_array($r->wo_code, $UniqueJobList)) {
+                $UniqueJobList[] = $r->wo_code;
+            }
+        }
+
+        # filter 2 : dari daftar job tersebut tampilkan detailnya
+        $productionOutput2 = DB::table('production_output')
+            ->whereNull('deleted_at')
+            ->whereIn('wo_code', $UniqueJobList)
+            ->groupBy('item_code', 'process_seq', 'wo_code')
+            ->select(
+                'item_code',
+                'process_seq',
+                'wo_code',
+                DB::raw('MAX(cycle_time) max_cycle_time'),
+                DB::raw('SUM(ok_qty) + SUM(ng_qty) sum_output_qty')
+            );
+        $productionInput2 = DB::table('production_inputs')
+            ->whereIn('wo_code', $UniqueJobList)
+            ->select('item_code', 'process_seq', 'wo_code', DB::raw("sum(input_qty) sum_input_qty"))
+            ->groupBy('item_code', 'process_seq', 'wo_code');
+
+        $data2 = DB::query()->fromSub($productionOutput2, 'prodOutput')
+            ->leftJoinSub($itemProcesMaster, 'itemMaster', 'item_code', '=', 'assy_code')
+            ->leftJoinSub($productionInput2, 'prodInput', function ($join) {
                 $join->on('prodOutput.item_code', '=', 'prodInput.item_code')
                     ->on('prodOutput.process_seq', '=', 'prodInput.process_seq')
                     ->on('prodOutput.wo_code', '=', 'prodInput.wo_code');
@@ -748,13 +790,14 @@ class WOController extends Controller
         $sheet->setCellValue([6, 1], 'Cost / second');
         $sheet->setCellValue([7, 1], 'Input Qty');
         $sheet->setCellValue([8, 1], 'Output Qty');
-        $sheet->setCellValue([9, 1], 'Inventory Cost');
-        $sheet->setCellValue([10, 1], 'Actual Qty');
+        $sheet->setCellValue([9, 1], 'WIP Qty');
+        $sheet->setCellValue([10, 1], 'Inventory Cost');
+        $sheet->setCellValue([11, 1], 'Actual Qty');
 
         $y = 2;
         $CTWOStage = 0;
         $tempFlag = '';
-        foreach ($data as $r) {
+        foreach ($data2 as $r) {
             if ($tempFlag != $r->wo_code) {
                 $CTWOStage = $r->max_cycle_time;
                 $tempFlag = $r->wo_code;
@@ -768,12 +811,17 @@ class WOController extends Controller
             $sheet->setCellValue([5, $y], $CTWOStage);
             $sheet->setCellValue([7, $y], $r->sum_input_qty);
             $sheet->setCellValue([8, $y], $r->sum_output_qty);
+            $sheet->setCellValue([9, $y], ($r->sum_input_qty - $r->sum_output_qty));
             $y++;
         }
 
-        foreach (range('A', 'J') as $v) {
+        foreach (range('A', 'K') as $v) {
             $sheet->getColumnDimension($v)->setAutoSize(true);
         }
+
+        $sheet->getColumnDimension('D')->setVisible(false);
+        $sheet->getColumnDimension('G')->setVisible(false);
+        $sheet->getColumnDimension('H')->setVisible(false);
 
         $sheet->freezePane('A2');
 
