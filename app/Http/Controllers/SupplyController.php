@@ -795,7 +795,7 @@ class SupplyController extends Controller
                 $rs = DB::query()->fromSub($_a, 'a')
                     ->leftJoin('MITM_TBL', 'SPL_ITMCD', '=', 'MITM_ITMCD')
                     ->orderByRaw('SPL_CAT, SPL_LINE, SPL_FEDR, aliasrack, SPL_RACKNO, SPL_ORDERNO, SPL_MC, SPL_ITMCD, SPL_PROCD')
-                    ->selectRaw("SPL_PROCD,SPL_ORDERNO,SPL_RACKNO, rtrim(SPL_ITMCD) SPL_ITMCD,rtrim(MITM_SPTNO) MITM_SPTNO, SPL_QTYUSE, SPL_MC, SPL_MS, TTLREQ, TTLSCN, SPL_ITMRMRK,TTLREQ TTLREQB4,SPL_LINE,SPL_CAT,SPL_FEDR")
+                    ->selectRaw("RTRIM(SPL_PROCD) SPL_PROCD,SPL_ORDERNO,SPL_RACKNO, rtrim(SPL_ITMCD) SPL_ITMCD,rtrim(MITM_SPTNO) MITM_SPTNO, SPL_QTYUSE, SPL_MC, SPL_MS, TTLREQ, TTLSCN, SPL_ITMRMRK,TTLREQ TTLREQB4,SPL_LINE,SPL_CAT,SPL_FEDR")
                     ->get();
                 $rs = json_decode(json_encode($rs), true);
 
@@ -814,7 +814,8 @@ class SupplyController extends Controller
                         'SPLSCN_QTY',
                         'SPLSCN_LUPDT',
                         'SPLSCN_USRID',
-                        'SPLSCN_EXPORTED'
+                        'SPLSCN_EXPORTED',
+                        DB::raw('RTRIM(SPLSCN_PROCD) SPLSCN_PROCD'),
                     )->orderBy('SPLSCN_FEDR')
                     ->orderBy('SPLSCN_LUPDT')->get();
                 $rsdetail = json_decode(json_encode($rsdetail), true);
@@ -836,14 +837,22 @@ class SupplyController extends Controller
                     while ($think) {
                         $grasp = false;
                         foreach ($rsdetail as $d) {
-                            if ((trim($r['SPL_ORDERNO']) == trim($d['SPLSCN_ORDERNO'])) && (trim($r['SPL_ITMCD']) == trim($d['SPLSCN_ITMCD'])) && $d['USED'] == false) {
+                            if ((trim($r['SPL_ORDERNO']) == trim($d['SPLSCN_ORDERNO']))
+                                && (trim($r['SPL_ITMCD']) == trim($d['SPLSCN_ITMCD']))
+                                && ($r['SPL_PROCD'] == $d['SPLSCN_PROCD'])
+                                && $d['USED'] == false
+                            ) {
                                 $grasp = true;
                                 break;
                             }
                         }
                         if ($grasp) {
                             foreach ($rsdetail as &$d) {
-                                if ((trim($r['SPL_ORDERNO']) == trim($d['SPLSCN_ORDERNO'])) && (trim($r['SPL_ITMCD']) == trim($d['SPLSCN_ITMCD'])) && $d['USED'] == false) {
+                                if ((trim($r['SPL_ORDERNO']) == trim($d['SPLSCN_ORDERNO']))
+                                    && (trim($r['SPL_ITMCD']) == trim($d['SPLSCN_ITMCD']))
+                                    && ($r['SPL_PROCD'] == $d['SPLSCN_PROCD'])
+                                    && $d['USED'] == false
+                                ) {
                                     $think2 = true;
                                     while ($think2) {
                                         if ($r['TTLREQ'] > $r['TTLSCN']) {
