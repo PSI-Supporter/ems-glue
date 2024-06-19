@@ -6,6 +6,7 @@ use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\ITHController;
+use App\Http\Controllers\KursController;
 use App\Http\Controllers\LabelController;
 use App\Http\Controllers\ProcessMasterController;
 use App\Http\Controllers\ReceiveController;
@@ -166,4 +167,9 @@ Route::prefix('process-master')->group(function () {
     Route::get('history', [ProcessMasterController::class, 'getHistory']);
     Route::post('', [ProcessMasterController::class, 'save']);
     Route::get('line-code', [ProcessMasterController::class, 'getLine']);
+});
+
+Route::prefix('kurs')->group(function () {
+    Route::get('', [KursController::class, 'getKurs']);   
+    Route::get('daily-download', [KursController::class, 'downloadKursDaily']);
 });
