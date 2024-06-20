@@ -9,6 +9,7 @@ use App\Http\Controllers\ITHController;
 use App\Http\Controllers\KursController;
 use App\Http\Controllers\LabelController;
 use App\Http\Controllers\ProcessMasterController;
+use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\ReceiveController;
 use App\Http\Controllers\RedmineController;
 use App\Http\Controllers\ReturnController;
@@ -146,6 +147,8 @@ Route::prefix('receive')->group(function () {
     Route::get('synchronize', [ReceiveController::class, 'synchronize_from_MEGAEMS']);
     Route::get('download-template', [ReceiveController::class, 'downloadTemplateUpload']);
     Route::get('upload-massively', [ReceiveController::class, 'uploadMassive']);
+    Route::get('rtn-fg-report', [ReceiveController::class, 'reportRTNFG']);
+    Route::get('update-rtn-fg', [ReceiveController::class, 'updateRTNFGBG']);
 });
 
 Route::prefix('work-order')->group(function () {
@@ -170,6 +173,10 @@ Route::prefix('process-master')->group(function () {
 });
 
 Route::prefix('kurs')->group(function () {
-    Route::get('', [KursController::class, 'getKurs']);   
+    Route::get('', [KursController::class, 'getKurs']);
     Route::get('daily-download', [KursController::class, 'downloadKursDaily']);
+});
+
+Route::prefix('purchase')->group(function () {
+    Route::delete('remove', [PurchaseController::class, 'remove']);
 });
