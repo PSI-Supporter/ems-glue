@@ -829,6 +829,7 @@ class SupplyController extends Controller
 
                 $firstCategory = '';
 
+                # filter 1
                 foreach ($rs as &$r) {
                     if ($firstCategory === '') {
                         $firstCategory = $r['SPL_CAT'];
@@ -851,6 +852,53 @@ class SupplyController extends Controller
                                 if ((trim($r['SPL_ORDERNO']) == trim($d['SPLSCN_ORDERNO']))
                                     && (trim($r['SPL_ITMCD']) == trim($d['SPLSCN_ITMCD']))
                                     && ($r['SPL_PROCD'] == $d['SPLSCN_PROCD'])
+                                    && $d['USED'] == false
+                                ) {
+                                    $think2 = true;
+                                    while ($think2) {
+                                        if ($r['TTLREQ'] > $r['TTLSCN']) {
+                                            if ($d['USED'] == false) {
+                                                $r['TTLSCN'] += $d['SPLSCN_QTY'];
+                                                $d['USED'] = true;
+                                            } else {
+                                                $think2 = false;
+                                            }
+                                        } else {
+                                            $think2 = false;
+                                            $think = false;
+                                        }
+                                    }
+                                }
+                            }
+                            unset($d);
+                        } else {
+                            $think = false;
+                        }
+                    }
+                }
+                unset($r);
+
+                # filter 2
+                foreach ($rs as &$r) {
+                    if ($firstCategory === '') {
+                        $firstCategory = $r['SPL_CAT'];
+                    }
+                    $think = true;
+                    while ($think) {
+                        $grasp = false;
+                        foreach ($rsdetail as $d) {
+                            if ((trim($r['SPL_ORDERNO']) == trim($d['SPLSCN_ORDERNO']))
+                                && (trim($r['SPL_ITMCD']) == trim($d['SPLSCN_ITMCD']))                               
+                                && $d['USED'] == false
+                            ) {
+                                $grasp = true;
+                                break;
+                            }
+                        }
+                        if ($grasp) {
+                            foreach ($rsdetail as &$d) {
+                                if ((trim($r['SPL_ORDERNO']) == trim($d['SPLSCN_ORDERNO']))
+                                    && (trim($r['SPL_ITMCD']) == trim($d['SPLSCN_ITMCD']))
                                     && $d['USED'] == false
                                 ) {
                                     $think2 = true;
