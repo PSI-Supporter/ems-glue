@@ -7,6 +7,7 @@ use App\Models\ProductionTime;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
@@ -832,5 +833,164 @@ class WOController extends Controller
         header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
         header('Cache-Control: max-age=0');
         $writer->save('php://output');
+    }
+
+    function saveKeikaku(Request $request)
+    {
+        $validator = Validator::make(
+            $request->json()->all(),
+            [
+                'line_code' => 'required',
+                'production_date' => 'required|date',
+                'detail' => 'required|array',
+                'detail.*.wo_code' => 'required',
+            ],
+            [
+                'line_code.required' => ':attribute is required',
+                'production_date.required' => ':attribute is required',
+                'production_date.date' => ':attribute should be date',
+                'detail.required' => ':attribute is required',
+                'detail.array' => ':attribute should be array',
+                'detail.*.wo_code.required' => ':attribute is required',
+            ]
+        );
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors()->all(), 406);
+        }
+
+        $data = $request->json()->all();
+
+        $tobeSaved = [];
+        $message = '';
+        try {
+            $tobeSaved = [];
+            // validate WO
+            $UniqueWO = [];
+            $UniqueWO1 = [];
+            $UniqueWO2 = [];
+            $InputWO = [];
+            $InputWO1 = [];
+            $InputWO2 = [];
+            foreach ($data['detail'] as $r) {
+                $_wo = date('y') . '-' . $r['wo_code'] . '-' . $r['item_code'];
+                if (!in_array($_wo, $UniqueWO)) {
+                    $UniqueWO[] = $_wo;
+                }
+                $InputWO[] = ['WO' => $_wo, 'FLAG' => 0, 'BWO' => $_wo];
+
+                $tobeSaved[] = [
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'created_by' => $data['user_id'],
+                    'line_code' => $data['line_code'],
+                    'production_date' => $data['production_date'],
+                    'seq' => $r['seq'],
+                    'wo_code' => $r['wo_code'],
+                    'wo_full_code' => $_wo,
+                    'item_code' => $r['item_code'],
+                    'lot_size' => $r['lot_size'],
+                    'plan_qty' => $r['plan_qty'],
+                    'type' => $r['type'],
+                    'specs' => $r['specs'],
+                    'specs_side' => $r['specs_side'],
+                    'packaging' => $r['packaging'],
+                ];
+            }
+
+            # check UniqueWO on database
+            $DBWO = DB::table('XWO')->select('PDPP_WONO')->whereIn('PDPP_WONO', $UniqueWO)->get();
+            foreach ($DBWO as $d) {
+                foreach ($InputWO as &$i) {
+                    if ($d->PDPP_WONO === $i['WO']) {
+                        $i['FLAG'] = 1;
+                        break;
+                    }
+                }
+                unset($i);
+            }
+
+            $prefixPreviousYear = (int)date('y') - 1;
+            $prefixNextYear = (int)date('y') + 1;
+            $additionalFilter1Applied = false;
+            $additionalFilter2Applied = false;
+
+            foreach ($InputWO as &$i) {
+                if ($i['FLAG'] === 0) {
+                    $additionalFilter1Applied = true;
+                    $i['WO'] = $prefixNextYear . substr($i['WO'], 2, strlen($i['WO']));
+                    $UniqueWO1[] = $i['WO'];
+                    $InputWO1[] = ['WO' => $_wo, 'FLAG' => 0, 'BWO' => $_wo];
+                }
+            }
+            unset($i);
+
+            if ($additionalFilter1Applied) {
+                $DBWO = DB::table('XWO')->select('PDPP_WONO')->whereIn('PDPP_WONO', $UniqueWO1)->get();
+                foreach ($DBWO as $d) {
+                    foreach ($InputWO1 as &$i) {
+                        if ($d->PDPP_WONO === $i['WO']) {
+                            $i['FLAG'] = 1;
+                            break;
+                        }
+                    }
+                    unset($i);
+                }
+
+                foreach ($InputWO1 as &$i) {
+                    if ($i['FLAG'] === 0) {
+                        $additionalFilter2Applied = true;
+                        $i['WO'] = $prefixPreviousYear . substr($i['WO'], 2, strlen($i['WO']));
+                        $UniqueWO2[] = $i['WO'];
+                        $InputWO2[] = ['WO' => $_wo, 'FLAG' => 0, 'BWO' => $_wo];
+                    }
+                }
+                unset($i);
+
+                if ($additionalFilter2Applied) {
+                    $DBWO = DB::table('XWO')->select('PDPP_WONO')->whereIn('PDPP_WONO', $UniqueWO2)->get();
+                    foreach ($DBWO as $d) {
+                        foreach ($InputWO2 as &$i) {
+                            if ($d->PDPP_WONO === $i['WO']) {
+                                $i['FLAG'] = 1;
+                                break;
+                            }
+                        }
+                        unset($i);
+                    }
+
+                    foreach ($InputWO2 as &$i) {
+                        if ($i['FLAG'] === 0) {
+                            return response()->json(['message' => $i['WO'] . ' is not registered'], 401);
+                        }
+                    }
+                    unset($i);
+                }
+            }
+
+            if (
+                DB::table('keikaku_data')
+                ->where('line_code', $data['line_code'])
+                ->where('production_date', $data['production_date'])->count() > 0
+            ) {
+                DB::table('keikaku_data')
+                    ->where('line_code', $data['line_code'])
+                    ->where('production_date', $data['production_date'])->update(
+                        ['deleted_at' => date('Y-m-d H:i:s'), 'deleted_by' => $data['user_id']]
+                    );
+            }
+
+            DB::table('keikaku_data')->insert($tobeSaved);
+
+            return ['message' => 'Saved successfully', $data];
+        } catch (Exception $e) {
+            $message = $e->getMessage();
+            DB::rollBack();
+            return response()->json(['message' => $message], 400);
+        }
+    }
+
+    function saveKeikakuCalculation(Request $request)
+    {
+        
     }
 }

@@ -180,3 +180,8 @@ Route::prefix('kurs')->group(function () {
 Route::prefix('purchase')->group(function () {
     Route::delete('remove', [PurchaseController::class, 'remove']);
 });
+
+Route::prefix('keikaku')->group(function () {
+    Route::post('', [WOController::class, 'saveKeikaku']);
+    Route::post('calculation', [WOController::class, 'saveKeikakuCalculation']);
+});
