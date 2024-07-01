@@ -1497,6 +1497,7 @@ class SupplyController extends Controller
                             if (($cury + 10) > $hgt_p) {
                                 $this->fpdf->AddPage();
                                 $this->fpdf->SetFont('Arial', '', 6);
+                                $this->fpdf->Image($headQRImage, 120, 10);
                                 $clebar = $this->fpdf->GetStringWidth($cpsn) + 40;
                                 $this->fpdf->Code128(3, 4, $cpsn, $clebar, 4);
                                 $this->fpdf->Text(3, 11, $cpsn);
