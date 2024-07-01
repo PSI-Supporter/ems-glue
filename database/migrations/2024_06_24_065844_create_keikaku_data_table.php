@@ -20,6 +20,7 @@ return new class extends Migration
             $table->string('line_code', 15);
             $table->date('production_date');
             $table->smallInteger('seq');
+            $table->string('model_code', 15);
             $table->string('wo_code', 5);
             $table->string('wo_full_code', 50);
             $table->string('item_code', 50);

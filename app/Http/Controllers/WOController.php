@@ -885,6 +885,7 @@ class WOController extends Controller
                     'line_code' => $data['line_code'],
                     'production_date' => $data['production_date'],
                     'seq' => $r['seq'],
+                    'model_code' => $r['model_code'],
                     'wo_code' => $r['wo_code'],
                     'wo_full_code' => $_wo,
                     'item_code' => $r['item_code'],
@@ -1060,6 +1061,17 @@ class WOController extends Controller
     function getKeikakuCalculation(Request $request)
     {
         $data = DB::table('keikaku_calcs')
+            ->whereNull('deleted_at')
+            ->where('production_date', $request->production_date)
+            ->where('line_code', $request->line_code)
+            ->orderBy('id')
+            ->get();
+        return ['data' => $data];
+    }
+
+    function getKeikakuData(Request $request)
+    {
+        $data = DB::table('keikaku_data')
             ->whereNull('deleted_at')
             ->where('production_date', $request->production_date)
             ->where('line_code', $request->line_code)
