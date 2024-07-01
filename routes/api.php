@@ -184,4 +184,5 @@ Route::prefix('purchase')->group(function () {
 Route::prefix('keikaku')->group(function () {
     Route::post('', [WOController::class, 'saveKeikaku']);
     Route::post('calculation', [WOController::class, 'saveKeikakuCalculation']);
+    Route::get('calculation', [WOController::class, 'getKeikakuCalculation']);
 });

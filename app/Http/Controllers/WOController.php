@@ -1056,4 +1056,15 @@ class WOController extends Controller
             return response()->json(['message' => $e->getMessage()], 400);
         }
     }
+
+    function getKeikakuCalculation(Request $request)
+    {
+        $data = DB::table('keikaku_calcs')
+            ->whereNull('deleted_at')
+            ->where('production_date', $request->production_date)
+            ->where('line_code', $request->line_code)
+            ->orderBy('id')
+            ->get();
+        return ['data' => $data];
+    }
 }
