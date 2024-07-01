@@ -991,6 +991,69 @@ class WOController extends Controller
 
     function saveKeikakuCalculation(Request $request)
     {
-        
+        $validator = Validator::make(
+            $request->json()->all(),
+            [
+                'line_code' => 'required',
+                'production_date' => 'required|date',
+                'user_id' => 'required',
+                'detail' => 'required|array',
+                'detail.*.shift_code' => 'required',
+            ],
+            [
+                'line_code.required' => ':attribute is required',
+                'production_date.required' => ':attribute is required',
+                'production_date.date' => ':attribute should be date',
+                'user_id.required' => ':attribute is required',
+                'detail.required' => ':attribute is required',
+                'detail.array' => ':attribute should be array',
+                'detail.*.shift_code.required' => ':attribute is required',
+            ]
+        );
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors()->all(), 406);
+        }
+        $data = $request->json()->all();
+        $tobeSaved = [];
+
+        try {
+            foreach ($data['detail'] as $r) {
+                $tobeSaved[] = [
+                    'shift_code' => $r['shift_code'],
+                    'production_date' => $data['production_date'],
+                    'calculation_at' => $r['calculation_at'],
+                    'line_code' => $data['line_code'],
+                    'worktype1' => (float)$r['worktype1'],
+                    'worktype2' => (float)$r['worktype2'],
+                    'worktype3' => (float)$r['worktype3'],
+                    'worktype4' => (float)$r['worktype4'],
+                    'worktype5' => (float)$r['worktype5'],
+                    'worktype6' => (float)$r['worktype6'],
+                    'flag_mot' => $r['flag_mot'],
+                    'efficiency' => (float)$r['efficiency'],
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'created_by' => $data['user_id'],
+                ];
+            }
+
+            if (
+                DB::table('keikaku_calcs')
+                ->where('line_code', $data['line_code'])
+                ->where('production_date', $data['production_date'])->count() > 0
+            ) {
+                DB::table('keikaku_calcs')
+                    ->where('line_code', $data['line_code'])
+                    ->where('production_date', $data['production_date'])->update(
+                        ['deleted_at' => date('Y-m-d H:i:s'), 'deleted_by' => $data['user_id']]
+                    );
+            }
+
+            DB::table('keikaku_calcs')->insert($tobeSaved);
+            return ['message' => 'Saved successfully', 'data' => $tobeSaved];
+        } catch (Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => $e->getMessage()], 400);
+        }
     }
 }
