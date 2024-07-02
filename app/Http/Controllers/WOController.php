@@ -1072,6 +1072,8 @@ class WOController extends Controller
     function getKeikakuData(Request $request)
     {
         $data = DB::table('keikaku_data')
+            ->select('keikaku_data.*', 'PDPP_BOMRV')
+            ->leftJoin('XWO', 'wo_full_code', '=', 'PDPP_WONO')
             ->whereNull('deleted_at')
             ->where('production_date', $request->production_date)
             ->where('line_code', $request->line_code)
