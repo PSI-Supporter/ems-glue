@@ -186,4 +186,5 @@ Route::prefix('keikaku')->group(function () {
     Route::get('', [WOController::class, 'getKeikakuData']);
     Route::post('calculation', [WOController::class, 'saveKeikakuCalculation']);
     Route::get('calculation', [WOController::class, 'getKeikakuCalculation']);
+    Route::post('from-balance', [WOController::class, 'saveKeikakuFromPreviousBalance']);
 });

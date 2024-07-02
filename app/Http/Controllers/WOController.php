@@ -1079,4 +1079,61 @@ class WOController extends Controller
             ->get();
         return ['data' => $data];
     }
+
+    function saveKeikakuFromPreviousBalance(Request $request)
+    {
+        $validator = Validator::make(
+            $request->json()->all(),
+            [
+                'line_code' => 'required',
+                'production_date' => 'required|date',
+                'user_id' => 'required',
+            ],
+            [
+                'line_code.required' => ':attribute is required',
+                'production_date.required' => ':attribute is required',
+                'production_date.date' => ':attribute should be date',
+                'user_id.required' => ':attribute is required',
+            ]
+        );
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors()->all(), 406);
+        }
+
+        $data = $request->json()->all();
+
+        $lastProductionDate = DB::table('keikaku_data')
+            ->select('production_date')
+            ->where('line_code', $data['line_code'])
+            ->where('production_date', '<=',  $data['production_date'])
+            ->orderBy('production_date', 'desc')->first();
+
+        $balanceData = [];
+        $message = '';
+        if ($lastProductionDate) {
+            $balanceData = DB::table('keikaku_data')
+                ->select(
+                    'id',
+                    'model_code',
+                    'wo_code',
+                    'lot_size',
+                    'plan_qty',
+                    'item_code',
+                    'type',
+                    'specs',
+                    'specs_side',
+                    'packaging',
+                    DB::raw("plan_qty-isnull(actual_qty,0) bal_qty")
+                )
+                ->where('line_code', $data['line_code'])
+                ->where('production_date',  $lastProductionDate->production_date)
+                ->whereRaw('plan_qty > isnull(actual_qty,0)')
+                ->orderBy('id', 'asc')->get();
+        } else {
+            $message = 'there is no previous balance on a Line ' . $data['line_code'];
+        }
+
+        return ['data' => $balanceData, 'message' => $message];
+    }
 }
