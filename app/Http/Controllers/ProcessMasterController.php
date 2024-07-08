@@ -86,9 +86,8 @@ class ProcessMasterController extends Controller
 
             DB::commit();
         } catch (Exception $e) {
-            $message = $e->getMessage();
             DB::rollBack();
-            return response()->json(['message' => $message], 400);
+            return response()->json(['message' => $e->getMessage()], 400);
         }
         return ['message' => 'Saved successfully', 'data' => $tobeSaved];
     }
@@ -98,6 +97,37 @@ class ProcessMasterController extends Controller
         $data = DB::table('process_masters')->select(DB::raw('UPPER(line_code) line_code'))
             ->whereNull('deleted_at')
             ->groupBy('line_code')->orderBy('line_code')->get();
+        return ['data' => $data];
+    }
+
+    function search(Request $request)
+    {
+        $data = [];
+        try {
+            $dataInput = $request->json()->all();
+
+            $uniqueAssyCodeList = [];
+
+            foreach ($dataInput['detail'] as $r) {
+                if (!in_array($r['item_code'], $uniqueAssyCodeList)) {
+                    $uniqueAssyCodeList[] = $r['item_code'];
+                }
+            }
+
+
+            if ($dataInput['detail']) {
+                if (is_array($dataInput['detail'])) {
+                    $data = DB::table('process_masters')
+                        ->whereNull('deleted_at')
+                        ->where('line_code', $dataInput['line_code'])
+                        ->whereIn('assy_code', $uniqueAssyCodeList)
+                        ->get(['assy_code', 'cycle_time']);
+                }
+            }
+        } catch (Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 400);
+        }
+
         return ['data' => $data];
     }
 }
