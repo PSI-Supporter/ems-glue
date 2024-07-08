@@ -30,6 +30,7 @@ return new class extends Migration
             $table->string('type', 50);
             $table->string('specs', 50);
             $table->string('specs_side', 50);
+            $table->float('cycle_time', 14, 2);
             $table->string('packaging', 5);
             $table->string('created_by', 9);
             $table->string('updated_by', 9)->nullable();
