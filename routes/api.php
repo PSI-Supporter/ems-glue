@@ -169,6 +169,7 @@ Route::prefix('process-master')->group(function () {
     Route::get('cycle-time', [ProcessMasterController::class, 'getCycleTime']);
     Route::get('history', [ProcessMasterController::class, 'getHistory']);
     Route::post('', [ProcessMasterController::class, 'save']);
+    Route::post('search', [ProcessMasterController::class, 'search']);
     Route::get('line-code', [ProcessMasterController::class, 'getLine']);
 });
 

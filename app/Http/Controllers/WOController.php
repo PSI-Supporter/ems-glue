@@ -30,10 +30,23 @@ class WOController extends Controller
 
     function getProcess(Request $request)
     {
+
+        $addionalWhere = [];
+        if ($request->bomRev) {
+            $addionalWhere[] = ['MBO2_BOMRV', '=', $request->bomRev];
+        } else {
+            $latestBomRev = DB::table('VCIMS_MBO2_TBL')
+                ->select('MBO2_BOMRV')
+                ->where('MBO2_MDLCD', $request->item_code)
+                ->orderBy('MBO2_BOMRV', 'desc')->first();
+
+            $addionalWhere[] = ['MBO2_BOMRV', '=', $latestBomRev->MBO2_BOMRV];
+        }
         $data = DB::table('VCIMS_MBO2_TBL')->select(DB::raw('RTRIM(MBO2_PROCD) MBO2_PROCD'), 'MBO2_SEQNO')
             ->where('MBO2_MDLCD', $request->item_code)
-            ->where('MBO2_BOMRV', $request->bomRev)
+            ->where($addionalWhere)
             ->orderBy('MBO2_SEQNO');
+
         return ['data' => $data->get()];
     }
 
@@ -895,6 +908,7 @@ class WOController extends Controller
                     'specs' => $r['specs'],
                     'specs_side' => $r['specs_side'],
                     'packaging' => $r['packaging'],
+                    'cycle_time' => (float)$r['cycle_time'],
                 ];
             }
 
@@ -971,6 +985,7 @@ class WOController extends Controller
             if (
                 DB::table('keikaku_data')
                 ->where('line_code', $data['line_code'])
+                ->whereNull('deleted_at')
                 ->where('production_date', $data['production_date'])->count() > 0
             ) {
                 DB::table('keikaku_data')
@@ -1072,13 +1087,12 @@ class WOController extends Controller
     function getKeikakuData(Request $request)
     {
         $data = DB::table('keikaku_data')
-            ->select('keikaku_data.*', 'PDPP_BOMRV')
             ->leftJoin('XWO', 'wo_full_code', '=', 'PDPP_WONO')
             ->whereNull('deleted_at')
             ->where('production_date', $request->production_date)
             ->where('line_code', $request->line_code)
             ->orderBy('id')
-            ->get();
+            ->get(['keikaku_data.*', 'PDPP_BOMRV']);
         return ['data' => $data];
     }
 
