@@ -20,13 +20,13 @@ return new class extends Migration
             $table->string('line_code', 15);
             $table->date('production_date');
             $table->smallInteger('seq');
-            $table->string('model_code', 15);
+            $table->string('model_code', 20);
             $table->string('wo_code', 5);
             $table->string('wo_full_code', 50)->nullable();
             $table->string('item_code', 50);
             $table->integer('lot_size');
             $table->integer('plan_qty')->nullable();
-            $table->string('type', 50);
+            $table->string('type', 100);
             $table->string('specs', 50);
             $table->string('specs_side', 50)->nullable();
             $table->float('cycle_time', 14, 2)->nullable();

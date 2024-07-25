@@ -1194,9 +1194,9 @@ class WOController extends Controller
 
                     $_columnA = $sheet->getCell([1, $rowAt])->getCalculatedValue();
                     $_columnC = $sheet->getCell([3, $rowAt])->getCalculatedValue();
-                    $_columnCNext = $sheet->getCell([3, $rowAt + 1])->getCalculatedValue();
+                    $_columnCNext = trim($sheet->getCell([3, $rowAt + 1])->getCalculatedValue());
                     $_columnD = $sheet->getCell([4, $rowAt])->getCalculatedValue();
-                    $_columnDNext = $sheet->getCell([4, $rowAt + 1])->getCalculatedValue();
+                    $_columnDNext = trim($sheet->getCell([4, $rowAt + 1])->getCalculatedValue());
                     $_columnE = $sheet->getCell([5, $rowAt])->getCalculatedValue();
                     $_columnENext = $sheet->getCell([5, $rowAt + 1])->getCalculatedValue();
 
@@ -1204,7 +1204,7 @@ class WOController extends Controller
                         $emptyRowsCount++;
                     }
 
-                    if ($_columnA != '' && $_columnA != $_columnABefore) {
+                    if ($_columnA != '' && $_columnA != $_columnABefore && is_numeric($_columnA)) {
 
                         $_columnABefore = $_columnA;
                         $emptyRowsCount--;
@@ -1240,7 +1240,7 @@ class WOController extends Controller
                                     'created_by' => $request->user_id,
                                     'created_at' => date('Y-m-d H:i:s'),
                                     'start_production_date' => $startProductionDate,
-                                    'shift' => $_shift,
+                                    'shift' => trim($_shift),
                                 ];
                             }
                         }
