@@ -1152,4 +1152,172 @@ class WOController extends Controller
 
         return ['data' => $balanceData, 'message' => $message];
     }
+
+    function importProdPlan(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'template_file' => 'required|mimes:xlsx,xls|max:3072',
+        ]);
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 406);
+        }
+
+        $message = '';
+        $data = [];
+
+        if ($request->file('template_file')) {
+            $file = $request->file('template_file');
+
+            $fileName = time() . '_' . $file->getClientOriginalName();
+
+            $location = 'assets';
+
+            $file->move(public_path($location), $fileName);
+            $reader = IOFactory::createReader(ucfirst($file->getClientOriginalExtension()));
+            $spreadsheet = $reader->load(public_path('assets/' . $fileName));
+            $sheetCount = $spreadsheet->getSheetCount();
+            $revision = '';
+            $startProductionDate = '';
+            for ($i = 0; $i < $sheetCount; $i++) { // sheet scope
+                $sheet = $spreadsheet->getSheet($i);
+                $emptyRowsCount = 0;
+                $_columnABefore = '';
+                $rowAt = 12;
+                if ($sheet->getCell('N2')->getCalculatedValue()) {
+                    $revision = $sheet->getCell('N2')->getCalculatedValue();
+                    $_StartProductionDate = $sheet->getCell('AT4')->getCalculatedValue();
+                    $_StartProductionDateO = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($_StartProductionDate);
+                    $startProductionDate = $_StartProductionDateO->format('Y-m-d');
+                }
+
+                while ($emptyRowsCount < 2) { // row scope
+
+                    $_columnA = $sheet->getCell([1, $rowAt])->getCalculatedValue();
+                    $_columnC = $sheet->getCell([3, $rowAt])->getCalculatedValue();
+                    $_columnCNext = $sheet->getCell([3, $rowAt + 1])->getCalculatedValue();
+                    $_columnD = $sheet->getCell([4, $rowAt])->getCalculatedValue();
+                    $_columnDNext = $sheet->getCell([4, $rowAt + 1])->getCalculatedValue();
+                    $_columnE = $sheet->getCell([5, $rowAt])->getCalculatedValue();
+                    $_columnENext = $sheet->getCell([5, $rowAt + 1])->getCalculatedValue();
+
+                    if ($_columnA == '') {
+                        $emptyRowsCount++;
+                    }
+
+                    if ($_columnA != '' && $_columnA != $_columnABefore) {
+
+                        $_columnABefore = $_columnA;
+                        $emptyRowsCount--;
+
+                        for ($c = 13; $c < 53; $c++) { // column scope
+
+                            $_qty = $sheet->getCell([$c, $rowAt])->getCalculatedValue();
+                            $_date = $sheet->getCell([$c, 6])->getCalculatedValue();
+                            $_dateO = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($_date);
+                            $_shift = strtoupper($sheet->getCell([$c, 11])->getCalculatedValue());
+
+                            if ($_qty > 0) {
+
+                                if (!$_date) {
+                                    if ($_shift == 'N') {
+                                        $_date = $sheet->getCell([$c - 1, 6])->getCalculatedValue();
+                                        $_dateO = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($_date);
+                                    }
+                                }
+
+                                $data[] = [
+                                    'revision' => $revision,
+                                    'line_code' => $sheet->getCell('J4')->getCalculatedValue(),
+                                    'seq' => $_columnA,
+                                    'model_code' => $_columnC,
+                                    'wo_code' => $_columnD,
+                                    'type' => $_columnCNext,
+                                    'specs' => $_columnDNext,
+                                    'lot_size' => $_columnE,
+                                    'item_code' => $_columnENext,
+                                    'plan_qty' => $_qty,
+                                    'production_date' => $_dateO->format('Y-m-d'),
+                                    'created_by' => $request->user_id,
+                                    'created_at' => date('Y-m-d H:i:s'),
+                                    'start_production_date' => $startProductionDate,
+                                    'shift' => $_shift,
+                                ];
+                            }
+                        }
+                    }
+
+                    $rowAt++;
+                }
+            }
+
+            if (count($data) > 0) {
+                $TOTAL_COLUMN = 15;
+                try {
+                    DB::beginTransaction();
+                    $insert_data = collect($data);
+                    $chunks = $insert_data->chunk(2000 / $TOTAL_COLUMN);
+                    foreach ($chunks as $chunk) {
+                        DB::table('keikaku_draft_data')->insert($chunk->toArray());
+                    }
+                    DB::commit();
+                } catch (Exception $e) {
+                    unlink(public_path('assets/' . $fileName));
+                    DB::rollBack();
+                    return response()->json(['message' => $e->getMessage()], 400);
+                }
+            }
+
+            unlink(public_path('assets/' . $fileName));
+
+            $message = 'Uploaded successfully';
+        }
+
+        return ['message' => $message, 'data' => $data];
+    }
+
+    function getProdPlanRevisions(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'start_production_date' => 'required|date',
+        ]);
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 406);
+        }
+
+        $arrayDate = explode('-', $request->start_production_date);
+
+        $data = DB::table('keikaku_draft_data')
+            ->whereMonth('start_production_date', $arrayDate[1])
+            ->whereYear('start_production_date', $arrayDate[0])
+            ->whereNull('deleted_at')
+            ->groupBy('revision')
+            ->orderBy('revision');
+
+        return ['data' => $data->get('revision')];
+    }
+
+    function getProdPlan(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'start_production_date' => 'required|date',
+            'line_code' => 'required',
+        ]);
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 406);
+        }
+
+        $arrayDate = explode('-', $request->start_production_date);
+
+        $data = DB::table('keikaku_draft_data')
+            ->whereMonth('start_production_date', $arrayDate[1])
+            ->whereYear('start_production_date', $arrayDate[0])
+            ->where('line_code', $request->line_code)
+            ->where('revision', base64_decode($request->revision))
+            ->whereNull('deleted_at')
+            ->orderBy('seq')
+            ->orderBy('production_date')
+            ->get();
+
+        return ['data' => $data];
+    }
 }

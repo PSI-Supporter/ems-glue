@@ -151,6 +151,12 @@ Route::prefix('receive')->group(function () {
     Route::get('update-rtn-fg', [ReceiveController::class, 'updateRTNFGBG']);
 });
 
+Route::prefix('production-plan')->group(function () {
+    Route::post('import', [WOController::class, 'importProdPlan']);
+    Route::get('revisions', [WOController::class, 'getProdPlanRevisions']);
+    Route::get('revisions/{revision}', [WOController::class, 'getProdPlan']);
+});
+
 Route::prefix('work-order')->group(function () {
     Route::get('outstanding', [WOController::class, 'getOutstanding']);
     Route::get('process', [WOController::class, 'getProcess']);
