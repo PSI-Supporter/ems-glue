@@ -886,7 +886,7 @@ class WOController extends Controller
             $InputWO1 = [];
             $InputWO2 = [];
             foreach ($data['detail'] as $r) {
-                $_wo = date('y') . '-' . $r['wo_code'] . '-' . $r['item_code'];
+                $_wo = date('y') . '-' . $r['wo_code'] . '-' . trim($r['item_code']);
                 if (!in_array($_wo, $UniqueWO)) {
                     $UniqueWO[] = $_wo;
                 }
@@ -913,12 +913,11 @@ class WOController extends Controller
             }
 
             # check UniqueWO on database
-            $DBWO = DB::table('XWO')->select('PDPP_WONO')->whereIn('PDPP_WONO', $UniqueWO)->get();
-            foreach ($DBWO as $d) {
+            $DBWO0 = DB::table('XWO')->select('PDPP_WONO')->whereIn('PDPP_WONO', $UniqueWO)->get();
+            foreach ($DBWO0 as $d) {
                 foreach ($InputWO as &$i) {
-                    if ($d->PDPP_WONO === $i['WO']) {
+                    if ($d->PDPP_WONO === $i['WO'] && $i['FLAG'] == 0) {
                         $i['FLAG'] = 1;
-                        break;
                     }
                 }
                 unset($i);
@@ -932,18 +931,19 @@ class WOController extends Controller
             foreach ($InputWO as &$i) {
                 if ($i['FLAG'] === 0) {
                     $additionalFilter1Applied = true;
+                    $_bWO = $i['WO'];
                     $i['WO'] = $prefixNextYear . substr($i['WO'], 2, strlen($i['WO']));
                     $UniqueWO1[] = $i['WO'];
-                    $InputWO1[] = ['WO' => $_wo, 'FLAG' => 0, 'BWO' => $_wo];
+                    $InputWO1[] = ['WO' => $i['WO'], 'FLAG' => 0, 'BWO' => $_bWO];
                 }
             }
             unset($i);
 
             if ($additionalFilter1Applied) {
-                $DBWO = DB::table('XWO')->select('PDPP_WONO')->whereIn('PDPP_WONO', $UniqueWO1)->get();
-                foreach ($DBWO as $d) {
+                $DBWO1 = DB::table('XWO')->select('PDPP_WONO')->whereIn('PDPP_WONO', $UniqueWO1)->get();
+                foreach ($DBWO1 as $d) {
                     foreach ($InputWO1 as &$i) {
-                        if ($d->PDPP_WONO === $i['WO']) {
+                        if ($d->PDPP_WONO === $i['WO'] && $i['FLAG'] == 0) {
                             $i['FLAG'] = 1;
                             break;
                         }
@@ -954,9 +954,10 @@ class WOController extends Controller
                 foreach ($InputWO1 as &$i) {
                     if ($i['FLAG'] === 0) {
                         $additionalFilter2Applied = true;
+                        $_bWO = $i['WO'];
                         $i['WO'] = $prefixPreviousYear . substr($i['WO'], 2, strlen($i['WO']));
                         $UniqueWO2[] = $i['WO'];
-                        $InputWO2[] = ['WO' => $_wo, 'FLAG' => 0, 'BWO' => $_wo];
+                        $InputWO2[] = ['WO' => $i['WO'], 'FLAG' => 0, 'BWO' => $_bWO];
                     }
                 }
                 unset($i);
@@ -975,7 +976,9 @@ class WOController extends Controller
 
                     foreach ($InputWO2 as &$i) {
                         if ($i['FLAG'] === 0) {
-                            return response()->json(['message' => $i['WO'] . ' is not registered'], 401);
+                            return response()->json([
+                                'message' => $i['WO'] . ' is not registered'
+                            ], 406);
                         }
                     }
                     unset($i);
