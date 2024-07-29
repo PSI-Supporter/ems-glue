@@ -1156,7 +1156,7 @@ class WOController extends Controller
     function importProdPlan(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'template_file' => 'required|mimes:xlsx,xls|max:3072',
+            'template_file' => 'required|mimes:xlsx,xls|max:10240',
         ]);
         if ($validator->fails()) {
             return response()->json($validator->errors(), 406);
@@ -1177,28 +1177,75 @@ class WOController extends Controller
             $spreadsheet = $reader->load(public_path('assets/' . $fileName));
             $sheetCount = $spreadsheet->getSheetCount();
             $revision = '';
+            $scheduleYear = '';
+            $scheduleMonth = '';
             $startProductionDate = '';
             for ($i = 0; $i < $sheetCount; $i++) { // sheet scope
                 $sheet = $spreadsheet->getSheet($i);
                 $emptyRowsCount = 0;
                 $_columnABefore = '';
                 $rowAt = 12;
-                if ($sheet->getCell('N2')->getCalculatedValue()) {
+                if ($sheet->getCell('N2')->getCalculatedValue()) { // to avoid revision is not filled in specific sheet
                     $revision = $sheet->getCell('N2')->getCalculatedValue();
                     $_StartProductionDate = $sheet->getCell('AT4')->getCalculatedValue();
                     $_StartProductionDateO = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($_StartProductionDate);
                     $startProductionDate = $_StartProductionDateO->format('Y-m-d');
                 }
 
+                if ($sheet->getCell('A4')->getCalculatedValue()) { // to avoid Month is not filled in specific sheet
+                    switch (strtoupper($sheet->getCell('A4')->getCalculatedValue())) {
+                        case 'JANUARY':
+                            $scheduleMonth = '01';
+                            break;
+                        case 'FEBRUARY':
+                            $scheduleMonth = '02';
+                            break;
+                        case 'MARCH':
+                            $scheduleMonth = '03';
+                            break;
+                        case 'APRIL':
+                            $scheduleMonth = '04';
+                            break;
+                        case 'MAY':
+                            $scheduleMonth = '05';
+                            break;
+                        case 'JUNE':
+                            $scheduleMonth = '06';
+                            break;
+                        case 'JULY':
+                            $scheduleMonth = '07';
+                            break;
+                        case 'AUGUST':
+                            $scheduleMonth = '08';
+                            break;
+                        case 'SEPTEMBER':
+                            $scheduleMonth = '09';
+                            break;
+                        case 'OCTOBER':
+                            $scheduleMonth = '10';
+                            break;
+                        case 'NOVEMBER':
+                            $scheduleMonth = '11';
+                            break;
+                        case 'DECEMBER':
+                            $scheduleMonth = '12';
+                            break;
+                        default:
+                            $scheduleMonth = strtoupper($sheet->getCell('A4')->getCalculatedValue());
+                    }
+
+                    $scheduleYear = $sheet->getCell('E4')->getCalculatedValue();
+                }
+
                 while ($emptyRowsCount < 2) { // row scope
 
-                    $_columnA = $sheet->getCell([1, $rowAt])->getCalculatedValue();
-                    $_columnC = $sheet->getCell([3, $rowAt])->getCalculatedValue();
-                    $_columnCNext = trim($sheet->getCell([3, $rowAt + 1])->getCalculatedValue());
-                    $_columnD = $sheet->getCell([4, $rowAt])->getCalculatedValue();
-                    $_columnDNext = trim($sheet->getCell([4, $rowAt + 1])->getCalculatedValue());
-                    $_columnE = $sheet->getCell([5, $rowAt])->getCalculatedValue();
-                    $_columnENext = $sheet->getCell([5, $rowAt + 1])->getCalculatedValue();
+                    $_columnA = $sheet->getCell([1, $rowAt])->getCalculatedValue(); // Seq
+                    $_columnC = $sheet->getCell([3, $rowAt])->getCalculatedValue(); // Model
+                    $_columnCNext = trim($sheet->getCell([3, $rowAt + 1])->getCalculatedValue()); // type
+                    $_columnD = $sheet->getCell([4, $rowAt])->getCalculatedValue(); // Job
+                    $_columnDNext = trim($sheet->getCell([4, $rowAt + 1])->getCalculatedValue()); // Spec
+                    $_columnE = $sheet->getCell([5, $rowAt])->getCalculatedValue(); // lot size
+                    $_columnENext = $sheet->getCell([5, $rowAt + 1])->getCalculatedValue(); // assy code
 
                     if ($_columnA == '') {
                         $emptyRowsCount++;
@@ -1241,6 +1288,8 @@ class WOController extends Controller
                                     'created_at' => date('Y-m-d H:i:s'),
                                     'start_production_date' => $startProductionDate,
                                     'shift' => trim($_shift),
+                                    'file_year' => $scheduleYear,
+                                    'file_month' => $scheduleMonth,
                                 ];
                             }
                         }
@@ -1251,9 +1300,25 @@ class WOController extends Controller
             }
 
             if (count($data) > 0) {
-                $TOTAL_COLUMN = 15;
+                $TOTAL_COLUMN = 17;
                 try {
                     DB::beginTransaction();
+                    $ttlSaved = DB::table('keikaku_draft_data')
+                        ->where('file_year', $scheduleYear)
+                        ->where('file_month', $scheduleMonth)
+                        ->where('revision', $revision)
+                        ->whereNull('deleted_at')
+                        ->count();
+
+                    if ($ttlSaved > 0) {
+                        DB::table('keikaku_draft_data')
+                            ->where('file_year', $scheduleYear)
+                            ->where('file_month', $scheduleMonth)
+                            ->where('revision', $revision)
+                            ->whereNull('deleted_at')
+                            ->update(['deleted_at' => date('Y-m-d H:i:s'), 'deleted_by' => $request->user_id]);
+                    }
+
                     $insert_data = collect($data);
                     $chunks = $insert_data->chunk(2000 / $TOTAL_COLUMN);
                     foreach ($chunks as $chunk) {
@@ -1278,39 +1343,37 @@ class WOController extends Controller
     function getProdPlanRevisions(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'start_production_date' => 'required|date',
+            'file_year' => 'required',
+            'file_month' => 'required',
         ]);
         if ($validator->fails()) {
             return response()->json($validator->errors(), 406);
         }
 
-        $arrayDate = explode('-', $request->start_production_date);
-
         $data = DB::table('keikaku_draft_data')
-            ->whereMonth('start_production_date', $arrayDate[1])
-            ->whereYear('start_production_date', $arrayDate[0])
+            ->where('file_year', $request->file_year)
+            ->where('file_month', $request->file_month)
             ->whereNull('deleted_at')
             ->groupBy('revision')
             ->orderBy('revision');
 
-        return ['data' => $data->get('revision')];
+        return ['data' => $data->get('revision'), $request->file_year, $request->file_month];
     }
 
     function getProdPlan(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'start_production_date' => 'required|date',
+            'file_year' => 'required',
+            'file_month' => 'required',
             'line_code' => 'required',
         ]);
         if ($validator->fails()) {
             return response()->json($validator->errors(), 406);
         }
 
-        $arrayDate = explode('-', $request->start_production_date);
-
         $data = DB::table('keikaku_draft_data')
-            ->whereMonth('start_production_date', $arrayDate[1])
-            ->whereYear('start_production_date', $arrayDate[0])
+            ->where('file_year', $request->file_year)
+            ->where('file_month', $request->file_month)
             ->where('line_code', $request->line_code)
             ->where('revision', base64_decode($request->revision))
             ->whereNull('deleted_at')

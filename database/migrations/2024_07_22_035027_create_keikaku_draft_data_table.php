@@ -37,6 +37,8 @@ return new class extends Migration
             $table->string('deleted_by', 9)->nullable();
             $table->date('start_production_date');
             $table->string('shift', 1);
+            $table->string('file_year', 4);
+            $table->string('file_month', 2);
         });
     }
 
