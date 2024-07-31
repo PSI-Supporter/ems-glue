@@ -492,7 +492,25 @@ class WOController extends Controller
             ->where('production_date', $request->production_date)
             ->whereNull('deleted_at')
             ->orderBy('input_qty', 'desc')->first();
-        return ['data' => $data->get(), 'inputPCB' => $dataInputPCB->input_qty ?? 0];
+
+        $dataCalc = DB::table('keikaku_calcs')->whereNull('deleted_at')->where('production_date', $request->production_date)->get();
+        foreach ($dataCalc as &$r) {
+            $_retensi = null;
+            $_jam = explode(' ', $r->calculation_at)[1];
+            if (in_array($r->flag_mot, ['N', 'M', '4M'])) {
+                $_retensi = 0;
+            } else {
+                if (in_array(substr($_jam, 0, 2), ['16']) && $r->flag_mot === 'OT') {
+                    $_retensi = $r->worktype6;
+                } else {
+                    $_retensi = $r->worktype5;
+                }
+            }
+            $r->retensi = $_retensi;
+            $r->jam = $_jam;
+        }
+        unset($r);
+        return ['data' => $data->get(), 'inputPCB' => $dataInputPCB->input_qty ?? 0, 'dataCalc' => $dataCalc];
     }
 
     function getDownTime(Request $request)
@@ -1049,6 +1067,7 @@ class WOController extends Controller
                     'worktype4' => (float)$r['worktype4'],
                     'worktype5' => (float)$r['worktype5'],
                     'worktype6' => (float)$r['worktype6'],
+                    'plan_worktime' => (float)$r['plan_worktime'],
                     'flag_mot' => $r['flag_mot'],
                     'efficiency' => (float)$r['efficiency'],
                     'created_at' => date('Y-m-d H:i:s'),
