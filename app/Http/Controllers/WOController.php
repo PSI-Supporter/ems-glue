@@ -13,6 +13,7 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
 class WOController extends Controller
 {
+    private $keikakuColumnIndexStart = 5;
     public function __construct()
     {
         date_default_timezone_set('Asia/Jakarta');
@@ -493,24 +494,141 @@ class WOController extends Controller
             ->whereNull('deleted_at')
             ->orderBy('input_qty', 'desc')->first();
 
-        $dataCalc = DB::table('keikaku_calcs')->whereNull('deleted_at')->where('production_date', $request->production_date)->get();
-        foreach ($dataCalc as &$r) {
-            $_retensi = null;
-            $_jam = explode(' ', $r->calculation_at)[1];
-            if (in_array($r->flag_mot, ['N', 'M', '4M'])) {
-                $_retensi = 0;
+        $dataKeikakuData = DB::table('keikaku_data')
+            ->whereNull('deleted_at')
+            ->where('production_date', $request->production_date)
+            ->where('line_code', $request->line_code)
+            ->orderBy('id')
+            ->get(['*', DB::raw("cycle_time/3600*plan_qty as production_worktime"), DB::raw("cycle_time/3600 ct_hour")]);
+
+        $dataCalc = DB::table('keikaku_calcs')->whereNull('deleted_at')->where('production_date', $request->production_date)
+            ->orderBy('calculation_at')
+            ->get([
+                'plan_worktime',
+                'efficiency',
+                'calculation_at',
+                DB::raw("plan_worktime*efficiency as effective_worktime"),
+            ]);
+
+
+        $dataIndex = 1;
+        $tempModel = '';
+
+        // assy code|should change model| productio total hour |wo|times...
+        $_asMatrixHeader1 = [NULL, NULL, NULL, NULL, NULL];
+        $_asMatrixHeader2 = [NULL, NULL, NULL, NULL, NULL];
+        foreach ($dataCalc as $c) {
+            $_jam = substr(explode(' ', $c->calculation_at)[1], 0, 2);
+            $_asMatrixHeader1[] = $_jam;
+            $_asMatrixHeader2[] = $c->effective_worktime;
+        }
+        $asMatrix = [
+            $_asMatrixHeader1,
+            $_asMatrixHeader2
+        ];
+
+
+        foreach ($dataKeikakuData as $d) {
+            $_shouldChangeModel = false;
+            if (strlen($tempModel) > 0) {
+                if ($tempModel != $d->model_code) {
+                    $_shouldChangeModel = true;
+                    $tempModel = $d->model_code;
+                }
             } else {
-                if (in_array(substr($_jam, 0, 2), ['16']) && $r->flag_mot === 'OT') {
-                    $_retensi = $r->worktype6;
-                } else {
-                    $_retensi = $r->worktype5;
+                if ($tempModel != $d->model_code) {
+                    $_shouldChangeModel = false; // first row always set to false
+                    $tempModel = $d->model_code;
                 }
             }
-            $r->retensi = $_retensi;
-            $r->jam = $_jam;
+
+
+            $_asMatrix1 = [NULL, $_shouldChangeModel, ($_shouldChangeModel ? 0.25 : 0), NULL, NULL];
+            $_asMatrix2 = [$d->item_code, NULL, $d->production_worktime, $d->wo_full_code, $d->ct_hour];
+            foreach ($dataCalc as $c) {
+                $_jam = substr(explode(' ', $c->calculation_at)[1], 0, 2);
+                $_asMatrix1[] = NULL;
+                $_asMatrix2[] = NULL;
+            }
+            $asMatrix[] = $_asMatrix1;
+            $asMatrix[] = $_asMatrix2;
+            $dataIndex++;
         }
-        unset($r);
-        return ['data' => $data->get(), 'inputPCB' => $dataInputPCB->input_qty ?? 0, 'dataCalc' => $dataCalc];
+
+        // bismillah proses kalkulasi waktu
+        $matrixRowsLength = count($asMatrix);
+        for ($i = 2; $i < $matrixRowsLength; $i++) {
+            for ($col = $this->keikakuColumnIndexStart; $col < 29; $col++) {
+                $_totalProductionHours = $asMatrix[$i][2];
+                if ($_totalProductionHours == 0) {
+                    $asMatrix[$i][$col] = 0;
+                } else {
+                    $asMatrix[$i][$col] = $this->_plotTime($asMatrix, $col, $i, $_totalProductionHours);
+                }
+            }
+        }
+
+        // transform time into qty
+        $asProdPlan = $asMatrix;
+
+        for ($i = 2; $i < $matrixRowsLength; $i++) {
+            for ($col = $this->keikakuColumnIndexStart; $col < 29; $col++) {
+                if ($asProdPlan[$i][$col] > 0 && $asProdPlan[$i][4] > 0) {
+                    $asProdPlan[$i][$col] = round($asProdPlan[$i][$col] / $asProdPlan[$i][4]);
+                }
+            }
+        }
+
+        return [
+            'data' => $data->get(),
+            'inputPCB' => $dataInputPCB->input_qty ?? 0,
+            'keikakuData' => $dataKeikakuData,
+            'dataCalc' => $dataCalc,
+            'asMatrix' => $asMatrix,
+            'asProdplan' => $asProdPlan
+        ];
+    }
+
+    private function _plotTime($data, $parX, $parY, $parProductionHours)
+    {
+        $_plotedTime = 0;
+        $restEffectiveWorkTime = $data[1][$parX] - $this->_sumVertical($data, $parX, $parY);
+        if ($parX === $this->keikakuColumnIndexStart) {
+            if ($parProductionHours < $restEffectiveWorkTime) {
+                $_plotedTime = $parProductionHours;
+            } else {
+                $_plotedTime = $restEffectiveWorkTime;
+            }
+        } else {
+            if ($parProductionHours < $restEffectiveWorkTime) {
+                $_plotedTime = $parProductionHours - $this->_sumHorizontal($data, $parX, $parY);
+            } elseif (($parProductionHours - $this->_sumHorizontal($data, $parX, $parY)) < $restEffectiveWorkTime) {
+                $_plotedTime = $parProductionHours - $this->_sumHorizontal($data, $parX, $parY);
+            } else {
+                $_plotedTime = $restEffectiveWorkTime;
+            }
+        }
+
+        return $_plotedTime;
+    }
+
+    private function _sumVertical($data, $parX, $parY)
+    {
+        $_summarizedVertical = 0;
+        for ($__r = $parY; $__r > 1; $__r--) {
+            $_summarizedVertical += $data[$__r][$parX];
+        }
+
+        return $_summarizedVertical;
+    }
+
+    private function _sumHorizontal($data, $parX, $parY)
+    {
+        $_summarizedHorizontal = 0;
+        for ($__c = $parX; $__c >= $this->keikakuColumnIndexStart; $__c--) {
+            $_summarizedHorizontal += $data[$parY][$__c];
+        }
+        return $_summarizedHorizontal;
     }
 
     function getDownTime(Request $request)
