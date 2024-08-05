@@ -841,6 +841,7 @@ class SupplyController extends Controller
                             if ((trim($r['SPL_ORDERNO']) == trim($d['SPLSCN_ORDERNO']))
                                 && (trim($r['SPL_ITMCD']) == trim($d['SPLSCN_ITMCD']))
                                 && ($r['SPL_PROCD'] == $d['SPLSCN_PROCD'])
+                                && ($r['SPL_FEDR'] == $d['SPLSCN_FEDR'])
                                 && $d['USED'] == false
                             ) {
                                 $grasp = true;
