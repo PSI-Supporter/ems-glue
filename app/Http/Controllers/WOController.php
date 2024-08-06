@@ -13,7 +13,7 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
 class WOController extends Controller
 {
-    private $keikakuColumnIndexStart = 5;
+    private $keikakuColumnIndexStart = 6;
     public function __construct()
     {
         date_default_timezone_set('Asia/Jakarta');
@@ -511,20 +511,35 @@ class WOController extends Controller
             ]);
 
 
+        $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc);
+
+        return [
+            'data' => $data->get(),
+            'inputPCB' => $dataInputPCB->input_qty ?? 0,
+            'keikakuData' => $dataKeikakuData,
+            'asProdplan' => $asProdPlan
+        ];
+    }
+
+    private function plotProdPlan($dataKeikakuData, $dataCalc)
+    {
         $dataIndex = 1;
         $tempModel = '';
 
-        // assy code|should change model| productio total hour |wo|times...
-        $_asMatrixHeader1 = [NULL, NULL, NULL, NULL, NULL];
-        $_asMatrixHeader2 = [NULL, NULL, NULL, NULL, NULL];
+        // assy code|should change model| productio total hour |wo | specs side |times...
+        $_asMatrixHeader1 = [NULL, NULL, NULL, NULL, NULL, NULL];
+        $_asMatrixHeader2 = [NULL, NULL, NULL, NULL, NULL, NULL];
+        $_asMatrixHeader3 = [NULL, NULL, NULL, NULL, NULL, NULL];
         foreach ($dataCalc as $c) {
             $_jam = substr(explode(' ', $c->calculation_at)[1], 0, 2);
             $_asMatrixHeader1[] = $_jam;
             $_asMatrixHeader2[] = $c->effective_worktime;
+            $_asMatrixHeader3[] = $c->plan_worktime;
         }
         $asMatrix = [
             $_asMatrixHeader1,
-            $_asMatrixHeader2
+            $_asMatrixHeader2,
+            $_asMatrixHeader3
         ];
 
 
@@ -543,8 +558,8 @@ class WOController extends Controller
             }
 
 
-            $_asMatrix1 = [NULL, $_shouldChangeModel, ($_shouldChangeModel ? 0.25 : 0), NULL, NULL];
-            $_asMatrix2 = [$d->item_code, NULL, $d->production_worktime, $d->wo_full_code, $d->ct_hour];
+            $_asMatrix1 = [NULL, $_shouldChangeModel, ($_shouldChangeModel ? 0.25 : 0), NULL, NULL, NULL];
+            $_asMatrix2 = [$d->item_code, NULL, $d->production_worktime, $d->wo_full_code, $d->ct_hour, $d->specs_side];
             foreach ($dataCalc as $c) {
                 $_jam = substr(explode(' ', $c->calculation_at)[1], 0, 2);
                 $_asMatrix1[] = NULL;
@@ -557,8 +572,8 @@ class WOController extends Controller
 
         // bismillah proses kalkulasi waktu
         $matrixRowsLength = count($asMatrix);
-        for ($i = 2; $i < $matrixRowsLength; $i++) {
-            for ($col = $this->keikakuColumnIndexStart; $col < 29; $col++) {
+        for ($i = 3; $i < $matrixRowsLength; $i++) {
+            for ($col = $this->keikakuColumnIndexStart; $col < 30; $col++) {
                 $_totalProductionHours = $asMatrix[$i][2];
                 if ($_totalProductionHours == 0) {
                     $asMatrix[$i][$col] = 0;
@@ -571,22 +586,15 @@ class WOController extends Controller
         // transform time into qty
         $asProdPlan = $asMatrix;
 
-        for ($i = 2; $i < $matrixRowsLength; $i++) {
-            for ($col = $this->keikakuColumnIndexStart; $col < 29; $col++) {
+        for ($i = 3; $i < $matrixRowsLength; $i++) {
+            for ($col = $this->keikakuColumnIndexStart; $col < 30; $col++) {
                 if ($asProdPlan[$i][$col] > 0 && $asProdPlan[$i][4] > 0) {
                     $asProdPlan[$i][$col] = round($asProdPlan[$i][$col] / $asProdPlan[$i][4]);
                 }
             }
         }
 
-        return [
-            'data' => $data->get(),
-            'inputPCB' => $dataInputPCB->input_qty ?? 0,
-            'keikakuData' => $dataKeikakuData,
-            'dataCalc' => $dataCalc,
-            'asMatrix' => $asMatrix,
-            'asProdplan' => $asProdPlan
-        ];
+        return  $asProdPlan;
     }
 
     private function _plotTime($data, $parX, $parY, $parProductionHours)
@@ -615,7 +623,7 @@ class WOController extends Controller
     private function _sumVertical($data, $parX, $parY)
     {
         $_summarizedVertical = 0;
-        for ($__r = $parY; $__r > 1; $__r--) {
+        for ($__r = $parY; $__r > 2; $__r--) {
             $_summarizedVertical += $data[$__r][$parX];
         }
 
