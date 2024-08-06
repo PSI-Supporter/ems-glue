@@ -523,7 +523,6 @@ class WOController extends Controller
 
     private function plotProdPlan($dataKeikakuData, $dataCalc)
     {
-        $dataIndex = 1;
         $tempModel = '';
 
         // assy code|should change model| productio total hour |wo | specs side |times...
@@ -567,7 +566,6 @@ class WOController extends Controller
             }
             $asMatrix[] = $_asMatrix1;
             $asMatrix[] = $_asMatrix2;
-            $dataIndex++;
         }
 
         // bismillah proses kalkulasi waktu
