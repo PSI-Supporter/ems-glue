@@ -558,7 +558,10 @@ class WOController extends Controller
 
 
             $_asMatrix1 = [NULL, $_shouldChangeModel, ($_shouldChangeModel ? 0.25 : 0), NULL, NULL, NULL];
-            $_asMatrix2 = [$d->item_code, NULL, $d->production_worktime, $d->wo_full_code, $d->ct_hour, $d->specs_side];
+            $_asMatrix2 = [
+                $d->item_code, NULL, $d->production_worktime, $d->wo_full_code, $d->ct_hour,
+                $d->specs_side . "#" . $d->model_code . "#" . $d->wo_code . "#" . $d->lot_size . "#" . $d->plan_qty . "#" . $d->type . "#" . $d->specs
+            ];
             foreach ($dataCalc as $c) {
                 $_jam = substr(explode(' ', $c->calculation_at)[1], 0, 2);
                 $_asMatrix1[] = NULL;
@@ -635,6 +638,32 @@ class WOController extends Controller
             $_summarizedHorizontal += $data[$parY][$__c];
         }
         return $_summarizedHorizontal;
+    }
+
+    function getProdPlanSimulation(Request $request)
+    {
+        $dataKeikakuData = DB::table('keikaku_data')
+            ->whereNull('deleted_at')
+            ->where('production_date', $request->production_date)
+            ->where('line_code', $request->line_code)
+            ->orderBy('id')
+            ->get(['*', DB::raw("cycle_time/3600*plan_qty as production_worktime"), DB::raw("cycle_time/3600 ct_hour")]);
+
+        $dataCalc = DB::table('keikaku_calcs')->whereNull('deleted_at')->where('production_date', $request->production_date)
+            ->orderBy('calculation_at')
+            ->get([
+                'plan_worktime',
+                'efficiency',
+                'calculation_at',
+                DB::raw("plan_worktime*efficiency as effective_worktime"),
+            ]);
+
+
+        $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc);
+
+        return [
+            'asProdplan' => $asProdPlan
+        ];
     }
 
     function getDownTime(Request $request)
