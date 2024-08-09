@@ -261,7 +261,8 @@ class WOController extends Controller
             DB::commit();
 
             return [
-                'message' => 'Saved successfully', '$savedRows' => $savedRows,
+                'message' => 'Saved successfully',
+                '$savedRows' => $savedRows,
                 '$_TotalCurrentInput' => $_TotalCurrentInput,
                 '$ProcessMaster' => $ProcessMaster
             ];
@@ -287,7 +288,7 @@ class WOController extends Controller
                         ->on('production_output.line_code', '=', 'production_inputs.line_code')
                         ->on('production_output.process_code', '=', 'production_inputs.process_code');
                 })
-                ->select('production_output.shift_code', 'production_output.wo_code', DB::raw('MAX(input_qty)*max(cycle_time)/3600 as working_time'),)
+                ->select('production_output.shift_code', 'production_output.wo_code', DB::raw('MAX(input_qty)*max(cycle_time)/3600 as working_time'), )
                 ->where('production_output.line_code', strtoupper($data['line_code']))
                 ->where('production_output.production_date', $data['production_date'])
                 ->groupBy('production_output.shift_code', 'production_output.wo_code');
@@ -416,7 +417,7 @@ class WOController extends Controller
                         'created_at' => date('Y-m-d H:i:s'),
                         'shift_code' => $r['shift_code'],
                         'production_date' => $data['production_date'],
-                        'working_hours' => (float)$r['working_hours'],
+                        'working_hours' => (float) $r['working_hours'],
                         'line_code' => strtoupper($data['line_code']),
                     ];
                 }
@@ -429,7 +430,8 @@ class WOController extends Controller
             DB::commit();
 
             return [
-                'message' => 'Saved successfully', 'data' => $tobeSaved,
+                'message' => 'Saved successfully',
+                'data' => $tobeSaved,
                 'productionTime' => $productionDataFinal,
                 'resumeDowntimeHour' => $resumeDowntimeHour,
                 '$productionData' => $productionData->get()
@@ -517,7 +519,7 @@ class WOController extends Controller
             'data' => $data->get(),
             'inputPCB' => $dataInputPCB->input_qty ?? 0,
             'keikakuData' => $dataKeikakuData,
-            'asProdplan' => $asProdPlan
+            'asProdplan' => $asProdPlan[0]
         ];
     }
 
@@ -559,7 +561,11 @@ class WOController extends Controller
 
             $_asMatrix1 = [NULL, $_shouldChangeModel, ($_shouldChangeModel ? 0.25 : 0), NULL, NULL, NULL];
             $_asMatrix2 = [
-                $d->item_code, NULL, $d->production_worktime, $d->wo_full_code, $d->ct_hour,
+                $d->item_code,
+                NULL,
+                $d->production_worktime,
+                $d->wo_full_code,
+                $d->ct_hour,
                 $d->specs_side . "#" . $d->model_code . "#" . $d->wo_code . "#" . $d->lot_size . "#" . $d->plan_qty . "#" . $d->type . "#" . $d->specs
             ];
             foreach ($dataCalc as $c) {
@@ -585,17 +591,45 @@ class WOController extends Controller
         }
 
         // transform time into qty
-        $asProdPlan = $asMatrix;
+        $asProdPlanX = $asMatrix;
 
         for ($i = 3; $i < $matrixRowsLength; $i++) {
             for ($col = $this->keikakuColumnIndexStart; $col < 30; $col++) {
-                if ($asProdPlan[$i][$col] > 0 && $asProdPlan[$i][4] > 0) {
-                    $asProdPlan[$i][$col] = round($asProdPlan[$i][$col] / $asProdPlan[$i][4]);
+                if (!$asProdPlanX[$i][0]) { // change model
+                    if ($col === $this->keikakuColumnIndexStart) {
+                        if ($asProdPlanX[$i][1]) {
+                            if ($asProdPlanX[$i][$col] == 0) {
+                                $asProdPlanX[$i][$col] = 0;
+                            } else {
+                                $asProdPlanX[$i][$col] = round($asProdPlanX[$i][$col] / $asMatrix[$i][2]);
+                            }
+                        } else {
+                            if ($asProdPlanX[$i][$col] == 0) {
+                                $asProdPlanX[$i][$col] = 0;
+                            } else {
+                                $asProdPlanX[$i][$col] = $asProdPlanX[$i][$col] / $asMatrix[$i][4];
+                            }
+                        }
+                    }
+                } else {
+                    if ($asMatrix[$i][4] == 0) {
+                        $asProdPlanX[$i][$col] = 0;
+                    } else {
+                        if ($col === $this->keikakuColumnIndexStart) {
+                            $asProdPlanX[$i][$col] = round($asProdPlanX[$i][$col] / $asMatrix[$i][4]);
+                        } else {
+                            if ($asProdPlanX[$i][$col] == 0) {
+                                $asProdPlanX[$i][$col] = 0;
+                            } else {
+                                $asProdPlanX[$i][$col] = round($asProdPlanX[$i][$col] / $asMatrix[$i][4]);
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        return  $asProdPlan;
+        return [$asMatrix, $asProdPlanX];
     }
 
     private function _plotTime($data, $parX, $parY, $parProductionHours)
@@ -662,7 +696,8 @@ class WOController extends Controller
         $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc);
 
         return [
-            'asProdplan' => $asProdPlan
+            'asProdplan' => $asProdPlan[1],
+            'asMatrix' => $asProdPlan[0],
         ];
     }
 
@@ -685,7 +720,7 @@ class WOController extends Controller
                     ->on('production_output.line_code', '=', 'production_inputs.line_code')
                     ->on('production_output.process_code', '=', 'production_inputs.process_code');
             })
-            ->where('production_output.line_code',  $request->line_code)
+            ->where('production_output.line_code', $request->line_code)
             ->where('production_output.production_date', $request->production_date)
             ->groupBy('production_output.shift_code', 'production_output.wo_code');
 
@@ -695,7 +730,8 @@ class WOController extends Controller
             ->get();
 
         return [
-            'data' => $downTime, 'workingTime' => $productionDataFinal
+            'data' => $downTime,
+            'workingTime' => $productionDataFinal
         ];
     }
 
@@ -1079,7 +1115,7 @@ class WOController extends Controller
                     'specs' => $r['specs'],
                     'specs_side' => $r['specs_side'],
                     'packaging' => $r['packaging'],
-                    'cycle_time' => (float)$r['cycle_time'],
+                    'cycle_time' => (float) $r['cycle_time'],
                 ];
             }
 
@@ -1094,8 +1130,8 @@ class WOController extends Controller
                 unset($i);
             }
 
-            $prefixPreviousYear = (int)date('y') - 1;
-            $prefixNextYear = (int)date('y') + 1;
+            $prefixPreviousYear = (int) date('y') - 1;
+            $prefixNextYear = (int) date('y') + 1;
             $additionalFilter1Applied = false;
             $additionalFilter2Applied = false;
 
@@ -1158,9 +1194,9 @@ class WOController extends Controller
 
             if (
                 DB::table('keikaku_data')
-                ->where('line_code', $data['line_code'])
-                ->whereNull('deleted_at')
-                ->where('production_date', $data['production_date'])->count() > 0
+                    ->where('line_code', $data['line_code'])
+                    ->whereNull('deleted_at')
+                    ->where('production_date', $data['production_date'])->count() > 0
             ) {
                 DB::table('keikaku_data')
                     ->where('line_code', $data['line_code'])
@@ -1214,15 +1250,15 @@ class WOController extends Controller
                     'production_date' => $data['production_date'],
                     'calculation_at' => $r['calculation_at'],
                     'line_code' => $data['line_code'],
-                    'worktype1' => (float)$r['worktype1'],
-                    'worktype2' => (float)$r['worktype2'],
-                    'worktype3' => (float)$r['worktype3'],
-                    'worktype4' => (float)$r['worktype4'],
-                    'worktype5' => (float)$r['worktype5'],
-                    'worktype6' => (float)$r['worktype6'],
-                    'plan_worktime' => (float)$r['plan_worktime'],
+                    'worktype1' => (float) $r['worktype1'],
+                    'worktype2' => (float) $r['worktype2'],
+                    'worktype3' => (float) $r['worktype3'],
+                    'worktype4' => (float) $r['worktype4'],
+                    'worktype5' => (float) $r['worktype5'],
+                    'worktype6' => (float) $r['worktype6'],
+                    'plan_worktime' => (float) $r['plan_worktime'],
                     'flag_mot' => $r['flag_mot'],
-                    'efficiency' => (float)$r['efficiency'],
+                    'efficiency' => (float) $r['efficiency'],
                     'created_at' => date('Y-m-d H:i:s'),
                     'created_by' => $data['user_id'],
                 ];
@@ -1230,8 +1266,8 @@ class WOController extends Controller
 
             if (
                 DB::table('keikaku_calcs')
-                ->where('line_code', $data['line_code'])
-                ->where('production_date', $data['production_date'])->count() > 0
+                    ->where('line_code', $data['line_code'])
+                    ->where('production_date', $data['production_date'])->count() > 0
             ) {
                 DB::table('keikaku_calcs')
                     ->where('line_code', $data['line_code'])
@@ -1297,7 +1333,7 @@ class WOController extends Controller
         $lastProductionDate = DB::table('keikaku_data')
             ->select('production_date')
             ->where('line_code', $data['line_code'])
-            ->where('production_date', '<=',  $data['production_date'])
+            ->where('production_date', '<=', $data['production_date'])
             ->orderBy('production_date', 'desc')->first();
 
         $balanceData = [];
@@ -1318,7 +1354,7 @@ class WOController extends Controller
                     DB::raw("plan_qty-isnull(actual_qty,0) bal_qty")
                 )
                 ->where('line_code', $data['line_code'])
-                ->where('production_date',  $lastProductionDate->production_date)
+                ->where('production_date', $lastProductionDate->production_date)
                 ->whereRaw('plan_qty > isnull(actual_qty,0)')
                 ->orderBy('id', 'asc')->get();
         } else {
