@@ -49,6 +49,7 @@ Route::prefix('supply')->group(function () {
     Route::post('fix-transaction', [SupplyController::class, 'fixTransactionBySuppplyNumber']);
     Route::put('revise', [SupplyController::class, 'reviseLine']);
     Route::get('supply-pdf', [SupplyController::class, 'toPickingInstruction']);
+    Route::get('report', [SupplyController::class, 'reportPSNJOBPeriod']);
 });
 # Terkait Return Part
 Route::prefix('return')->group(function () {

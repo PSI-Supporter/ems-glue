@@ -100,20 +100,45 @@ class SupplyController extends Controller
                                     if ($d['USED'] == false) {
                                         if (count($RSFinal) == 0) {
                                             $RSFinal[] = [
-                                                "SPLSCN_ID" => $d["SPLSCN_ID"], "SPLSCN_USRID" => $d["SPLSCN_USRID"], "PPSN2_DATANO" => $r["PPSN2_DATANO"], "SPLSCN_FEDR" => $d["SPLSCN_FEDR"], "SPLSCN_ITMCD" => $d["SPLSCN_ITMCD"], "SPLSCN_QTY" => $d["SPLSCN_QTY"], "SPLSCN_LUPDT" => substr($d['SPLSCN_LUPDT'], 0, 16), "SPLSCN_LOTNO" => $d["SPLSCN_LOTNO"], "SPLSCN_ORDERNO" => $d["SPLSCN_ORDERNO"], "SPLSCN_LINE" => $d["SPLSCN_LINE"], "PPSN2_MC" => $r["PPSN2_MC"], "PPSN2_PROCD" => $r["PPSN2_PROCD"], "ISOK" => 1,
+                                                "SPLSCN_ID" => $d["SPLSCN_ID"],
+                                                "SPLSCN_USRID" => $d["SPLSCN_USRID"],
+                                                "PPSN2_DATANO" => $r["PPSN2_DATANO"],
+                                                "SPLSCN_FEDR" => $d["SPLSCN_FEDR"],
+                                                "SPLSCN_ITMCD" => $d["SPLSCN_ITMCD"],
+                                                "SPLSCN_QTY" => $d["SPLSCN_QTY"],
+                                                "SPLSCN_LUPDT" => substr($d['SPLSCN_LUPDT'], 0, 16),
+                                                "SPLSCN_LOTNO" => $d["SPLSCN_LOTNO"],
+                                                "SPLSCN_ORDERNO" => $d["SPLSCN_ORDERNO"],
+                                                "SPLSCN_LINE" => $d["SPLSCN_LINE"],
+                                                "PPSN2_MC" => $r["PPSN2_MC"],
+                                                "PPSN2_PROCD" => $r["PPSN2_PROCD"],
+                                                "ISOK" => 1,
                                             ];
                                             $r['TTLSCN'] += $d['SPLSCN_QTY'];
                                             $d['USED'] = true;
                                         } else {
                                             $isfound = false;
                                             foreach ($RSFinal as &$t) {
-                                                if (($t["PPSN2_MC"] == $r["PPSN2_MC"]) && ($t["SPLSCN_ORDERNO"] == $r["PPSN2_MCZ"])
+                                                if (
+                                                    ($t["PPSN2_MC"] == $r["PPSN2_MC"]) && ($t["SPLSCN_ORDERNO"] == $r["PPSN2_MCZ"])
                                                     && ($t["SPLSCN_ITMCD"] == $r["PPSN2_SUBPN"]) && ($t["PPSN2_PROCD"] == $r["PPSN2_PROCD"])
                                                 ) {
                                                     $r['TTLSCN'] += $d['SPLSCN_QTY'];
                                                     $RSFinal[] =
                                                         [
-                                                            "SPLSCN_ID" => $d["SPLSCN_ID"], "SPLSCN_USRID" => $d["SPLSCN_USRID"], "PPSN2_DATANO" => $r["PPSN2_DATANO"], "SPLSCN_FEDR" => $d["SPLSCN_FEDR"], "SPLSCN_ITMCD" => $d["SPLSCN_ITMCD"], "SPLSCN_QTY" => $d["SPLSCN_QTY"], "SPLSCN_LUPDT" => substr($d['SPLSCN_LUPDT'], 0, 16), "SPLSCN_LOTNO" => $d["SPLSCN_LOTNO"], "SPLSCN_ORDERNO" => $d["SPLSCN_ORDERNO"], "SPLSCN_LINE" => $d["SPLSCN_LINE"], "PPSN2_MC" => $r["PPSN2_MC"], "PPSN2_PROCD" => $r["PPSN2_PROCD"], "ISOK" => 1,
+                                                            "SPLSCN_ID" => $d["SPLSCN_ID"],
+                                                            "SPLSCN_USRID" => $d["SPLSCN_USRID"],
+                                                            "PPSN2_DATANO" => $r["PPSN2_DATANO"],
+                                                            "SPLSCN_FEDR" => $d["SPLSCN_FEDR"],
+                                                            "SPLSCN_ITMCD" => $d["SPLSCN_ITMCD"],
+                                                            "SPLSCN_QTY" => $d["SPLSCN_QTY"],
+                                                            "SPLSCN_LUPDT" => substr($d['SPLSCN_LUPDT'], 0, 16),
+                                                            "SPLSCN_LOTNO" => $d["SPLSCN_LOTNO"],
+                                                            "SPLSCN_ORDERNO" => $d["SPLSCN_ORDERNO"],
+                                                            "SPLSCN_LINE" => $d["SPLSCN_LINE"],
+                                                            "PPSN2_MC" => $r["PPSN2_MC"],
+                                                            "PPSN2_PROCD" => $r["PPSN2_PROCD"],
+                                                            "ISOK" => 1,
                                                         ];
                                                     $isfound = true;
                                                     $d['USED'] = true;
@@ -123,7 +148,19 @@ class SupplyController extends Controller
                                             unset($t);
                                             if (!$isfound) {
                                                 $RSFinal[] = [
-                                                    "SPLSCN_ID" => $d["SPLSCN_ID"], "SPLSCN_USRID" => $d["SPLSCN_USRID"], "PPSN2_DATANO" => $r["PPSN2_DATANO"], "SPLSCN_FEDR" => $d["SPLSCN_FEDR"], "SPLSCN_ITMCD" => $d["SPLSCN_ITMCD"], "SPLSCN_QTY" => $d["SPLSCN_QTY"], "SPLSCN_LUPDT" => substr($d['SPLSCN_LUPDT'], 0, 16), "SPLSCN_LOTNO" => $d["SPLSCN_LOTNO"], "SPLSCN_ORDERNO" => $d["SPLSCN_ORDERNO"], "SPLSCN_LINE" => $d["SPLSCN_LINE"], "PPSN2_MC" => $r["PPSN2_MC"], "PPSN2_PROCD" => $r["PPSN2_PROCD"], "ISOK" => 1,
+                                                    "SPLSCN_ID" => $d["SPLSCN_ID"],
+                                                    "SPLSCN_USRID" => $d["SPLSCN_USRID"],
+                                                    "PPSN2_DATANO" => $r["PPSN2_DATANO"],
+                                                    "SPLSCN_FEDR" => $d["SPLSCN_FEDR"],
+                                                    "SPLSCN_ITMCD" => $d["SPLSCN_ITMCD"],
+                                                    "SPLSCN_QTY" => $d["SPLSCN_QTY"],
+                                                    "SPLSCN_LUPDT" => substr($d['SPLSCN_LUPDT'], 0, 16),
+                                                    "SPLSCN_LOTNO" => $d["SPLSCN_LOTNO"],
+                                                    "SPLSCN_ORDERNO" => $d["SPLSCN_ORDERNO"],
+                                                    "SPLSCN_LINE" => $d["SPLSCN_LINE"],
+                                                    "PPSN2_MC" => $r["PPSN2_MC"],
+                                                    "PPSN2_PROCD" => $r["PPSN2_PROCD"],
+                                                    "ISOK" => 1,
                                                 ];
                                                 $r['TTLSCN'] += $d['SPLSCN_QTY'];
                                                 $d['USED'] = true;
@@ -168,20 +205,45 @@ class SupplyController extends Controller
                                     if ($d['USED'] == false) {
                                         if (count($RSFinal) == 0) {
                                             $RSFinal[] = [
-                                                "SPLSCN_ID" => $d["SPLSCN_ID"], "SPLSCN_USRID" => $d["SPLSCN_USRID"], "PPSN2_DATANO" => $r["PPSN2_DATANO"], "SPLSCN_FEDR" => $d["SPLSCN_FEDR"], "SPLSCN_ITMCD" => $d["SPLSCN_ITMCD"], "SPLSCN_QTY" => $d["SPLSCN_QTY"], "SPLSCN_LUPDT" => substr($d['SPLSCN_LUPDT'], 0, 16), "SPLSCN_LOTNO" => $d["SPLSCN_LOTNO"], "SPLSCN_ORDERNO" => $d["SPLSCN_ORDERNO"], "SPLSCN_LINE" => $d["SPLSCN_LINE"], "PPSN2_MC" => $r["PPSN2_MC"], "PPSN2_PROCD" => $r["PPSN2_PROCD"], "ISOK" => 1,
+                                                "SPLSCN_ID" => $d["SPLSCN_ID"],
+                                                "SPLSCN_USRID" => $d["SPLSCN_USRID"],
+                                                "PPSN2_DATANO" => $r["PPSN2_DATANO"],
+                                                "SPLSCN_FEDR" => $d["SPLSCN_FEDR"],
+                                                "SPLSCN_ITMCD" => $d["SPLSCN_ITMCD"],
+                                                "SPLSCN_QTY" => $d["SPLSCN_QTY"],
+                                                "SPLSCN_LUPDT" => substr($d['SPLSCN_LUPDT'], 0, 16),
+                                                "SPLSCN_LOTNO" => $d["SPLSCN_LOTNO"],
+                                                "SPLSCN_ORDERNO" => $d["SPLSCN_ORDERNO"],
+                                                "SPLSCN_LINE" => $d["SPLSCN_LINE"],
+                                                "PPSN2_MC" => $r["PPSN2_MC"],
+                                                "PPSN2_PROCD" => $r["PPSN2_PROCD"],
+                                                "ISOK" => 1,
                                             ];
                                             $r['TTLSCN'] += $d['SPLSCN_QTY'];
                                             $d['USED'] = true;
                                         } else {
                                             $isfound = false;
                                             foreach ($RSFinal as &$t) {
-                                                if (($t["PPSN2_MC"] == $r["PPSN2_MC"]) && ($t["SPLSCN_ORDERNO"] == $r["PPSN2_MCZ"])
+                                                if (
+                                                    ($t["PPSN2_MC"] == $r["PPSN2_MC"]) && ($t["SPLSCN_ORDERNO"] == $r["PPSN2_MCZ"])
                                                     && ($t["SPLSCN_ITMCD"] == $r["PPSN2_SUBPN"]) && ($t["PPSN2_PROCD"] == $r["PPSN2_PROCD"])
                                                 ) {
                                                     $r['TTLSCN'] += $d['SPLSCN_QTY'];
                                                     $RSFinal[] =
                                                         [
-                                                            "SPLSCN_ID" => $d["SPLSCN_ID"], "SPLSCN_USRID" => $d["SPLSCN_USRID"], "PPSN2_DATANO" => $r["PPSN2_DATANO"], "SPLSCN_FEDR" => $d["SPLSCN_FEDR"], "SPLSCN_ITMCD" => $d["SPLSCN_ITMCD"], "SPLSCN_QTY" => $d["SPLSCN_QTY"], "SPLSCN_LUPDT" => substr($d['SPLSCN_LUPDT'], 0, 16), "SPLSCN_LOTNO" => $d["SPLSCN_LOTNO"], "SPLSCN_ORDERNO" => $d["SPLSCN_ORDERNO"], "SPLSCN_LINE" => $d["SPLSCN_LINE"], "PPSN2_MC" => $r["PPSN2_MC"], "PPSN2_PROCD" => $r["PPSN2_PROCD"], "ISOK" => 1,
+                                                            "SPLSCN_ID" => $d["SPLSCN_ID"],
+                                                            "SPLSCN_USRID" => $d["SPLSCN_USRID"],
+                                                            "PPSN2_DATANO" => $r["PPSN2_DATANO"],
+                                                            "SPLSCN_FEDR" => $d["SPLSCN_FEDR"],
+                                                            "SPLSCN_ITMCD" => $d["SPLSCN_ITMCD"],
+                                                            "SPLSCN_QTY" => $d["SPLSCN_QTY"],
+                                                            "SPLSCN_LUPDT" => substr($d['SPLSCN_LUPDT'], 0, 16),
+                                                            "SPLSCN_LOTNO" => $d["SPLSCN_LOTNO"],
+                                                            "SPLSCN_ORDERNO" => $d["SPLSCN_ORDERNO"],
+                                                            "SPLSCN_LINE" => $d["SPLSCN_LINE"],
+                                                            "PPSN2_MC" => $r["PPSN2_MC"],
+                                                            "PPSN2_PROCD" => $r["PPSN2_PROCD"],
+                                                            "ISOK" => 1,
                                                         ];
                                                     $isfound = true;
                                                     $d['USED'] = true;
@@ -191,7 +253,19 @@ class SupplyController extends Controller
                                             unset($t);
                                             if (!$isfound) {
                                                 $RSFinal[] = [
-                                                    "SPLSCN_ID" => $d["SPLSCN_ID"], "SPLSCN_USRID" => $d["SPLSCN_USRID"], "PPSN2_DATANO" => $r["PPSN2_DATANO"], "SPLSCN_FEDR" => $d["SPLSCN_FEDR"], "SPLSCN_ITMCD" => $d["SPLSCN_ITMCD"], "SPLSCN_QTY" => $d["SPLSCN_QTY"], "SPLSCN_LUPDT" => substr($d['SPLSCN_LUPDT'], 0, 16), "SPLSCN_LOTNO" => $d["SPLSCN_LOTNO"], "SPLSCN_ORDERNO" => $d["SPLSCN_ORDERNO"], "SPLSCN_LINE" => $d["SPLSCN_LINE"], "PPSN2_MC" => $r["PPSN2_MC"], "PPSN2_PROCD" => $r["PPSN2_PROCD"], "ISOK" => 1,
+                                                    "SPLSCN_ID" => $d["SPLSCN_ID"],
+                                                    "SPLSCN_USRID" => $d["SPLSCN_USRID"],
+                                                    "PPSN2_DATANO" => $r["PPSN2_DATANO"],
+                                                    "SPLSCN_FEDR" => $d["SPLSCN_FEDR"],
+                                                    "SPLSCN_ITMCD" => $d["SPLSCN_ITMCD"],
+                                                    "SPLSCN_QTY" => $d["SPLSCN_QTY"],
+                                                    "SPLSCN_LUPDT" => substr($d['SPLSCN_LUPDT'], 0, 16),
+                                                    "SPLSCN_LOTNO" => $d["SPLSCN_LOTNO"],
+                                                    "SPLSCN_ORDERNO" => $d["SPLSCN_ORDERNO"],
+                                                    "SPLSCN_LINE" => $d["SPLSCN_LINE"],
+                                                    "PPSN2_MC" => $r["PPSN2_MC"],
+                                                    "PPSN2_PROCD" => $r["PPSN2_PROCD"],
+                                                    "ISOK" => 1,
                                                 ];
                                                 $r['TTLSCN'] += $d['SPLSCN_QTY'];
                                                 $d['USED'] = true;
@@ -357,12 +431,12 @@ class SupplyController extends Controller
         $RSKittingReferenceDocument = [];
         if ($DocumentCount > 0) {
             if (isset($request->line)) {
-                $WorkOrder = strtoupper(substr($request->doc, 0, 3)) == "PR-" ? [(object)["PPSN1_WONO" => "_"]]
+                $WorkOrder = strtoupper(substr($request->doc, 0, 3)) == "PR-" ? [(object) ["PPSN1_WONO" => "_"]]
                     : DB::select("exec xsp_megapsnhead_nofr ?, ?", [$request->doc, $request->line]);
             } else {
                 if (substr($request->doc, 0, 3) == "PR-") {
                     # jika dokumen part req maka WO nya blank (_)
-                    $WorkOrder = [(object)["PPSN1_WONO" => "_"]];
+                    $WorkOrder = [(object) ["PPSN1_WONO" => "_"]];
 
                     # cari referensi dokumen kitting
                     $RSKittingReferenceDocument = DB::table("SPL_TBL")->select("SPL_REFDOCNO", DB::raw("MAX(SPL_REFDOCCAT) REFDOCCAT"))
@@ -381,7 +455,7 @@ class SupplyController extends Controller
                     $result[] = ["cd" => 1, "msg" => "Go ahead"];
                 }
             }
-            $result[] =  ["cd" => 1, "msg" => "GO AHEAD"];
+            $result[] = ["cd" => 1, "msg" => "GO AHEAD"];
         } else {
             $result[] = ["cd" => 0, "msg" => "Trans No not found"];
         }
@@ -563,7 +637,9 @@ class SupplyController extends Controller
             }
         }
         return [
-            'data' => $data, '$documents' => $documents, 'affectedRows' => $affectedRows
+            'data' => $data,
+            '$documents' => $documents,
+            'affectedRows' => $affectedRows
         ];
     }
 
@@ -775,7 +851,7 @@ class SupplyController extends Controller
 
                 $_vrak = DB::table('vinitlocation')->select('MSTLOC_CD', DB::raw("MAX(aliasrack) aliasrack"))->groupBy('MSTLOC_CD');
                 $_a = DB::table('SPL_TBL')->leftJoinSub($_vrak, 'VRAK', 'SPL_RACKNO', '=', 'MSTLOC_CD')
-                    ->where('SPL_DOC',  $cpsn)
+                    ->where('SPL_DOC', $cpsn)
                     ->select(
                         'SPL_PROCD',
                         DB::raw("RTRIM(SPL_ORDERNO) SPL_ORDERNO"),
@@ -791,7 +867,7 @@ class SupplyController extends Controller
                         'SPL_LINE',
                         'SPL_CAT',
                         'SPL_FEDR'
-                    )->groupBy('SPL_LINE', 'SPL_CAT', 'SPL_FEDR', 'SPL_PROCD', 'SPL_ORDERNO', 'SPL_RACKNO', 'aliasrack', 'SPL_ITMCD',  'SPL_MC', 'SPL_MS');
+                    )->groupBy('SPL_LINE', 'SPL_CAT', 'SPL_FEDR', 'SPL_PROCD', 'SPL_ORDERNO', 'SPL_RACKNO', 'aliasrack', 'SPL_ITMCD', 'SPL_MC', 'SPL_MS');
                 $rs = DB::query()->fromSub($_a, 'a')
                     ->leftJoin('MITM_TBL', 'SPL_ITMCD', '=', 'MITM_ITMCD')
                     ->orderByRaw('SPL_CAT, SPL_LINE, SPL_FEDR, aliasrack, SPL_RACKNO, SPL_ORDERNO, SPL_MC, SPL_ITMCD, SPL_PROCD')
@@ -838,7 +914,8 @@ class SupplyController extends Controller
                     while ($think) {
                         $grasp = false;
                         foreach ($rsdetail as $d) {
-                            if ((trim($r['SPL_ORDERNO']) == trim($d['SPLSCN_ORDERNO']))
+                            if (
+                                (trim($r['SPL_ORDERNO']) == trim($d['SPLSCN_ORDERNO']))
                                 && (trim($r['SPL_ITMCD']) == trim($d['SPLSCN_ITMCD']))
                                 && ($r['SPL_PROCD'] == $d['SPLSCN_PROCD'])
                                 && ($r['SPL_FEDR'] == $d['SPLSCN_FEDR'])
@@ -850,7 +927,8 @@ class SupplyController extends Controller
                         }
                         if ($grasp) {
                             foreach ($rsdetail as &$d) {
-                                if ((trim($r['SPL_ORDERNO']) == trim($d['SPLSCN_ORDERNO']))
+                                if (
+                                    (trim($r['SPL_ORDERNO']) == trim($d['SPLSCN_ORDERNO']))
                                     && (trim($r['SPL_ITMCD']) == trim($d['SPLSCN_ITMCD']))
                                     && ($r['SPL_PROCD'] == $d['SPLSCN_PROCD'])
                                     && $d['USED'] == false
@@ -888,8 +966,9 @@ class SupplyController extends Controller
                     while ($think) {
                         $grasp = false;
                         foreach ($rsdetail as $d) {
-                            if ((trim($r['SPL_ORDERNO']) == trim($d['SPLSCN_ORDERNO']))
-                                && (trim($r['SPL_ITMCD']) == trim($d['SPLSCN_ITMCD']))                               
+                            if (
+                                (trim($r['SPL_ORDERNO']) == trim($d['SPLSCN_ORDERNO']))
+                                && (trim($r['SPL_ITMCD']) == trim($d['SPLSCN_ITMCD']))
                                 && $d['USED'] == false
                             ) {
                                 $grasp = true;
@@ -898,7 +977,8 @@ class SupplyController extends Controller
                         }
                         if ($grasp) {
                             foreach ($rsdetail as &$d) {
-                                if ((trim($r['SPL_ORDERNO']) == trim($d['SPLSCN_ORDERNO']))
+                                if (
+                                    (trim($r['SPL_ORDERNO']) == trim($d['SPLSCN_ORDERNO']))
                                     && (trim($r['SPL_ITMCD']) == trim($d['SPLSCN_ITMCD']))
                                     && $d['USED'] == false
                                 ) {
@@ -1300,10 +1380,10 @@ class SupplyController extends Controller
 
                     $_vrak = DB::table('vinitlocation')->select('MSTLOC_CD', DB::raw("MAX(aliasrack) aliasrack"))->groupBy('MSTLOC_CD');
                     $_a = DB::table('SPL_TBL')->leftJoinSub($_vrak, 'VRAK', 'SPL_RACKNO', '=', 'MSTLOC_CD')
-                        ->where('SPL_DOC',  $cpsn)
-                        ->where('SPL_CAT',  $ccat)
-                        ->where('SPL_LINE',  $cline)
-                        ->where('SPL_FEDR',  $cfedr)
+                        ->where('SPL_DOC', $cpsn)
+                        ->where('SPL_CAT', $ccat)
+                        ->where('SPL_LINE', $cline)
+                        ->where('SPL_FEDR', $cfedr)
                         ->select(
                             'SPL_PROCD',
                             DB::raw("RTRIM(SPL_ORDERNO) SPL_ORDERNO"),
@@ -1319,7 +1399,7 @@ class SupplyController extends Controller
                             'SPL_LINE',
                             'SPL_CAT',
                             'SPL_FEDR'
-                        )->groupBy('SPL_LINE', 'SPL_CAT', 'SPL_FEDR', 'SPL_PROCD', 'SPL_ORDERNO', 'SPL_RACKNO', 'aliasrack', 'SPL_ITMCD',  'SPL_MC', 'SPL_MS');
+                        )->groupBy('SPL_LINE', 'SPL_CAT', 'SPL_FEDR', 'SPL_PROCD', 'SPL_ORDERNO', 'SPL_RACKNO', 'aliasrack', 'SPL_ITMCD', 'SPL_MC', 'SPL_MS');
 
                     $rs = DB::query()->fromSub($_a, 'a')
                         ->leftJoin('MITM_TBL', 'SPL_ITMCD', '=', 'MITM_ITMCD')
@@ -1647,10 +1727,10 @@ class SupplyController extends Controller
 
                 $_vrak = DB::table('vinitlocation')->select('MSTLOC_CD', DB::raw("MAX(aliasrack) aliasrack"))->groupBy('MSTLOC_CD');
                 $_a = DB::table('SPL_TBL')->leftJoinSub($_vrak, 'VRAK', 'SPL_RACKNO', '=', 'MSTLOC_CD')
-                    ->where('SPL_DOC',  $cpsn)
-                    ->where('SPL_CAT',  $ccat)
-                    ->where('SPL_LINE',  $cline)
-                    ->where('SPL_FEDR',  $cfedr)
+                    ->where('SPL_DOC', $cpsn)
+                    ->where('SPL_CAT', $ccat)
+                    ->where('SPL_LINE', $cline)
+                    ->where('SPL_FEDR', $cfedr)
                     ->select(
                         'SPL_PROCD',
                         DB::raw("RTRIM(SPL_ORDERNO) SPL_ORDERNO"),
@@ -1666,7 +1746,7 @@ class SupplyController extends Controller
                         'SPL_LINE',
                         'SPL_CAT',
                         'SPL_FEDR'
-                    )->groupBy('SPL_LINE', 'SPL_CAT', 'SPL_FEDR', 'SPL_PROCD', 'SPL_ORDERNO', 'SPL_RACKNO', 'aliasrack', 'SPL_ITMCD',  'SPL_MC', 'SPL_MS');
+                    )->groupBy('SPL_LINE', 'SPL_CAT', 'SPL_FEDR', 'SPL_PROCD', 'SPL_ORDERNO', 'SPL_RACKNO', 'aliasrack', 'SPL_ITMCD', 'SPL_MC', 'SPL_MS');
 
                 $rs = DB::query()->fromSub($_a, 'a')
                     ->leftJoin('MITM_TBL', 'SPL_ITMCD', '=', 'MITM_ITMCD')
@@ -2107,7 +2187,7 @@ class SupplyController extends Controller
 
     function generateQR($data = [])
     {
-        $op = new Process(["Python", base_path("smt.py"), $data['content'], "1"],);
+        $op = new Process(["Python", base_path("smt.py"), $data['content'], "1"], );
         $op->run();
         if (!$op->isSuccessful()) {
             throw new \RuntimeException($op->getErrorOutput());
@@ -2117,5 +2197,35 @@ class SupplyController extends Controller
         $image_name = str_replace("|", "lll", $image_name);
         $image_name = str_replace("\t", "ttt", $image_name);
         return storage_path('app/public/' . $image_name . '.png');
+    }
+
+
+    function reportPSNJOBPeriod()
+    {
+        $data = DB::table('V_SPLSCN_TBLC')->where('SPLSCN_DATE', '>=', '2024-05-01')
+            ->where('SPLSCN_DATE', '<=', '2024-08-09')
+            ->where('SPLSCN_DOC', 'like', '%TDI%')
+            ->whereNotIn('SPLSCN_CAT', ['HW', 'PCB'])
+            ->groupBy('SPLSCN_DATE', 'SPLSCN_DOC')
+            ->get(['SPLSCN_DATE', DB::raw('RTRIM(SPLSCN_DOC) PSN'), DB::raw("COUNT(*) TTLREEL"), DB::raw("'' as wo")])
+        ;
+
+        $data2 = DB::query()->fromRaw("(SELECT rtrim(Z.PPSN1_WONO) wo, rtrim(Z.PPSN1_PSNNO) psn FROM XPPSN1 Z WHERE Z.PPSN1_PSNNO IN (
+                SELECT A.SPLSCN_DOC FROM V_SPLSCN_TBLC A WHERE A.SPLSCN_DOC LIKE '%TDI%'
+                AND A.SPLSCN_DATE BETWEEN '2024-05-01' AND '2024-08-09'
+                AND A.SPLSCN_CAT NOT IN ('HW','PCB')
+                GROUP BY A.SPLSCN_DOC
+            )
+            GROUP BY Z.PPSN1_WONO,Z.PPSN1_PSNNO) as b")->get();
+
+        foreach ($data as &$r) {
+            foreach ($data2 as $b) {
+                if ($r->PSN == $b->psn) {
+                    $r->wo .= $b->wo . '|';
+                }
+            }
+        }
+        unset($r);
+        return ['data' => $data, 'data2' => $data2];
     }
 }
