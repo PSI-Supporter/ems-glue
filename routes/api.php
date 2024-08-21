@@ -99,6 +99,7 @@ Route::prefix('report')->group(function () {
     Route::post("stock", [ITHController::class, 'getStockMultipleItem']);
     Route::post("stock-wms", [ITHController::class, 'getStockMultipleItemWMS']);
     Route::get("fg-ng-customer", [ReceiveController::class, 'getReportFGNGCustomer']);
+    Route::get("konversi-bahan-baku", [DeliveryController::class, 'reportKonversiBahanBaku']);
 });
 
 # Terkait Business Group
