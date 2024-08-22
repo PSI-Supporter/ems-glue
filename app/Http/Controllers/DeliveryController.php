@@ -6,8 +6,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use PhpOffice\PhpSpreadsheet\IOFactory;
-use PhpOffice\PhpSpreadsheet\Writer\Pdf\Mpdf;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Color;
 
 class DeliveryController extends Controller
 {
@@ -98,24 +99,25 @@ class DeliveryController extends Controller
         return ['data' => $data];
     }
 
-    function reportKonversiBahanBaku(Request $request) {
+    function reportKonversiBahanBaku(Request $request)
+    {
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
 
         $sheet->setCellValue('Q1', 'LAMPIRAN');
         $sheet->setCellValue('Q2', 'Surat Kepala KPPBC Tipe Madya Pabean A Bekasis');
-        $sheet->setCellValue('Q3', 'Nomor     :');
+        $sheet->setCellValue('Q3', 'Nomor   :');
         $sheet->setCellValue('R3', 'S-1488/KBC.0804/2024');
         $sheet->setCellValue('Q4', 'Tanggal');
-        $sheet->setCellValue('R4', '-');
+        $sheet->setCellValue('R4', '19 Juli 2024');
         $sheet->setCellValue('A6', 'TABEL PERHITUNGAN KONVERSI BAHAN BAKU');
         $sheet->mergeCells('A6:V6', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->getStyle('A6')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
         $sheet->getStyle('A6')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-       
+
         $sheet->setCellValue('A8', '1. Nama Barang : Assembled PCB');
-        $sheet->setCellValue('A9', '2. Jumlah Barang :');
-        
+
+
 
         $sheet->setCellValue('A11', 'BARANG DAN/ATAU BAHAN BAKU');
         $sheet->mergeCells('A11:G11', $sheet::MERGE_CELL_CONTENT_HIDE);
@@ -176,32 +178,105 @@ class DeliveryController extends Controller
         $sheet->setCellValue('V14', 'Nilai (Rp)');
 
         $sheet->mergeCells('A12:A14', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->getStyle('A12')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('A12')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         $sheet->mergeCells('B12:B14', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->getStyle('B12')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('B12')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         $sheet->mergeCells('C12:C14', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->getStyle('C12')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('C12')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         $sheet->mergeCells('D12:D14', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->getStyle('D12')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('D12')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         $sheet->mergeCells('E12:E14', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->getStyle('E12')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('E12')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         $sheet->mergeCells('F12:F14', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->getStyle('F12')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('F12')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->mergeCells('G12:G14', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('H12:H14', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('I12:I14', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('J12:J14', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->getStyle('A11:V14')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('A11:V14')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('A11:V14')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('d4d4d4');
 
-        
+        $dataHead = DB::table('DLV_TBL')
+            ->leftJoin('SER_TBL', 'DLV_SER', '=', 'SER_ID')
+            ->where('DLV_ID', $request->doc)
+            ->groupBy('DLV_BCDATE')
+            ->select('DLV_BCDATE', DB::raw("SUM(SER_QTY) TOTALQT"))
+            ->first();
 
-        foreach (range('A', 'R') as $r) {
+        $kurs = DB::table('MEXRATE_TBL')->where('MEXRATE_DT', $dataHead->DLV_BCDATE)->get(['MEXRATE_CURR', 'MEXRATE_VAL']);
+        $data = $this->conversion_test_data(['doc' => $request->doc]);
+
+
+        $sheet->freezePane('A15');
+
+        $rowAt = 15;
+
+        $fgAt = 0;
+        $rmAt = 0;
+        $tempFG = '';
+        $suppliersCode = [];
+        foreach ($data['data'] as $r) {
+            if (!in_array($r['SUPCD'], $suppliersCode)) {
+                $suppliersCode[] = $r['SUPCD'];
+            }
+        }
+
+        $suppliers = DB::table('MSUP_TBL')->whereIn('MSUP_SUPCD', $suppliersCode)
+            ->get([DB::raw("RTRIM(MSUP_SUPCD) SUPCD"), DB::raw("RTRIM(MSUP_SUPCR) SUPCR")]);
+
+        foreach ($data['data'] as $r) {
+
+            if ($tempFG != $r['SER_ITMID']) {
+                $fgAt++;
+                $tempFG = $r['SER_ITMID'];
+                $rmAt = 1;
+            } else {
+                $rmAt++;
+            }
+            $currency = $suppliers->firstWhere('SUPCD', $r['SUPCD'])->SUPCR;
+            $ndpbm = in_array($currency, ['IDR', 'RPH']) ? 1 : $kurs->firstWhere('MEXRATE_CURR', $currency)->MEXRATE_VAL;
+            $sheet->setCellValue('A' . $rowAt,  " " . $fgAt . '.' . (string)$rmAt);
+            $sheet->setCellValue('B' . $rowAt, $r['RCV_HSCD']);
+            $sheet->setCellValue('C' . $rowAt, $r['PARTDESCRIPTION']);
+            $sheet->setCellValue('D' . $rowAt, $r['SERD2_ITMCD']);
+            $sheet->setCellValue('E' . $rowAt, $r['PER']);
+            $sheet->setCellValue('F' . $rowAt, $r['RMQT']);
+            $sheet->setCellValue('G' . $rowAt, $r['PART_UOM']);
+            $sheet->setCellValue('H' . $rowAt, $r['PART_PRICE']);
+            $sheet->setCellValue('I' . $rowAt, $currency);
+            $sheet->setCellValue('J' . $rowAt,  $ndpbm);
+            $sheet->setCellValue('K' . $rowAt, "=(F" . $rowAt . "*" . "H" . $rowAt . ")*J" . $rowAt);
+            $sheet->setCellValue('L' . $rowAt, $r['BCTYPE']);
+            $sheet->setCellValue('M' . $rowAt, $r['RPSTOCK_BCNUM']);
+            $sheet->setCellValue('N' . $rowAt, $r['RPSTOCK_BCDATE']);
+            $sheet->setCellValue('O' . $rowAt, $r['BM']);
+            $sheet->setCellValue('P' . $rowAt, "=(K" . $rowAt . "*" . "O" . $rowAt . "/100)");
+            $sheet->setCellValue('Q' . $rowAt, $r['PPN']);
+            $sheet->setCellValue('R' . $rowAt, "=(K" . $rowAt . "+P" . $rowAt . ")*" . "Q" . $rowAt . "/100");
+            $sheet->setCellValue('U' . $rowAt, $r['PPH']);
+            $sheet->setCellValue('V' . $rowAt, "=(K" . $rowAt . "+P" . $rowAt . ")*" . "U" . $rowAt . "/100");
+            $rowAt++;
+        }
+        $sheet->setCellValue('A9', '2. Jumlah Barang : ' . number_format($dataHead->TOTALQT) . ' PCS');
+
+        $sheet->getStyle('A11:V' . $rowAt - 1)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->setColor(new Color('1F1812'));
+        foreach (range('C', 'P') as $r) {
             $sheet->getColumnDimension($r)->setAutoSize(true);
         }
-        $sheet->freezePane('A2');
 
-        $writer = new Mpdf($spreadsheet);
+        $rowAt++;
+        $sheet->setCellValue('B' . $rowAt, 'Konversi yang kami sampaikan di atas adalah benar. Apabila konversi yang Kami sampaikan tidak benar, Kami bersedia menerima sanksi sesuai peraturan yang berlaku.');
+        $rowAt++;
+        $sheet->setCellValue('B' . $rowAt, 'Mengetahui');
+        $rowAt += 2;
+        $sheet->setCellValue('A' . $rowAt, 'Pihak Yang mengeluarkan Konversi');
+        $sheet->setCellValue('J' . $rowAt, 'Pihak Exim');
+        $sheet->setCellValue('T' . $rowAt, 'Pimpinan Perusahaan');
+
+        $rowAt += 5;
+        $sheet->setCellValue('A' . $rowAt, 'Hadi Cahyono');
+        $sheet->setCellValue('A' . $rowAt + 1, 'Manager');
+
+        $sheet->setCellValue('J' . $rowAt, 'Sri Wahyu');
+        $sheet->setCellValue('J' . $rowAt + 1, 'Asst. Manager');
+
+        $sheet->setCellValue('T' . $rowAt, 'Indra Andesa');
+        $sheet->setCellValue('T' . $rowAt + 1, 'Indra Andesa');
 
         $stringjudul = "Konversi Pemakaian Bahan Baku " . $request->doc;
         $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
@@ -210,5 +285,292 @@ class DeliveryController extends Controller
         header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
         header('Cache-Control: max-age=0');
         $writer->save('php://output');
+    }
+
+    private function select_combine_byAju_and_FG($arAJU, $arFG)
+    {
+        $psnSub  = DB::table('XPPSN1')->groupBy('PPSN1_WONO', 'PPSN1_BOMRV')->select('PPSN1_WONO', 'PPSN1_BOMRV');
+        $serd2A  = DB::table('SERD2_TBL');
+        $serd2B  = DB::table('SERD2_TBL');
+
+        $data = DB::table('DLV_TBL')
+            ->leftJoinSub($serd2A, 'A', 'DLV_SER', '=', 'A.SERD2_SER')
+            ->leftJoin('SER_TBL', 'DLV_SER', '=', 'SER_ID')
+            ->leftJoin('SERC_TBL', "DLV_SER", "=", "SERC_NEWID")
+            ->leftJoinSub($serd2B, 'B', 'DLV_SER', '=', 'B.SERD2_SER')
+            ->leftJoin('MITM_TBL', 'B.SERD2_ITMCD', '=', 'MITM_ITMCD')
+            ->leftJoinSub($psnSub, 'VPSN', 'SERC_COMJOB', '=', 'PPSN1_WONO')
+            ->whereIn('SER_ITMID', $arFG)
+            ->whereIn('DLV_ZNOMOR_AJU', $arAJU)
+            ->whereNull('A.SERD2_SER')
+            ->groupBy("DLV_ZNOMOR_AJU", "SER_ITMID", 'B.SERD2_ITMCD', 'PPSN1_BOMRV', 'MITM_ITMD1', 'DLV_SER', "DLV_QTY", "MITM_STKUOM")
+            ->selectRaw('DLV_ZNOMOR_AJU,SER_ITMID,B.SERD2_ITMCD,PPSN1_BOMRV,sum(B.SERD2_QTY) RMQT,DLV_QTY DLVQT,sum(B.SERD2_QTY)/DLV_QTY PER,RTRIM(MITM_ITMD1) PARTDESCRIPTION,DLV_SER, RTRIM(MITM_STKUOM) PART_UOM')
+            ->orderBy('DLV_ZNOMOR_AJU')->get();
+        return json_decode(json_encode($data), true);
+    }
+
+    function selectColumnsWhereRemarkIn($arrayDeliveryOrderNumber)
+    {
+        $rcvSub  = DB::table('RCV_TBL')->groupBy('RCV_RPNO', 'RCV_DONO', 'RCV_ITMCD')
+            ->selectRaw('RCV_RPNO,RCV_DONO,RCV_ITMCD,max(RCV_PRPRC) RCV_PRPRC, MAX(RCV_HSCD) RCV_HSCD, MAX(RCV_BM) BM, MAX(RCV_PPN) PPN, MAX(RCV_PPH) PPH, MAX(RTRIM(RCV_SUPCD)) SUPCD');
+        $data = DB::table('ZRPSAL_BCSTOCK')
+            ->leftJoinSub($rcvSub, 'v1', function ($join) {
+                $join->on('RPSTOCK_NOAJU', '=', 'RCV_RPNO')
+                    ->on('RPSTOCK_DOC', '=', 'RCV_DONO')
+                    ->on('RPSTOCK_ITMNUM', '=', 'RCV_ITMCD');
+            })
+            ->selectRaw('RPSTOCK_REMARK,RPSTOCK_DOC,RPSTOCK_NOAJU,UPPER(RTRIM(RPSTOCK_ITMNUM)) RPSTOCK_ITMNUM,RCV_PRPRC,RPSTOCK_BCTYPE, ABS(SUM(RPSTOCK_QTY)) BCQT, RCV_HSCD, RPSTOCK_BCNUM, BM, PPN, PPH, RPSTOCK_BCDATE, SUPCD')
+            ->whereIn('RPSTOCK_REMARK', $arrayDeliveryOrderNumber)
+            ->groupByRaw('RPSTOCK_REMARK,RPSTOCK_DOC,RPSTOCK_NOAJU,RPSTOCK_ITMNUM,RCV_PRPRC, RPSTOCK_BCTYPE, RCV_HSCD, RPSTOCK_BCNUM, BM, PPN, PPH,RPSTOCK_BCDATE,SUPCD')
+            ->orderBy('RPSTOCK_BCDATE')->get();
+        return json_decode(json_encode($data), true);
+    }
+
+    public function conversion_test_data($params = [])
+    {
+        $rs = DB::select('exec wms_sp_conversion_test_by_do ?', [$params['doc']]);
+        $rs = json_decode(json_encode($rs), true);
+
+        $arIndex = [];
+        $arAJU = [];
+        $arAJUUnique = [];
+        $arFG = [];
+
+        $arrayDeliveryOrderNumber = [];
+        $i = 0;
+        foreach ($rs as $r) {
+            if (!in_array($r['DLV_ZNOMOR_AJU'], $arAJUUnique)) {
+                $arAJUUnique[] = $r['DLV_ZNOMOR_AJU'];
+                $arrayDeliveryOrderNumber[] = $r['DLV_ID'];
+            }
+            if (!$r['PER']) {
+                $arIndex[] = $i;
+                $arAJU[] = $r['DLV_ZNOMOR_AJU'];
+                $arFG[] = $r['SER_ITMID'];
+            }
+            $i++;
+        }
+
+        $rsnull = count($arAJU) && count($arFG) ? $this->select_combine_byAju_and_FG($arAJU, $arFG) : [];
+        $arrayBC = [];
+        if (!empty($arrayDeliveryOrderNumber)) {
+            $arrayBC = $this->selectColumnsWhereRemarkIn($arrayDeliveryOrderNumber);
+        }
+
+        $NewRS = [];
+        if (count($rs)) {
+            foreach ($rs as &$r) {
+                $r['PART_PRICE'] = null;
+                $r['PLOTQT'] = 0;
+                $r['BCTYPE'] = '';
+                foreach ($arrayBC as &$b) {
+                    # Jika item rank
+                    if ($r['MITMGRP_ITMCD']) {
+                        if ($r['DLV_ID'] === $b['RPSTOCK_REMARK'] && $r['MITMGRP_ITMCD'] === $b['RPSTOCK_ITMNUM'] && $b['BCQT'] > 0) {
+                            $need = $r['RMQT'] - $r['PLOTQT'];
+                            $_qty = $need;
+                            if ($need > $b['BCQT']) {
+                                $_qty = $b['BCQT'];
+                                $r['PLOTQT'] += $b['BCQT'];
+                                $b['BCQT'] = 0;
+                            } else {
+                                $r['PLOTQT'] += $need;
+                                $b['BCQT'] -= $need;
+                            }
+
+                            $r['BCTYPE'] = $b['RPSTOCK_BCTYPE'];
+
+                            $r['PART_PRICE'] = (float) $b['RCV_PRPRC'];
+
+                            $NewRS[] = [
+                                'DLV_ZNOMOR_AJU' => $r['DLV_ZNOMOR_AJU'],
+                                'SER_ITMID' => $r['SER_ITMID'],
+                                'DLVQT' => $r['DLVQT'],
+                                'SERD2_ITMCD' => $r['SERD2_ITMCD'],
+                                'PARTDESCRIPTION' => $r['PARTDESCRIPTION'],
+                                'PART_UOM' => $r['PART_UOM'],
+                                'PER' => $r['PER'],
+                                'RMQT' => $_qty,
+                                'PART_PRICE' => $r['PART_PRICE'],
+                                'PPSN1_BOMRV' => $r['PPSN1_BOMRV'],
+                                'BCTYPE' => $r['BCTYPE'],
+                                'MITMGRP_ITMCD' => $r['MITMGRP_ITMCD'],
+                                'SUPCD' => $b['SUPCD'],
+                                'RPSTOCK_NOAJU' => $b['RPSTOCK_NOAJU'],
+                                'RPSTOCK_BCNUM' => $b['RPSTOCK_BCNUM'],
+                                'RPSTOCK_BCDATE' => $b['RPSTOCK_BCDATE'],
+                                'RCV_HSCD' => $b['RCV_HSCD'],
+                                'BM' => $b['BM'],
+                                'PPN' => $b['PPN'],
+                                'PPH' => $b['PPH'],
+                            ];
+
+                            if ($r['RMQT'] == $r['PLOTQT']) {
+                                break;
+                            }
+                        }
+                    } else {
+                        if ($r['DLV_ID'] === $b['RPSTOCK_REMARK'] && $r['SERD2_ITMCD'] === $b['RPSTOCK_ITMNUM'] && $b['BCQT'] > 0) {
+                            $need = $r['RMQT'] - $r['PLOTQT'];
+                            $_qty = $need;
+                            if ($need > $b['BCQT']) {
+                                $_qty = $b['BCQT'];
+                                $r['PLOTQT'] += $b['BCQT'];
+                                $b['BCQT'] = 0;
+                            } else {
+                                $r['PLOTQT'] += $need;
+                                $b['BCQT'] -= $need;
+                            }
+
+                            $r['BCTYPE'] = $b['RPSTOCK_BCTYPE'];
+
+                            $r['PART_PRICE'] = (float) $b['RCV_PRPRC'];
+
+                            $NewRS[] = [
+                                'DLV_ZNOMOR_AJU' => $r['DLV_ZNOMOR_AJU'],
+                                'SER_ITMID' => $r['SER_ITMID'],
+                                'DLVQT' => $r['DLVQT'],
+                                'SERD2_ITMCD' => $r['SERD2_ITMCD'],
+                                'PARTDESCRIPTION' => $r['PARTDESCRIPTION'],
+                                'PART_UOM' => $r['PART_UOM'],
+                                'PER' => $r['PER'],
+                                'RMQT' => $_qty,
+                                'PART_PRICE' => $r['PART_PRICE'],
+                                'PPSN1_BOMRV' => $r['PPSN1_BOMRV'],
+                                'BCTYPE' => $r['BCTYPE'],
+                                'MITMGRP_ITMCD' => $r['MITMGRP_ITMCD'],
+                                'SUPCD' => $b['SUPCD'],
+                                'RPSTOCK_NOAJU' => $b['RPSTOCK_NOAJU'],
+                                'RPSTOCK_BCNUM' => $b['RPSTOCK_BCNUM'],
+                                'RPSTOCK_BCDATE' => $b['RPSTOCK_BCDATE'],
+                                'RCV_HSCD' => $b['RCV_HSCD'],
+                                'BM' => $b['BM'],
+                                'PPN' => $b['PPN'],
+                                'PPH' => $b['PPH'],
+                            ];
+
+                            if ($r['RMQT'] == $r['PLOTQT']) {
+                                break;
+                            }
+                        }
+                    }
+                }
+                unset($b);
+            }
+            unset($r);
+
+            $sort = [];
+            foreach ($NewRS as $k => $v) {
+                $sort['DLV_ZNOMOR_AJU'][$k] = $v['DLV_ZNOMOR_AJU'];
+                $sort['SER_ITMID'][$k] = $v['SER_ITMID'];
+            }
+            array_multisort($sort['DLV_ZNOMOR_AJU'], SORT_ASC, $sort['SER_ITMID'], SORT_ASC, $NewRS);
+        }
+
+        $NewRSNull = [];
+
+        # Plot Combined RS
+        foreach ($rsnull as &$r) {
+            $r['PART_PRICE'] = null;
+            $r['PLOTQT'] = 0;
+            $r['BCTYPE'] = '';
+            foreach ($arrayBC as &$b) {
+                # Jika item rank
+                if ($r['MITMGRP_ITMCD']) {
+                    if ($r['DLV_ID'] === $b['RPSTOCK_REMARK'] && $r['MITMGRP_ITMCD'] === $b['RPSTOCK_ITMNUM'] && $b['BCQT'] > 0) {
+                        $need = $r['RMQT'] - $r['PLOTQT'];
+                        $_qty = $need;
+
+                        if ($need > $b['BCQT']) {
+                            $_qty = $b['BCQT'];
+                            $r['PLOTQT'] += $b['BCQT'];
+                            $b['BCQT'] = 0;
+                        } else {
+                            $r['PLOTQT'] += $need;
+                            $b['BCQT'] -= $need;
+                        }
+
+                        $r['BCTYPE'] = $b['RPSTOCK_BCTYPE'];
+
+                        $r['PART_PRICE'] = (float) $b['RCV_PRPRC'];
+
+                        $NewRSNull[] = [
+                            'DLV_ZNOMOR_AJU' => $r['DLV_ZNOMOR_AJU'],
+                            'SER_ITMID' => $r['SER_ITMID'],
+                            'DLVQT' => $r['DLVQT'],
+                            'SERD2_ITMCD' => $r['SERD2_ITMCD'],
+                            'PARTDESCRIPTION' => $r['PARTDESCRIPTION'],
+                            'PART_UOM' => $r['PART_UOM'],
+                            'PER' => $r['PER'],
+                            'RMQT' => $_qty,
+                            'PART_PRICE' => $r['PART_PRICE'],
+                            'PPSN1_BOMRV' => $r['PPSN1_BOMRV'],
+                            'BCTYPE' => $r['BCTYPE'],
+                            'MITMGRP_ITMCD' => $r['MITMGRP_ITMCD'],
+                            'SUPCD' => $b['SUPCD'],
+                            'RPSTOCK_NOAJU' => $b['RPSTOCK_NOAJU'],
+                            'RPSTOCK_BCNUM' => $b['RPSTOCK_BCNUM'],
+                            'RPSTOCK_BCDATE' => $b['RPSTOCK_BCDATE'],
+                            'RCV_HSCD' => $b['RCV_HSCD'],
+                            'BM' => $b['BM'],
+                            'PPN' => $b['PPN'],
+                            'PPH' => $b['PPH'],
+                        ];
+
+                        if ($r['RMQT'] == $r['PLOTQT']) {
+                            break;
+                        }
+                    }
+                } else {
+                    if ($r['DLV_ID'] === $b['RPSTOCK_REMARK'] && $r['SERD2_ITMCD'] === $b['RPSTOCK_ITMNUM'] && $b['BCQT'] > 0) {
+                        $need = $r['RMQT'] - $r['PLOTQT'];
+                        $_qty = $need;
+
+                        if ($need > $b['BCQT']) {
+                            $_qty = $b['BCQT'];
+                            $r['PLOTQT'] += $b['BCQT'];
+                            $b['BCQT'] = 0;
+                        } else {
+                            $r['PLOTQT'] += $need;
+                            $b['BCQT'] -= $need;
+                        }
+
+                        $r['BCTYPE'] = $b['RPSTOCK_BCTYPE'];
+
+                        $r['PART_PRICE'] = (float) $b['RCV_PRPRC'];
+
+                        $NewRSNull[] = [
+                            'DLV_ZNOMOR_AJU' => $r['DLV_ZNOMOR_AJU'],
+                            'SER_ITMID' => $r['SER_ITMID'],
+                            'DLVQT' => $r['DLVQT'],
+                            'SERD2_ITMCD' => $r['SERD2_ITMCD'],
+                            'PARTDESCRIPTION' => $r['PARTDESCRIPTION'],
+                            'PART_UOM' => $r['PART_UOM'],
+                            'PER' => $r['PER'],
+                            'RMQT' => $_qty,
+                            'PART_PRICE' => $r['PART_PRICE'],
+                            'PPSN1_BOMRV' => $r['PPSN1_BOMRV'],
+                            'BCTYPE' => $r['BCTYPE'],
+                            'MITMGRP_ITMCD' => $r['MITMGRP_ITMCD'],
+                            'SUPCD' => $b['SUPCD'],
+                            'RPSTOCK_NOAJU' => $b['RPSTOCK_NOAJU'],
+                            'RPSTOCK_BCNUM' => $b['RPSTOCK_BCNUM'],
+                            'RPSTOCK_BCDATE' => $b['RPSTOCK_BCDATE'],
+                            'RCV_HSCD' => $b['RCV_HSCD'],
+                            'BM' => $b['BM'],
+                            'PPN' => $b['PPN'],
+                            'PPH' => $b['PPH'],
+                        ];
+
+                        if ($r['RMQT'] == $r['PLOTQT']) {
+                            break;
+                        }
+                    }
+                }
+            }
+            unset($b);
+        }
+        unset($r);
+        return ['data' => $NewRS, 'data_' => $NewRSNull];
     }
 }
