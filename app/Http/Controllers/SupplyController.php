@@ -1714,16 +1714,19 @@ class SupplyController extends Controller
             if (DB::table("SPL_TBL")->select("SPL_DOC")->where('SPL_DOC', $cpsn)->whereNotNull('SPL_APPRV_TM')->count() == 0) {
                 die($cpsn . ' should be approved first');
             }
-
+            
             foreach ($rspsn_group as $rh) {
                 $ccat = trim($rh['SPL_CAT']);
                 $cline = trim($rh['SPL_LINE']);
                 $cfedr = trim($rh['SPL_FEDR']);
-                // $rshead = $this->SPL_mod->select_reffdoc($cpsn);
+                
+                $QrHeadContent = $cpsn . '|' . $rh['SPL_CAT'] . "|" . $rh['SPL_LINE'] . "|" . $rh['SPL_FEDR'];
+                $headQRImage = $this->generateQR(['content' => $QrHeadContent]);
+                
                 $rshead = DB::table("SPL_TBL")->selectRaw("SPL_REFDOCNO,MAX(SPL_REFDOCCAT) REFDOCCAT")
                     ->groupBy('SPL_REFDOCNO')
                     ->where('SPL_DOC', $cpsn)->get();
-                $rsdetail = json_decode(json_encode($rshead), true);
+                $rshead = json_decode(json_encode($rshead), true);
 
                 $_vrak = DB::table('vinitlocation')->select('MSTLOC_CD', DB::raw("MAX(aliasrack) aliasrack"))->groupBy('MSTLOC_CD');
                 $_a = DB::table('SPL_TBL')->leftJoinSub($_vrak, 'VRAK', 'SPL_RACKNO', '=', 'MSTLOC_CD')
@@ -1792,6 +1795,7 @@ class SupplyController extends Controller
                 $hgt_p = $this->fpdf->GetPageHeight();
                 $this->fpdf->SetAutoPageBreak(true, 1);
                 $this->fpdf->SetMargins(0, 0);
+                $this->fpdf->Image($headQRImage, 120, 10);
                 $this->fpdf->SetFont('Arial', '', 6);
                 $clebar = $this->fpdf->GetStringWidth($cpsn) + 40;
                 $this->fpdf->Code128(3, 4, $cpsn, $clebar, 4);
@@ -1868,30 +1872,31 @@ class SupplyController extends Controller
                     $rsJob = DB::table('XPPSN1')->join('XMITM_V', 'PPSN1_MDLCD', '=', 'MITM_ITMCD')
                         ->whereIn('PPSN1_PSNNO', $PSNDocAsReff)
                         ->groupByRaw("PPSN1_WONO,PPSN1_MDLCD,MITM_ITMD1,PPSN1_SIMQT")
-                        ->selectRaw("PPSN1_WONO,PPSN1_MDLCD,MITM_ITMD1,PPSN1_SIMQT");
+                        ->selectRaw("RTRIM(PPSN1_WONO) PPSN1_WONO,RTRIM(PPSN1_MDLCD) PPSN1_MDLCD,RTRIM(MITM_ITMD1) MITM_ITMD1,PPSN1_SIMQT")->get();
                     $rsJob = json_decode(json_encode($rsJob), true);
 
                     $cwos = [];
                     $cmodels = [];
                     $clotsize = [];
+
                     foreach ($rsJob as $r) {
                         if (count($cwos) == 0) {
-                            $cwos[] = trim($r['PPSN1_WONO']);
-                            $cmodels[] = trim($r['MITM_ITMD1']);
-                            $clotsize[] = trim($r['PPSN1_SIMQT']);
+                            $cwos[] = $r['PPSN1_WONO'];
+                            $cmodels[] = $r['MITM_ITMD1'];
+                            $clotsize[] = $r['PPSN1_SIMQT'];
                         } else {
                             $ttlwo = count($cwos);
                             $isexist = false;
                             for ($i = 0; $i < $ttlwo; $i++) {
-                                if ($cwos[$i] == trim($r['PPSN1_WONO'])) {
+                                if ($cwos[$i] == $r['PPSN1_WONO']) {
                                     $isexist = true;
                                     break;
                                 }
                             }
                             if (!$isexist) {
-                                $cwos[] = trim($r['PPSN1_WONO']);
-                                $cmodels[] = trim($r['MITM_ITMD1']);
-                                $clotsize[] = trim($r['PPSN1_SIMQT']);
+                                $cwos[] = $r['PPSN1_WONO'];
+                                $cmodels[] = $r['MITM_ITMD1'];
+                                $clotsize[] = $r['PPSN1_SIMQT'];
                             }
                         }
                     }
@@ -2134,17 +2139,20 @@ class SupplyController extends Controller
                         } else {
                             $this->fpdf->Cell(20, $td_h, $r['SPL_RACKNO'], 1, 0, 'L');
                         }
-                        $lebar = $this->fpdf->GetStringWidth(trim($r['SPL_ORDERNO'])) + 17;
-                        $clebar = $this->fpdf->GetStringWidth(trim($r['SPL_ORDERNO'])) + 16;
+                        $_contentToEncode = $r['SPL_MC'] . '|' . $r['SPL_PROCD'] . '|' . trim($r['SPL_ORDERNO']);
+                        $lebar = $this->fpdf->GetStringWidth($_contentToEncode) + 17;
+                        $clebar = $this->fpdf->GetStringWidth($_contentToEncode) + 16;
+
+                        
                         $strx = $wd2col - ($lebar + 3);
                         if (($i % 2) > 0) {
-                            $this->fpdf->Code128($wd2col - 60 + 2, $cury + 1.5, trim($r['SPL_ORDERNO']), $clebar, 3);
+                            $this->fpdf->Code128($wd2col - 60 + 2, $cury + 1.5, $_contentToEncode, $clebar, 3);
                             $this->fpdf->Cell(60, $td_h, $r['SPL_ORDERNO'], 1, 0, 'R');
                             $this->fpdf->SetFont('Arial', '', 4);
                             $this->fpdf->Text($wd2col - 5, $cury + 1.5, $r['SPL_PROCD']);
                             $this->fpdf->SetFont('Arial', '', 8);
                         } else {
-                            $this->fpdf->Code128($strx, $cury + 1.5, trim($r['SPL_ORDERNO']), $clebar, 3);
+                            $this->fpdf->Code128($strx, $cury + 1.5, $_contentToEncode, $clebar, 3);
                             $this->fpdf->Cell(60, $td_h, $r['SPL_ORDERNO'], 1, 0, 'L');
                             $this->fpdf->SetFont('Arial', '', 4);
                             $this->fpdf->Text($wd2col - 79, $cury + 1.5, $r['SPL_PROCD']);
@@ -2187,7 +2195,7 @@ class SupplyController extends Controller
 
     function generateQR($data = [])
     {
-        $op = new Process(["Python", base_path("smt.py"), $data['content'], "1"], );
+        $op = new Process(["Python", base_path("smt.py"), $data['content'], "1"],);
         $op->run();
         if (!$op->isSuccessful()) {
             throw new \RuntimeException($op->getErrorOutput());
@@ -2207,8 +2215,7 @@ class SupplyController extends Controller
             ->where('SPLSCN_DOC', 'like', '%TDI%')
             ->whereNotIn('SPLSCN_CAT', ['HW', 'PCB'])
             ->groupBy('SPLSCN_DATE', 'SPLSCN_DOC')
-            ->get(['SPLSCN_DATE', DB::raw('RTRIM(SPLSCN_DOC) PSN'), DB::raw("COUNT(*) TTLREEL"), DB::raw("'' as wo")])
-        ;
+            ->get(['SPLSCN_DATE', DB::raw('RTRIM(SPLSCN_DOC) PSN'), DB::raw("COUNT(*) TTLREEL"), DB::raw("'' as wo")]);
 
         $data2 = DB::query()->fromRaw("(SELECT rtrim(Z.PPSN1_WONO) wo, rtrim(Z.PPSN1_PSNNO) psn FROM XPPSN1 Z WHERE Z.PPSN1_PSNNO IN (
                 SELECT A.SPLSCN_DOC FROM V_SPLSCN_TBLC A WHERE A.SPLSCN_DOC LIKE '%TDI%'
