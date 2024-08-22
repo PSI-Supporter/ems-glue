@@ -276,7 +276,7 @@ class DeliveryController extends Controller
         $sheet->setCellValue('J' . $rowAt + 1, 'Asst. Manager');
 
         $sheet->setCellValue('T' . $rowAt, 'Indra Andesa');
-        $sheet->setCellValue('T' . $rowAt + 1, 'Indra Andesa');
+        $sheet->setCellValue('T' . $rowAt + 1, 'Asst. GM');
 
         $stringjudul = "Konversi Pemakaian Bahan Baku " . $request->doc;
         $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
