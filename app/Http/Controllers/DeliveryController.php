@@ -106,6 +106,7 @@ class DeliveryController extends Controller
 
         $sheet->setCellValue('Q1', 'LAMPIRAN');
         $sheet->setCellValue('Q2', 'Surat Kepala KPPBC Tipe Madya Pabean A Bekasis');
+        $sheet->mergeCells('Q2:V2', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->setCellValue('Q3', 'Nomor   :');
         $sheet->setCellValue('R3', 'S-1488/KBC.0804/2024');
         $sheet->setCellValue('Q4', 'Tanggal');
@@ -156,14 +157,14 @@ class DeliveryController extends Controller
         $sheet->getStyle('O12')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         $sheet->setCellValue('O14', 'Tarif(%)');
         $sheet->setCellValue('P14', 'Nilai (Rp)');
-        $sheet->setCellValue('Q12', 'PPN');
+        $sheet->setCellValue('Q12', 'PPN Import');
         $sheet->mergeCells('Q12:R13', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->getStyle('Q12')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
         $sheet->getStyle('Q12')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         $sheet->setCellValue('Q14', 'Tarif(%)');
         $sheet->setCellValue('R14', 'Nilai (Rp)');
 
-        $sheet->setCellValue('S12', 'PPnBM');
+        $sheet->setCellValue('S12', 'PPN Lokal');
         $sheet->mergeCells('S12:T13', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->getStyle('S12')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
         $sheet->getStyle('S12')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
@@ -230,6 +231,9 @@ class DeliveryController extends Controller
             }
             $currency = $suppliers->firstWhere('SUPCD', $r['SUPCD'])->SUPCR;
             $ndpbm = in_array($currency, ['IDR', 'RPH']) ? 1 : $kurs->firstWhere('MEXRATE_CURR', $currency)->MEXRATE_VAL;
+
+            $_BM = $r['BM'] >= 5 ? 5 : $r['BM'];
+            $_PPN = $r['PPN'] == 10 ? 11 : $r['PPN'];
             $sheet->setCellValue('A' . $rowAt,  " " . $fgAt . '.' . (string)$rmAt);
             $sheet->setCellValue('B' . $rowAt, $r['RCV_HSCD']);
             $sheet->setCellValue('C' . $rowAt, $r['PARTDESCRIPTION']);
@@ -244,37 +248,46 @@ class DeliveryController extends Controller
             $sheet->setCellValue('L' . $rowAt, $r['BCTYPE']);
             $sheet->setCellValue('M' . $rowAt, $r['RPSTOCK_BCNUM']);
             $sheet->setCellValue('N' . $rowAt, $r['RPSTOCK_BCDATE']);
-            $sheet->setCellValue('O' . $rowAt, $r['BM']);
+            $sheet->setCellValue('O' . $rowAt, $r['BCTYPE'] == '40' ? 0 : $_BM);
             $sheet->setCellValue('P' . $rowAt, "=(K" . $rowAt . "*" . "O" . $rowAt . "/100)");
-            $sheet->setCellValue('Q' . $rowAt, $r['PPN']);
+            $sheet->setCellValue('Q' . $rowAt, $r['BCTYPE'] == '40' ? 0 : $_PPN);
             $sheet->setCellValue('R' . $rowAt, "=(K" . $rowAt . "+P" . $rowAt . ")*" . "Q" . $rowAt . "/100");
-            $sheet->setCellValue('U' . $rowAt, $r['PPH']);
+            $sheet->setCellValue('S' . $rowAt, $r['BCTYPE'] == '40' ? $_PPN : 0);
+            $sheet->setCellValue('T' . $rowAt, "=(K" . $rowAt . "+P" . $rowAt . ")*" . "S" . $rowAt . "/100");
+            $sheet->setCellValue('U' . $rowAt, $r['BCTYPE'] == '40' ? 0 : $r['PPH']);
             $sheet->setCellValue('V' . $rowAt, "=(K" . $rowAt . "+P" . $rowAt . ")*" . "U" . $rowAt . "/100");
             $rowAt++;
         }
         $sheet->setCellValue('A9', '2. Jumlah Barang : ' . number_format($dataHead->TOTALQT) . ' PCS');
 
         $sheet->getStyle('A11:V' . $rowAt - 1)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->setColor(new Color('1F1812'));
-        foreach (range('C', 'P') as $r) {
-            $sheet->getColumnDimension($r)->setAutoSize(true);
-        }
 
         $sheet->setCellValue('P' . $rowAt, "=CEILING(SUM(P15:P" . $rowAt - 1 . "),1000)");
         $sheet->setCellValue('R' . $rowAt, "=CEILING(SUM(R15:R" . $rowAt - 1 . "),1000)");
+        $sheet->setCellValue('T' . $rowAt, "=CEILING(SUM(T15:T" . $rowAt - 1 . "),1000)");
         $sheet->setCellValue('V' . $rowAt, "=CEILING(SUM(V15:V" . $rowAt - 1 . "),1000)");
 
+        $sheet->getStyle('F11:F' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->getStyle('K11:K' . $rowAt)->getNumberFormat()->setFormatCode('#,##0.00');
         $sheet->getStyle('P11:P' . $rowAt)->getNumberFormat()->setFormatCode('#,##0.00');
         $sheet->getStyle('R11:R' . $rowAt)->getNumberFormat()->setFormatCode('#,##0.00');
+        $sheet->getStyle('T11:T' . $rowAt)->getNumberFormat()->setFormatCode('#,##0.00');
         $sheet->getStyle('V11:V' . $rowAt)->getNumberFormat()->setFormatCode('#,##0.00');
+
+        foreach (range('B', 'V') as $r) {
+            $sheet->getColumnDimension($r)->setAutoSize(true);
+        }
 
         $rowAt++;
         $sheet->setCellValue('B' . $rowAt, 'Konversi yang kami sampaikan di atas adalah benar. Apabila konversi yang Kami sampaikan tidak benar, Kami bersedia menerima sanksi sesuai peraturan yang berlaku.');
+        $sheet->mergeCells('B' . $rowAt . ':V' . $rowAt, $sheet::MERGE_CELL_CONTENT_HIDE);
         $rowAt++;
         $sheet->setCellValue('B' . $rowAt, 'Mengetahui');
         $rowAt += 2;
         $sheet->setCellValue('A' . $rowAt, 'Pihak Yang mengeluarkan Konversi');
         $sheet->setCellValue('J' . $rowAt, 'Pihak Exim');
         $sheet->setCellValue('T' . $rowAt, 'Pimpinan Perusahaan');
+        $sheet->mergeCells('T' . $rowAt . ':U' . $rowAt, $sheet::MERGE_CELL_CONTENT_HIDE);
 
         $rowAt += 5;
         $sheet->setCellValue('A' . $rowAt, 'Hadi Cahyono');
