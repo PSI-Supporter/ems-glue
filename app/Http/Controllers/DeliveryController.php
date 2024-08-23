@@ -115,7 +115,7 @@ class DeliveryController extends Controller
         $sheet->getStyle('A6')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
         $sheet->getStyle('A6')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
-        $sheet->setCellValue('A8', '1. Nama Barang : Assembled PCB');
+        $sheet->setCellValue('A8', '1. Nama Barang : Assembly PCB');
 
 
 
@@ -259,6 +259,14 @@ class DeliveryController extends Controller
             $sheet->getColumnDimension($r)->setAutoSize(true);
         }
 
+        $sheet->setCellValue('P' . $rowAt, "=CEILING(SUM(P15:P" . $rowAt - 1 . "),1000)");
+        $sheet->setCellValue('R' . $rowAt, "=CEILING(SUM(R15:R" . $rowAt - 1 . "),1000)");
+        $sheet->setCellValue('V' . $rowAt, "=CEILING(SUM(V15:V" . $rowAt - 1 . "),1000)");
+
+        $sheet->getStyle('P11:P' . $rowAt)->getNumberFormat()->setFormatCode('#,##0.00');
+        $sheet->getStyle('R11:R' . $rowAt)->getNumberFormat()->setFormatCode('#,##0.00');
+        $sheet->getStyle('V11:V' . $rowAt)->getNumberFormat()->setFormatCode('#,##0.00');
+
         $rowAt++;
         $sheet->setCellValue('B' . $rowAt, 'Konversi yang kami sampaikan di atas adalah benar. Apabila konversi yang Kami sampaikan tidak benar, Kami bersedia menerima sanksi sesuai peraturan yang berlaku.');
         $rowAt++;
@@ -277,6 +285,17 @@ class DeliveryController extends Controller
 
         $sheet->setCellValue('T' . $rowAt, 'Indra Andesa');
         $sheet->setCellValue('T' . $rowAt + 1, 'Asst. GM');
+
+        $sheet->getPageSetup()
+            ->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE);
+        $sheet->getPageSetup()
+            ->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_A4);
+
+        $sheet->getPageMargins()->setTop(0.2);
+        $sheet->getPageMargins()->setRight(0.2);
+        $sheet->getPageMargins()->setLeft(0.2);
+        $sheet->getPageMargins()->setBottom(0.2);
+        $sheet->getPageSetup()->setFitToWidth(1);
 
         $stringjudul = "Konversi Pemakaian Bahan Baku " . $request->doc;
         $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
