@@ -122,8 +122,8 @@ class DeliveryController extends Controller
 
         $sheet->setCellValue('A11', 'BARANG DAN/ATAU BAHAN BAKU');
         $sheet->mergeCells('A11:G11', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->setCellValue('I11', 'HARGA');
-        $sheet->mergeCells('I11:J11', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue('H11', 'HARGA');
+        $sheet->mergeCells('H11:K11', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->setCellValue('L11', 'DOKUMEN PABEAN');
         $sheet->mergeCells('L11:N11', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->setCellValue('Q11', 'NILAI PUNGUTAN');
@@ -179,6 +179,8 @@ class DeliveryController extends Controller
         $sheet->setCellValue('V14', 'Nilai (Rp)');
 
         $sheet->mergeCells('A12:A14', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('A8:C8', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('A9:C9', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->mergeCells('B12:B14', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->mergeCells('C12:C14', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->mergeCells('D12:D14', $sheet::MERGE_CELL_CONTENT_HIDE);
@@ -274,9 +276,7 @@ class DeliveryController extends Controller
         $sheet->getStyle('T11:T' . $rowAt)->getNumberFormat()->setFormatCode('#,##0.00');
         $sheet->getStyle('V11:V' . $rowAt)->getNumberFormat()->setFormatCode('#,##0.00');
 
-        foreach (range('B', 'V') as $r) {
-            $sheet->getColumnDimension($r)->setAutoSize(true);
-        }
+
 
         $rowAt++;
         $sheet->setCellValue('B' . $rowAt, 'Konversi yang kami sampaikan di atas adalah benar. Apabila konversi yang Kami sampaikan tidak benar, Kami bersedia menerima sanksi sesuai peraturan yang berlaku.');
@@ -284,20 +284,27 @@ class DeliveryController extends Controller
         $rowAt++;
         $sheet->setCellValue('B' . $rowAt, 'Mengetahui');
         $rowAt += 2;
+        $sheet->mergeCells('A' . $rowAt . ':C' . $rowAt, $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->setCellValue('A' . $rowAt, 'Pihak Yang mengeluarkan Konversi');
         $sheet->setCellValue('J' . $rowAt, 'Pihak Exim');
         $sheet->setCellValue('T' . $rowAt, 'Pimpinan Perusahaan');
         $sheet->mergeCells('T' . $rowAt . ':U' . $rowAt, $sheet::MERGE_CELL_CONTENT_HIDE);
 
         $rowAt += 5;
+        $sheet->mergeCells('A' . $rowAt . ':B' . $rowAt, $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->setCellValue('A' . $rowAt, 'Hadi Cahyono');
         $sheet->setCellValue('A' . $rowAt + 1, 'Manager');
 
         $sheet->setCellValue('J' . $rowAt, 'Sri Wahyu');
         $sheet->setCellValue('J' . $rowAt + 1, 'Asst. Manager');
+        $sheet->mergeCells('J' . $rowAt + 1 . ':K' . $rowAt + 1, $sheet::MERGE_CELL_CONTENT_HIDE);
 
         $sheet->setCellValue('T' . $rowAt, 'Indra Andesa');
         $sheet->setCellValue('T' . $rowAt + 1, 'Asst. GM');
+
+        foreach (range('A', 'V') as $r) {
+            $sheet->getColumnDimension($r)->setAutoSize(true);
+        }
 
         $sheet->getPageSetup()
             ->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE);
@@ -309,6 +316,8 @@ class DeliveryController extends Controller
         $sheet->getPageMargins()->setLeft(0.2);
         $sheet->getPageMargins()->setBottom(0.2);
         $sheet->getPageSetup()->setFitToWidth(1);
+
+
 
         $stringjudul = "Konversi Pemakaian Bahan Baku " . $request->doc;
         $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
