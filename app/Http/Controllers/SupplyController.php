@@ -1714,15 +1714,15 @@ class SupplyController extends Controller
             if (DB::table("SPL_TBL")->select("SPL_DOC")->where('SPL_DOC', $cpsn)->whereNotNull('SPL_APPRV_TM')->count() == 0) {
                 die($cpsn . ' should be approved first');
             }
-            
+
             foreach ($rspsn_group as $rh) {
                 $ccat = trim($rh['SPL_CAT']);
                 $cline = trim($rh['SPL_LINE']);
                 $cfedr = trim($rh['SPL_FEDR']);
-                
+
                 $QrHeadContent = $cpsn . '|' . $rh['SPL_CAT'] . "|" . $rh['SPL_LINE'] . "|" . $rh['SPL_FEDR'];
                 $headQRImage = $this->generateQR(['content' => $QrHeadContent]);
-                
+
                 $rshead = DB::table("SPL_TBL")->selectRaw("SPL_REFDOCNO,MAX(SPL_REFDOCCAT) REFDOCCAT")
                     ->groupBy('SPL_REFDOCNO')
                     ->where('SPL_DOC', $cpsn)->get();
@@ -2143,7 +2143,7 @@ class SupplyController extends Controller
                         $lebar = $this->fpdf->GetStringWidth($_contentToEncode) + 17;
                         $clebar = $this->fpdf->GetStringWidth($_contentToEncode) + 16;
 
-                        
+
                         $strx = $wd2col - ($lebar + 3);
                         if (($i % 2) > 0) {
                             $this->fpdf->Code128($wd2col - 60 + 2, $cury + 1.5, $_contentToEncode, $clebar, 3);
@@ -2234,5 +2234,82 @@ class SupplyController extends Controller
         }
         unset($r);
         return ['data' => $data, 'data2' => $data2];
+    }
+
+    function getDocumentByDelivery(Request $request)
+    {
+        $DLVDocs = DB::table('DLV_TBL')
+            ->leftJoin('SERD2_TBL', 'DLV_SER', '=', 'SERD2_SER')
+            ->where('DLV_ID', $request->doc)
+            ->where('SERD2_ITMCD', $request->part_code)
+            ->groupBy('SERD2_PSNNO', 'SERD2_JOB', 'SERD2_PROCD', 'SERD2_MC', 'SERD2_MCZ', 'SERD2_SER')
+            ->get(['SERD2_PSNNO', 'SERD2_JOB', 'SERD2_PROCD', 'SERD2_MC', 'SERD2_MCZ', 'SERD2_SER']);
+
+        $suspectedMC = '';
+        $suspectedMCZ = '';
+        $PSNs = [];
+        $Parts = [];
+        $CustomsParts = [];
+        foreach ($DLVDocs as $r) {
+            $suspectedMCZ = $r->SERD2_MCZ;
+            $suspectedMC = $r->SERD2_MC;
+            if (!in_array($r->SERD2_PSNNO, $PSNs)) {
+                $PSNs[] = $r->SERD2_PSNNO;
+            }
+        }
+
+        $data = [];
+        if ($PSNs) {
+            $data = DB::table('SPL_TBL')
+                ->leftJoin('MITM_TBL', 'SPL_ITMCD', '=', 'MITM_ITMCD')
+                ->whereIn('SPL_DOC', $PSNs)
+                ->whereIn('SPL_ORDERNO', [$suspectedMCZ])
+                ->whereIn('SPL_MC', [$suspectedMC])
+                ->orderBy('SPL_DOC')
+                ->orderBy('SPL_ORDERNO')
+                ->orderBy('SPL_MC')
+                ->orderBy('SPL_PROCD')
+                ->get(
+                    [
+                        'SPL_DOC',
+                        'SPL_DOCNO',
+                        'SPL_LINE',
+                        'SPL_PROCD',
+                        'SPL_FEDR',
+                        'SPL_CAT',
+                        'SPL_MC',
+                        'SPL_ORDERNO',
+                        'SPL_MS',
+                        'SPL_ITMCD',
+                        DB::raw('RTRIM(MITM_SPTNO) SPTNO'),
+                        DB::raw('RTRIM(MITM_ITMD1) ITMD1'),
+                        'SPL_QTYREQ'
+                    ]
+                );
+            foreach ($data as $r) {
+                if (!in_array($r->SPL_ITMCD, $Parts)) {
+                    if ($r->SPL_ITMCD != $request->part_code) {
+                        $Parts[] = $r->SPL_ITMCD;
+                    }
+                }
+            }
+
+            if (count($Parts) >= 1) {
+                $CustomsParts = DB::table('ZRPSAL_BCSTOCK')
+                    ->leftJoin('MITM_TBL', 'RPSTOCK_ITMNUM', '=', 'MITM_ITMCD')
+                    ->whereIn('RPSTOCK_ITMNUM', $Parts)
+                    ->where('IODATE', '<=', date('Y-m-d'))
+                    ->groupBy('RPSTOCK_ITMNUM', 'MITM_SPTNO', 'MITM_ITMD1')
+                    ->get([
+                        DB::raw('RTRIM(RPSTOCK_ITMNUM) RPSTOCK_ITMNUM'),
+                        DB::raw("RTRIM(MITM_SPTNO) SPTNO"),
+                        DB::raw("RTRIM(MITM_ITMD1) ITMD1"),
+                        DB::raw("SUM(RPSTOCK_QTY) RMQT")
+                    ]);
+            }
+        }
+
+
+        return ['data' => $data, '$PSNs' => $PSNs, 'CustomsParts' => $CustomsParts];
     }
 }
