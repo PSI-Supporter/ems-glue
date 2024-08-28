@@ -111,14 +111,14 @@ class DeliveryController extends Controller
         $sheet->setCellValue('R3', 'S-1488/KBC.0804/2024');
         $sheet->setCellValue('Q4', 'Tanggal');
         $sheet->setCellValue('R4', '19 Juli 2024');
-        $sheet->setCellValue('A6', 'TABEL PERHITUNGAN KONVERSI BAHAN BAKU');
-        $sheet->mergeCells('A6:V6', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->getStyle('A6')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('A6')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->setCellValue('A5', 'TABEL PERHITUNGAN KONVERSI BAHAN BAKU');
+        $sheet->mergeCells('A5:V5', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->getStyle('A5')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('A5')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
+        $sheet->setCellValue('A6', 'No Aju :');
+        $sheet->setCellValue('A7', 'No BC & Tgl BC :');
         $sheet->setCellValue('A8', '1. Nama Barang : Assembly PCB');
-
-
 
         $sheet->setCellValue('A11', 'BARANG DAN/ATAU BAHAN BAKU');
         $sheet->mergeCells('A11:G11', $sheet::MERGE_CELL_CONTENT_HIDE);
@@ -151,8 +151,8 @@ class DeliveryController extends Controller
         $sheet->getStyle('M12')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         $sheet->setCellValue('N12', 'Tanggal');
         $sheet->setCellValue('N13', 'Dokumen');
-        $sheet->setCellValue('O12', 'BM');
-        $sheet->mergeCells('O12:P13', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue('O11', 'BM');
+        $sheet->mergeCells('O11:P13', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->getStyle('O12')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
         $sheet->getStyle('O12')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         $sheet->setCellValue('O14', 'Tarif(%)');
@@ -171,8 +171,8 @@ class DeliveryController extends Controller
         $sheet->setCellValue('S14', 'Tarif(%)');
         $sheet->setCellValue('T14', 'Nilai (Rp)');
 
-        $sheet->setCellValue('U12', 'PPh Ps.22');
-        $sheet->mergeCells('U12:V13', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue('U11', 'PPh Ps.22');
+        $sheet->mergeCells('U11:V13', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->getStyle('U12')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
         $sheet->getStyle('U12')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         $sheet->setCellValue('U14', 'Tarif(%)');
@@ -197,14 +197,17 @@ class DeliveryController extends Controller
         $dataHead = DB::table('DLV_TBL')
             ->leftJoin('SER_TBL', 'DLV_SER', '=', 'SER_ID')
             ->where('DLV_ID', $request->doc)
-            ->groupBy('DLV_BCDATE')
-            ->select('DLV_BCDATE', DB::raw("SUM(SER_QTY) TOTALQT"))
+            ->groupBy('DLV_BCDATE', 'DLV_NOPEN', 'DLV_ZNOMOR_AJU', 'DLV_RPDATE')
+            ->select('DLV_BCDATE', DB::raw("SUM(SER_QTY) TOTALQT"), 'DLV_NOPEN', 'DLV_ZNOMOR_AJU', 'DLV_RPDATE')
             ->first();
 
         $kurs = DB::table('MEXRATE_TBL')->where('MEXRATE_DT', $dataHead->DLV_BCDATE)->get(['MEXRATE_CURR', 'MEXRATE_VAL']);
         $data = $this->conversion_test_data(['doc' => $request->doc]);
 
-
+        $sheet->setCellValue('A6', 'No Aju : ' . $dataHead->DLV_ZNOMOR_AJU);
+        $sheet->mergeCells('A6:C6', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue('A7', 'No BC & Tgl BC : ' . $dataHead->DLV_NOPEN . ', ' . $dataHead->DLV_RPDATE);
+        $sheet->mergeCells('A7:C7', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->freezePane('A15');
 
         $rowAt = 15;
