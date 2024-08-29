@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\BOMCalculationController;
 use App\Http\Controllers\BusinessGroupController;
 use App\Http\Controllers\CountryController;
 use App\Http\Controllers\DeliveryController;
@@ -101,6 +102,11 @@ Route::prefix('report')->group(function () {
     Route::post("stock-wms", [ITHController::class, 'getStockMultipleItemWMS']);
     Route::get("fg-ng-customer", [ReceiveController::class, 'getReportFGNGCustomer']);
     Route::get("konversi-bahan-baku", [DeliveryController::class, 'reportKonversiBahanBaku']);
+});
+
+# Terkait Bom Calculation
+Route::prefix('bom-calculation')->group(function () {
+    Route::put("delivery", [BOMCalculationController::class, 'updateByDelivery']);
 });
 
 # Terkait Business Group
