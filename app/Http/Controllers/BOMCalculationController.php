@@ -20,10 +20,21 @@ class BOMCalculationController extends Controller
                 return collect($value)->values()->toArray();
             })->collapse();
 
-        $data = DB::table('SERD2_TBL')->whereIn('SERD2_SER', $DLVSers)
-            ->where('SERD2_ITMCD', $request->part_code_before)
-            ->get(['SERD2_ITMCD', 'SERD2_REMARK', 'SERD2_USRID']);
+        $CountPostedDoc = DB::table('ZRPSAL_BCSTOCK')->where('RPSTOCK_REMARK', $request->doc)->count();
 
-        return ['message' => 'Saved successfully', 'data' => $data];
+        if ($CountPostedDoc === 0) {
+            $data = DB::table('SERD2_TBL')->whereIn('SERD2_SER', $DLVSers)
+                ->where('SERD2_ITMCD', $request->part_code_before)
+                ->update([
+                    'SERD2_ITMCD' => $request->part_code_after,
+                    'SERD2_REMARK' => 'MANUAL',
+                    'SERD2_USRID' => $request->user_id,
+                    'SERD2_LUPDT' => date('Y-m-d H:i:s')
+                ]);
+        } else {
+            return response()->json(['message' => 'Could not update because already posted'], 406);
+        }
+
+        return ['message' => 'Saved successfully, please try posting again', 'data' => $data];
     }
 }
