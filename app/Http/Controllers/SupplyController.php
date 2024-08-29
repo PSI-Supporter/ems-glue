@@ -2240,25 +2240,30 @@ class SupplyController extends Controller
     {
         $DLVDocs = DB::table('DLV_TBL')
             ->leftJoin('SERD2_TBL', 'DLV_SER', '=', 'SERD2_SER')
+            ->leftJoin('SER_TBL', 'DLV_SER', '=', 'SER_ID')
             ->where('DLV_ID', $request->doc)
             ->where('SERD2_ITMCD', $request->part_code)
-            ->groupBy('SERD2_PSNNO', 'SERD2_JOB', 'SERD2_PROCD', 'SERD2_MC', 'SERD2_MCZ', 'SERD2_SER')
-            ->get(['SERD2_PSNNO', 'SERD2_JOB', 'SERD2_PROCD', 'SERD2_MC', 'SERD2_MCZ', 'SERD2_SER']);
+            ->groupBy('SERD2_PSNNO', 'SERD2_JOB', 'SERD2_PROCD', 'SERD2_MC', 'SERD2_MCZ', 'SERD2_SER', 'SER_ITMID')
+            ->get(['SERD2_PSNNO', 'SERD2_JOB', 'SERD2_PROCD', 'SERD2_MC', 'SERD2_MCZ', 'SERD2_SER', 'SER_ITMID']);
 
         $suspectedMC = '';
         $suspectedMCZ = '';
+        $suspectedModelCode = '';
         $PSNs = [];
         $Parts = [];
         $CustomsParts = [];
+
         foreach ($DLVDocs as $r) {
             $suspectedMCZ = $r->SERD2_MCZ;
             $suspectedMC = $r->SERD2_MC;
+            $suspectedModelCode = $r->SER_ITMID;
             if (!in_array($r->SERD2_PSNNO, $PSNs)) {
                 $PSNs[] = $r->SERD2_PSNNO;
             }
         }
 
         $data = [];
+        $ENGBOM = NULL;
         if ($PSNs) {
             $data = DB::table('SPL_TBL')
                 ->leftJoin('MITM_TBL', 'SPL_ITMCD', '=', 'MITM_ITMCD')
@@ -2304,12 +2309,160 @@ class SupplyController extends Controller
                         DB::raw('RTRIM(RPSTOCK_ITMNUM) RPSTOCK_ITMNUM'),
                         DB::raw("RTRIM(MITM_SPTNO) SPTNO"),
                         DB::raw("RTRIM(MITM_ITMD1) ITMD1"),
-                        DB::raw("SUM(RPSTOCK_QTY) RMQT")
+                        DB::raw("SUM(RPSTOCK_QTY) RMQT"),
+                        DB::raw("0 STOCKQT"),
                     ]);
+
+                $StockParts = DB::table('ITH_TBL')->whereIn('ITH_WH', ['ARWH1', 'ARWH2'])
+                    ->where('ITH_DATE', '<=', date('Y-m-d'))
+                    ->groupBy('ITH_ITMCD')
+                    ->get(['ITH_ITMCD', DB::raw("SUM(ITH_QTY) STOCKQT")]);
+                foreach ($CustomsParts as &$r) {
+                    foreach ($StockParts as $s) {
+                        if ($r->RPSTOCK_ITMNUM === $s->ITH_ITMCD) {
+                            $r->STOCKQT = $s->STOCKQT;
+                            break;
+                        }
+                    }
+                }
+                unset($r);
+            } else {
+                $ENGBOM = DB::table('ENG_BOMSTX')
+                    ->select('MAIN_PART_CODE', 'EPSON_ORG_PART', 'SUB', 'SUB1')
+                    ->where('MODEL_CODE', $suspectedModelCode)
+                    ->where('MAIN_PART_CODE', $request->part_code)
+                    ->get();
+                if ($ENGBOM->count() === 0) {
+                    $ENGBOM = DB::table('ENG_BOMSTX')
+                        ->select('MAIN_PART_CODE', 'EPSON_ORG_PART', 'SUB', 'SUB1')
+                        ->where('MODEL_CODE', $suspectedModelCode)
+                        ->where('EPSON_ORG_PART', $request->part_code)
+                        ->get();
+                    if ($ENGBOM->count() === 0) {
+                        $ENGBOM = DB::table('ENG_BOMSTX')
+                            ->select('MAIN_PART_CODE', 'EPSON_ORG_PART', 'SUB', 'SUB1')
+                            ->where('MODEL_CODE', $suspectedModelCode)
+                            ->where('SUB', $request->part_code)
+                            ->get();
+                        if ($ENGBOM->count() === 0) {
+                            $ENGBOM = DB::table('ENG_BOMSTX')
+                                ->select('MAIN_PART_CODE', 'EPSON_ORG_PART', 'SUB', 'SUB1')
+                                ->where('MODEL_CODE', $suspectedModelCode)
+                                ->where('SUB1', $request->part_code)
+                                ->get();
+                            if ($ENGBOM->count() === 0) {
+                            } else {
+                                foreach ($ENGBOM as $r) {
+                                    if ($r->MAIN_PART_CODE != $request->part_code) {
+                                        if (!in_array($r->MAIN_PART_CODE, $Parts)) {
+                                            $Parts[] = $r->MAIN_PART_CODE;
+                                        }
+                                    }
+                                    if ($r->EPSON_ORG_PART != $request->part_code) {
+                                        if (!in_array($r->EPSON_ORG_PART, $Parts)) {
+                                            $Parts[] = $r->EPSON_ORG_PART;
+                                        }
+                                    }
+                                    if ($r->SUB != $request->part_code) {
+                                        if (!in_array($r->SUB, $Parts)) {
+                                            $Parts[] = $r->SUB;
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            foreach ($ENGBOM as $r) {
+                                if ($r->MAIN_PART_CODE != $request->part_code) {
+                                    if (!in_array($r->MAIN_PART_CODE, $Parts)) {
+                                        $Parts[] = $r->MAIN_PART_CODE;
+                                    }
+                                }
+                                if ($r->EPSON_ORG_PART != $request->part_code) {
+                                    if (!in_array($r->EPSON_ORG_PART, $Parts)) {
+                                        $Parts[] = $r->EPSON_ORG_PART;
+                                    }
+                                }
+                                if ($r->SUB1 != $request->part_code) {
+                                    if (!in_array($r->SUB1, $Parts)) {
+                                        $Parts[] = $r->SUB1;
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        foreach ($ENGBOM as $r) {
+                            if ($r->MAIN_PART_CODE != $request->part_code) {
+                                if (!in_array($r->MAIN_PART_CODE, $Parts)) {
+                                    $Parts[] = $r->MAIN_PART_CODE;
+                                }
+                            }
+                            if ($r->SUB != $request->part_code) {
+                                if (!in_array($r->SUB, $Parts)) {
+                                    $Parts[] = $r->SUB;
+                                }
+                            }
+                            if ($r->SUB1 != $request->part_code) {
+                                if (!in_array($r->SUB1, $Parts)) {
+                                    $Parts[] = $r->SUB1;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    foreach ($ENGBOM as $r) {
+                        if ($r->EPSON_ORG_PART != $request->part_code) {
+                            if (!in_array($r->EPSON_ORG_PART, $Parts)) {
+                                $Parts[] = $r->EPSON_ORG_PART;
+                            }
+                        }
+                        if ($r->SUB != $request->part_code) {
+                            if (!in_array($r->SUB, $Parts)) {
+                                $Parts[] = $r->SUB;
+                            }
+                        }
+                        if ($r->SUB1 != $request->part_code) {
+                            if (!in_array($r->SUB1, $Parts)) {
+                                $Parts[] = $r->SUB1;
+                            }
+                        }
+                    }
+                }
+                if (count($Parts) >= 1) {
+                    $CustomsParts = DB::table('ZRPSAL_BCSTOCK')
+                        ->leftJoin('MITM_TBL', 'RPSTOCK_ITMNUM', '=', 'MITM_ITMCD')
+                        ->whereIn('RPSTOCK_ITMNUM', $Parts)
+                        ->where('IODATE', '<=', date('Y-m-d'))
+                        ->groupBy('RPSTOCK_ITMNUM', 'MITM_SPTNO', 'MITM_ITMD1')
+                        ->get([
+                            DB::raw('RTRIM(RPSTOCK_ITMNUM) RPSTOCK_ITMNUM'),
+                            DB::raw("RTRIM(MITM_SPTNO) SPTNO"),
+                            DB::raw("RTRIM(MITM_ITMD1) ITMD1"),
+                            DB::raw("SUM(RPSTOCK_QTY) RMQT"),
+                            DB::raw("0 STOCKQT"),
+                        ]);
+
+                    $StockParts = DB::table('ITH_TBL')->whereIn('ITH_WH', ['ARWH1', 'ARWH2'])
+                        ->where('ITH_DATE', '<=', date('Y-m-d'))
+                        ->groupBy('ITH_ITMCD')
+                        ->get(['ITH_ITMCD', DB::raw("SUM(ITH_QTY) STOCKQT")]);
+                    foreach ($CustomsParts as &$r) {
+                        foreach ($StockParts as $s) {
+                            if ($r->RPSTOCK_ITMNUM === $s->ITH_ITMCD) {
+                                $r->STOCKQT = $s->STOCKQT;
+                                break;
+                            }
+                        }
+                    }
+                    unset($r);
+                }
             }
         }
 
-
-        return ['data' => $data, '$PSNs' => $PSNs, 'CustomsParts' => $CustomsParts];
+        return [
+            'data' => $data,
+            'CustomsParts' => $CustomsParts->filter(function ($item) {
+                return $item->RMQT > $item->STOCKQT;
+            }),
+        ];
     }
 }
