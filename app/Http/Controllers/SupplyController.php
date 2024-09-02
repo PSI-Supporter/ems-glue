@@ -2252,6 +2252,7 @@ class SupplyController extends Controller
         $PSNs = [];
         $Parts = [];
         $CustomsParts = [];
+        $CustomsPartsDFiltered = [];
 
         foreach ($DLVDocs as $r) {
             $suspectedMCZ = $r->SERD2_MCZ;
@@ -2264,6 +2265,8 @@ class SupplyController extends Controller
 
         $data = [];
         $ENGBOM = NULL;
+
+        $sourceFlag = 'PSN';
         if ($PSNs) {
             $data = DB::table('SPL_TBL')
                 ->leftJoin('MITM_TBL', 'SPL_ITMCD', '=', 'MITM_ITMCD')
@@ -2327,12 +2330,15 @@ class SupplyController extends Controller
                 }
                 unset($r);
             } else {
+                $sourceFlag = 'PA100';
+                // cari di PA100
                 $ENGBOM = DB::table('ENG_BOMSTX')
                     ->select('MAIN_PART_CODE', 'EPSON_ORG_PART', 'SUB', 'SUB1')
                     ->where('MODEL_CODE', $suspectedModelCode)
                     ->where('MAIN_PART_CODE', $request->part_code)
                     ->get();
                 if ($ENGBOM->count() === 0) {
+
                     $ENGBOM = DB::table('ENG_BOMSTX')
                         ->select('MAIN_PART_CODE', 'EPSON_ORG_PART', 'SUB', 'SUB1')
                         ->where('MODEL_CODE', $suspectedModelCode)
@@ -2352,6 +2358,7 @@ class SupplyController extends Controller
                                 ->get();
                             if ($ENGBOM->count() === 0) {
                             } else {
+                                $sourceFlag = 'PA100 #3';
                                 foreach ($ENGBOM as $r) {
                                     if ($r->MAIN_PART_CODE != $request->part_code) {
                                         if (!in_array($r->MAIN_PART_CODE, $Parts)) {
@@ -2371,6 +2378,7 @@ class SupplyController extends Controller
                                 }
                             }
                         } else {
+                            $sourceFlag = 'PA100 #2';
                             foreach ($ENGBOM as $r) {
                                 if ($r->MAIN_PART_CODE != $request->part_code) {
                                     if (!in_array($r->MAIN_PART_CODE, $Parts)) {
@@ -2390,6 +2398,7 @@ class SupplyController extends Controller
                             }
                         }
                     } else {
+                        $sourceFlag = 'PA100 #1';
                         foreach ($ENGBOM as $r) {
                             if ($r->MAIN_PART_CODE != $request->part_code) {
                                 if (!in_array($r->MAIN_PART_CODE, $Parts)) {
@@ -2409,6 +2418,7 @@ class SupplyController extends Controller
                         }
                     }
                 } else {
+                    $sourceFlag = 'PA100 #0';
                     foreach ($ENGBOM as $r) {
                         if ($r->EPSON_ORG_PART != $request->part_code) {
                             if (!in_array($r->EPSON_ORG_PART, $Parts)) {
@@ -2428,6 +2438,7 @@ class SupplyController extends Controller
                     }
                 }
                 if (count($Parts) >= 1) {
+                    $sourceFlag = 'PA100 ##';
                     $CustomsParts = DB::table('ZRPSAL_BCSTOCK')
                         ->leftJoin('MITM_TBL', 'RPSTOCK_ITMNUM', '=', 'MITM_ITMCD')
                         ->whereIn('RPSTOCK_ITMNUM', $Parts)
@@ -2445,6 +2456,7 @@ class SupplyController extends Controller
                         ->where('ITH_DATE', '<=', date('Y-m-d'))
                         ->groupBy('ITH_ITMCD')
                         ->get(['ITH_ITMCD', DB::raw("SUM(ITH_QTY) STOCKQT")]);
+
                     foreach ($CustomsParts as &$r) {
                         foreach ($StockParts as $s) {
                             if ($r->RPSTOCK_ITMNUM === $s->ITH_ITMCD) {
@@ -2455,6 +2467,75 @@ class SupplyController extends Controller
                     }
                     unset($r);
                 }
+
+                $_commonPart = $CustomsParts->filter(function ($item) {
+                    return $item->RMQT > $item->STOCKQT;
+                });
+
+                if ($_commonPart->count() === 0) {
+                    // cari di common part
+                    $CommonParts = DB::table('ENG_COMMPRT_LST')
+                        ->where('ITMCDPRI', $request->part_code)
+                        ->get(['ITMCDALT']);
+                    if ($CommonParts->count() === 0) {
+                        $CommonParts = DB::table('ENG_COMMPRT_LST')
+                            ->where('ITMCDALT', $request->part_code)
+                            ->get(['ITMCDPRI']);
+                        if ($CommonParts->count() === 0) {
+                        } else {
+                            $sourceFlag = 'COMMONPART #1';
+                            foreach ($CommonParts as $r) {
+                                if ($r->ITMCDPRI != $request->part_code) {
+                                    if (!in_array($r->ITMCDPRI, $Parts)) {
+                                        $Parts[] = $r->ITMCDPRI;
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        $sourceFlag = 'COMMONPART #0';
+                        foreach ($CommonParts as $r) {
+                            if ($r->ITMCDALT != $request->part_code) {
+                                if (!in_array($r->ITMCDALT, $Parts)) {
+                                    $Parts[] = $r->ITMCDALT;
+                                }
+                            }
+                        }
+                    }
+
+                    if (count($Parts) >= 1) {
+                        $sourceFlag = 'COMMONPART ##';
+                        $CustomsParts = DB::table('ZRPSAL_BCSTOCK')
+                            ->leftJoin('MITM_TBL', 'RPSTOCK_ITMNUM', '=', 'MITM_ITMCD')
+                            ->whereIn('RPSTOCK_ITMNUM', $Parts)
+                            ->where('IODATE', '<=', date('Y-m-d'))
+                            ->groupBy('RPSTOCK_ITMNUM', 'MITM_SPTNO', 'MITM_ITMD1')
+                            ->get([
+                                DB::raw('RTRIM(RPSTOCK_ITMNUM) RPSTOCK_ITMNUM'),
+                                DB::raw("RTRIM(MITM_SPTNO) SPTNO"),
+                                DB::raw("RTRIM(MITM_ITMD1) ITMD1"),
+                                DB::raw("SUM(RPSTOCK_QTY) RMQT"),
+                                DB::raw("0 STOCKQT"),
+                            ]);
+
+                        $StockParts = DB::table('ITH_TBL')->whereIn('ITH_WH', ['ARWH1', 'ARWH2', 'PLANT1', 'PLANT2'])
+                            ->where('ITH_DATE', '<=', date('Y-m-d'))
+                            ->groupBy('ITH_ITMCD')
+                            ->get(['ITH_ITMCD', DB::raw("SUM(ITH_QTY) STOCKQT")]);
+
+                        foreach ($CustomsParts as &$r) {
+                            foreach ($StockParts as $s) {
+                                if ($r->RPSTOCK_ITMNUM === $s->ITH_ITMCD) {
+                                    $r->STOCKQT = $s->STOCKQT;
+                                    break;
+                                }
+                            }
+                        }
+                        unset($r);
+                    }
+                }
+
+                $CustomsPartsDFiltered = $_commonPart;
             }
         }
 
@@ -2463,6 +2544,28 @@ class SupplyController extends Controller
             'CustomsParts' => $CustomsParts->filter(function ($item) {
                 return $item->RMQT > $item->STOCKQT;
             }),
+            '$sourceFlag' => $sourceFlag,
+            '$CustomsPartsDFiltered' => $CustomsPartsDFiltered
+        ];
+    }
+
+    function validateUniquekeyVsDoc(Request $request)
+    {
+        $data = DB::table('SPLSCN_TBL')->where('SPLSCN_DOC', $request->doc)->where('SPLSCN_UNQCODE', $request->uniquekey)->count();
+        $code = 1;
+        $message = 1;
+        if ($data > 0) {
+            $code = 1;
+            $message = 'OK';
+        } else {
+            $code = 0;
+            $message = 'IS NOT FOUND';
+        }
+        return [
+            'status' => [
+                'code' => $code,
+                'message' => $message
+            ]
         ];
     }
 }
