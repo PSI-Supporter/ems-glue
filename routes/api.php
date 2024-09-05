@@ -205,3 +205,7 @@ Route::prefix('keikaku')->group(function () {
     Route::post('from-balance', [WOController::class, 'saveKeikakuFromPreviousBalance']);
     Route::get('production-plan', [WOController::class, 'getProdPlanSimulation']);
 });
+
+Route::prefix('transaction')->group(function () {
+    Route::post('shortage-part-report', [ITHController::class, 'generateShortagePartReport']);
+});
