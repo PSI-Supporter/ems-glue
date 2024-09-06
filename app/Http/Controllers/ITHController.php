@@ -70,13 +70,15 @@ class ITHController extends Controller
         $sheet->setCellValue([5, 2], 'QA');
         $sheet->mergeCells('E2:E3'); #rowspan3
         $sheet->setCellValue([6, 2], 'PSN');
-        $sheet->mergeCells('F2:G2'); #rowspan3
+        $sheet->mergeCells('F2:I2'); #rowspan3
         $sheet->setCellValue([6, 3], 'DOC');
         $sheet->setCellValue([7, 3], 'LOGICAL RETURN');
+        $sheet->setCellValue([8, 3], 'DOC');
+        $sheet->setCellValue([9, 3], 'Actual Counting (Not Confirmed)');
 
-        $sheet->getStyle('A2:G3')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('A2:G3')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('A2:G3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('d4d4d4');
+        $sheet->getStyle('A2:I3')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('A2:I3')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('A2:I3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('d4d4d4');
 
         $data = DB::table('ITH_TBL')
             ->leftJoin('MITM_TBL', 'ITH_ITMCD', '=', 'MITM_ITMCD')
@@ -84,6 +86,7 @@ class ITHController extends Controller
             ->whereIn('ITH_ITMCD', $request->rm)
             ->whereIn('ITH_WH', ['ARWH1', 'ARWH2', 'QA', 'ARWH0PD'])
             ->groupBy('ITH_ITMCD', 'MITM_SPTNO')
+            ->orderBy('ITH_ITMCD')
             ->get([
                 'ITH_ITMCD',
                 DB::raw('RTRIM(MITM_SPTNO) SPTNO'),
@@ -121,6 +124,16 @@ class ITHController extends Controller
                 DB::raw('SUM(RETSCN_QTYAFT) TRTN'),
             );
 
+        $returnJustCountingData = DB::table('RETSCN_TBL')
+            ->whereIn('RETSCN_ITMCD', $request->rm)
+            ->whereNull('RETSCN_CNFRMDT')
+            ->groupBy('RETSCN_ITMCD', 'RETSCN_SPLDOC')
+            ->select(
+                'RETSCN_ITMCD',
+                'RETSCN_SPLDOC',
+                DB::raw('SUM(RETSCN_QTYAFT) TRTN'),
+            );
+
         $PSNData = DB::query()->fromSub($supplyReqData, 'VSPL')
             ->leftJoinSub($supplyActData, 'VSPLSCN', function ($join) {
                 $join->on('SPL_DOC', '=', 'SPLSCN_DOC')
@@ -137,11 +150,33 @@ class ITHController extends Controller
                 'VSPL.*',
                 'TSCN',
                 'TRTN',
-                DB::raw('TSCN-TREQ TLGCRTN')
+                DB::raw('ISNULL(TSCN,0)-TREQ TLGCRTN')
+            ]);
+
+        $PSNData2 = DB::query()->fromSub($supplyReqData, 'VSPL')
+            ->leftJoinSub($supplyActData, 'VSPLSCN', function ($join) {
+                $join->on('SPL_DOC', '=', 'SPLSCN_DOC')
+                    ->on('SPL_ITMCD', '=', 'SPLSCN_ITMCD');
+            })->leftJoinSub($returnJustCountingData, 'VRTNSCN', function ($join) {
+                $join->on('SPL_DOC', '=', 'RETSCN_SPLDOC')
+                    ->on('SPL_ITMCD', '=', 'RETSCN_ITMCD');
+            })
+            ->whereRaw("ISNULL(TREQ, 0) < ISNULL(TSCN, 0)")
+            ->whereNotNull('TRTN')
+            ->where('DAYPASS', '<', 31)
+            ->orderBy('SPL_DOC', 'desc')
+            ->get([
+                'VSPL.*',
+                'TSCN',
+                'TRTN',
             ]);
 
         #first sheet
-        $PSNDocs = $PSNData->unique('SPL_DOC')->pluck('SPL_DOC')->toArray();
+        $PSNDocs = array_merge(
+            $PSNData->unique('SPL_DOC')->pluck('SPL_DOC')->toArray(),
+            $PSNData2->unique('SPL_DOC')->pluck('SPL_DOC')->toArray()
+        );
+
         $PPSN1Data = DB::table('XPPSN1')->whereIn('PPSN1_PSNNO', $PSNDocs)
             ->groupBy('PPSN1_PSNNO', 'PPSN1_WONO')
             ->get([
@@ -150,6 +185,8 @@ class ITHController extends Controller
             ]);
 
         $rowAt = 4;
+        $sheet->freezePane('A' . $rowAt);
+
         foreach ($data as $r) {
             $sheet->setCellValue([1, $rowAt], $r->ITH_ITMCD);
             $sheet->setCellValue([2, $rowAt], $r->SPTNO);
@@ -166,9 +203,28 @@ class ITHController extends Controller
                     }
 
                     $rowAt++;
-                    $sheet->getComment([6, $rowAt])->getText()->createTextRun($comments);
+                    if (!empty($comments)) {
+                        $sheet->getComment([6, $rowAt])->getText()->createTextRun($comments);
+                    }
                     $sheet->setCellValue([6, $rowAt], $p->SPL_DOC);
                     $sheet->setCellValue([7, $rowAt], $p->TLGCRTN);
+                }
+            }
+            foreach ($PSNData2 as $p) {
+                if ($r->ITH_ITMCD == $p->SPL_ITMCD) {
+                    $comments = '';
+                    foreach ($PPSN1Data as $j) {
+                        if ($p->SPL_DOC == $j->PPSN1_PSNNO) {
+                            $comments .= $j->PPSN1_WONO . ", ";
+                        }
+                    }
+
+                    $rowAt++;
+                    if (!empty($comments)) {
+                        $sheet->getComment([8, $rowAt])->getText()->createTextRun($comments);
+                    }
+                    $sheet->setCellValue([8, $rowAt], $p->SPL_DOC);
+                    $sheet->setCellValue([9, $rowAt], $p->TRTN);
                 }
             }
             $rowAt++;
@@ -178,16 +234,16 @@ class ITHController extends Controller
         $sheet->getStyle('D4:D' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
         $sheet->getStyle('E4:E' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
         $sheet->getStyle('G4:G' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->getStyle('I4:I' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
 
-        foreach (range('A', 'G') as $r) {
+        foreach (range('A', 'I') as $r) {
             $sheet->getColumnDimension($r)->setAutoSize(true);
         }
 
-        $sheet->getStyle('A2:G' . $rowAt - 1)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->setColor(new Color('1F1812'));
+        $sheet->getStyle('A2:I' . $rowAt - 1)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->setColor(new Color('1F1812'));
 
         $sheet->getPageSetup()
             ->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_A4);
-
 
         # second sheet
 
