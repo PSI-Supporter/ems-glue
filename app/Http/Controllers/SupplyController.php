@@ -2461,6 +2461,7 @@ class SupplyController extends Controller
                         foreach ($StockParts as $s) {
                             if ($r->RPSTOCK_ITMNUM === $s->ITH_ITMCD) {
                                 $r->STOCKQT = $s->STOCKQT;
+                                $r->BALANCE = $r->RMQT - $s->STOCKQT;
                                 break;
                             }
                         }
@@ -2518,7 +2519,7 @@ class SupplyController extends Controller
                                 DB::raw("0 STOCKQT"),
                             ]);
 
-                        $StockParts = DB::table('ITH_TBL')->whereIn('ITH_WH', ['ARWH1', 'ARWH2', 'PLANT1', 'PLANT2'])
+                        $StockParts = DB::table('ITH_TBL')->whereIn('ITH_WH', ['ARWH1', 'ARWH2'])
                             ->where('ITH_DATE', '<=', date('Y-m-d'))
                             ->groupBy('ITH_ITMCD')
                             ->get(['ITH_ITMCD', DB::raw("SUM(ITH_QTY) STOCKQT")]);
@@ -2527,11 +2528,14 @@ class SupplyController extends Controller
                             foreach ($StockParts as $s) {
                                 if ($r->RPSTOCK_ITMNUM === $s->ITH_ITMCD) {
                                     $r->STOCKQT = $s->STOCKQT;
+                                    $r->BALANCE = $r->RMQT - $s->STOCKQT;
                                     break;
                                 }
                             }
                         }
                         unset($r);
+
+                        $_commonPart = $CustomsParts->sortByDesc('BALANCE');
                     }
                 }
 
@@ -2551,21 +2555,18 @@ class SupplyController extends Controller
 
     function validateUniquekeyVsDoc(Request $request)
     {
-        $data = DB::table('SPLSCN_TBL')->where('SPLSCN_DOC', $request->doc)->where('SPLSCN_UNQCODE', $request->uniquekey)->count();
-        $code = 1;
-        $message = 1;
-        if ($data > 0) {
-            $code = 1;
-            $message = 'OK';
+        $data = DB::table('SPLSCN_TBL')
+            ->where('SPLSCN_UNQCODE', $request->uniquekey)
+            ->where('SPLSCN_UNQCODE', '!=', '')
+            ->get(['SPLSCN_DOC', 'SPLSCN_CAT', 'SPLSCN_LINE']);
+
+        if ($data->count() > 0) {
+            return [
+                'message' => 'OK',
+                'data' => $data
+            ];
         } else {
-            $code = 0;
-            $message = 'IS NOT FOUND';
+            return response()->json(['message' => 'tidak ditemukan'], 406);
         }
-        return [
-            'status' => [
-                'code' => $code,
-                'message' => $message
-            ]
-        ];
     }
 }
