@@ -52,6 +52,7 @@ Route::prefix('supply')->group(function () {
     Route::get('supply-pdf', [SupplyController::class, 'toPickingInstruction']);
     Route::get('report', [SupplyController::class, 'reportPSNJOBPeriod']);
     Route::get('document-delivery', [SupplyController::class, 'getDocumentByDelivery']);
+    Route::get('validate-label', [SupplyController::class, 'validateUniquekeyVsDoc']);
 });
 # Terkait Return Part
 Route::prefix('return')->group(function () {
