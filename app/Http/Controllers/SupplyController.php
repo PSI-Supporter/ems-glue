@@ -2534,12 +2534,8 @@ class SupplyController extends Controller
                             }
                         }
                         unset($r);
-
-                        $_commonPart = $CustomsParts->sortByDesc('BALANCE');
                     }
                 }
-
-                $CustomsPartsDFiltered = $_commonPart;
             }
         }
 
@@ -2547,9 +2543,9 @@ class SupplyController extends Controller
             'data' => $data,
             'CustomsParts' => $CustomsParts->filter(function ($item) {
                 return $item->RMQT > $item->STOCKQT;
-            }),
+            })->sortByDesc('BALANCE'),
             '$sourceFlag' => $sourceFlag,
-            '$CustomsPartsDFiltered' => $CustomsPartsDFiltered
+
         ];
     }
 
