@@ -2543,7 +2543,7 @@ class SupplyController extends Controller
             'data' => $data,
             'CustomsParts' => $CustomsParts->filter(function ($item) {
                 return $item->RMQT > $item->STOCKQT;
-            })->sortByDesc('BALANCE'),
+            }),
             '$sourceFlag' => $sourceFlag,
 
         ];
@@ -2564,5 +2564,12 @@ class SupplyController extends Controller
         } else {
             return response()->json(['message' => 'tidak ditemukan'], 406);
         }
+    }
+
+    function checkIP()
+    {
+        $ip = $_SERVER["SERVER_ADDRESS"];
+
+        return ['ipnya' => $ip];
     }
 }
