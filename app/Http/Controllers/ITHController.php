@@ -75,10 +75,12 @@ class ITHController extends Controller
         $sheet->setCellValue([7, 3], 'LOGICAL RETURN');
         $sheet->setCellValue([8, 3], 'DOC');
         $sheet->setCellValue([9, 3], 'Actual Counting (Not Confirmed)');
+        $sheet->setCellValue([10, 2], 'Remark');
+        $sheet->mergeCells('J2:J3'); #rowspan3
 
-        $sheet->getStyle('A2:I3')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('A2:I3')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('A2:I3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('d4d4d4');
+        $sheet->getStyle('A2:J3')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('A2:J3')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('A2:J3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('d4d4d4');
 
         $data = DB::table('ITH_TBL')
             ->leftJoin('MITM_TBL', 'ITH_ITMCD', '=', 'MITM_ITMCD')
@@ -134,6 +136,8 @@ class ITHController extends Controller
                 DB::raw('SUM(RETSCN_QTYAFT) TRTN'),
             );
 
+
+
         $PSNData = DB::query()->fromSub($supplyReqData, 'VSPL')
             ->leftJoinSub($supplyActData, 'VSPLSCN', function ($join) {
                 $join->on('SPL_DOC', '=', 'SPLSCN_DOC')
@@ -171,11 +175,43 @@ class ITHController extends Controller
                 'TRTN',
             ]);
 
+
+        $PSNData2SPL_DOC = $PSNData2->unique('SPL_DOC')->pluck('SPL_DOC')->toArray();
         #first sheet
         $PSNDocs = array_merge(
             $PSNData->unique('SPL_DOC')->pluck('SPL_DOC')->toArray(),
-            $PSNData2->unique('SPL_DOC')->pluck('SPL_DOC')->toArray()
+            $PSNData2SPL_DOC
         );
+
+        $SupplyWithUnconformedRTN = [];
+
+        if (count($PSNData2SPL_DOC) > 0) {
+            # cari apakah reel yang belum diconform tersebut , sudah dipakai untuk kitting dulu
+            # (🤔 operasional yang perlu untuk ditinjau lebih lanjut)
+
+            $returnJustCountingDetailData = DB::table('RETSCN_TBL')
+                ->whereIn('RETSCN_ITMCD', $request->rm)
+                ->whereNull('RETSCN_CNFRMDT')
+                ->whereIn('RETSCN_SPLDOC', $PSNData2SPL_DOC)
+                ->get([
+                    'RETSCN_SPLDOC',
+                    'RETSCN_UNIQUEKEY'
+                ]);
+
+            $SupplyWithUnconformedRTN = DB::table('SPLSCN_TBL')
+                ->whereIn('SPLSCN_UNQCODE', $returnJustCountingDetailData->unique('RETSCN_UNIQUEKEY')->pluck('RETSCN_UNIQUEKEY')->toArray())
+                ->get(['SPLSCN_DOC', 'SPLSCN_UNQCODE', 'SPLSCN_ITMCD']);
+
+            foreach ($SupplyWithUnconformedRTN as &$r) {
+                foreach ($returnJustCountingDetailData as $b) {
+                    if ($r->SPLSCN_UNQCODE == $b->RETSCN_UNIQUEKEY) {
+                        $r->RETSCN_SPLDOC = $b->RETSCN_SPLDOC;
+                        break;
+                    }
+                }
+            }
+            unset($r);
+        }
 
         $PPSN1Data = DB::table('XPPSN1')->whereIn('PPSN1_PSNNO', $PSNDocs)
             ->groupBy('PPSN1_PSNNO', 'PPSN1_WONO')
@@ -225,6 +261,15 @@ class ITHController extends Controller
                     }
                     $sheet->setCellValue([8, $rowAt], $p->SPL_DOC);
                     $sheet->setCellValue([9, $rowAt], $p->TRTN);
+
+                    $_remarks = 'Already supplied with the following PSN : ';
+                    foreach ($SupplyWithUnconformedRTN as $_p) {
+                        if ($r->ITH_ITMCD == $_p->SPLSCN_ITMCD && $p->SPL_DOC == $_p->RETSCN_SPLDOC) {
+                            $_remarks .= $_p->SPLSCN_DOC . ", \n";
+                        }
+                    }
+
+                    $sheet->setCellValue([10, $rowAt], $_remarks);
                 }
             }
             $rowAt++;
@@ -236,11 +281,11 @@ class ITHController extends Controller
         $sheet->getStyle('G4:G' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
         $sheet->getStyle('I4:I' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
 
-        foreach (range('A', 'I') as $r) {
+        foreach (range('A', 'J') as $r) {
             $sheet->getColumnDimension($r)->setAutoSize(true);
         }
 
-        $sheet->getStyle('A2:I' . $rowAt - 1)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->setColor(new Color('1F1812'));
+        $sheet->getStyle('A2:J' . $rowAt - 1)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->setColor(new Color('1F1812'));
 
         $sheet->getPageSetup()
             ->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_A4);
