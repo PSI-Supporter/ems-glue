@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use App\Classes\EMSFpdf;
+use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;
 
 class SupplyController extends Controller
@@ -2189,6 +2190,16 @@ class SupplyController extends Controller
                 }
             }
         }
+
+        $files = Storage::disk('public')->files('');
+        $currentPSNResources = [];
+        foreach ($files as $f) {
+            if (str_contains($f, $request->psn)) {
+                $currentPSNResources[] = $f;
+            }
+        }
+
+        Storage::disk('public')->delete($currentPSNResources);
         $this->fpdf->Output('picking instruction' . '.pdf', 'I');
         exit;
     }
