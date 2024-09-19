@@ -120,67 +120,75 @@ class DeliveryController extends Controller
         $sheet->setCellValue('A7', 'No BC & Tgl BC :');
         $sheet->setCellValue('A8', '1. Nama Barang : Assembly PCB');
 
-        $sheet->setCellValue('A11', 'BARANG DAN/ATAU BAHAN BAKU');
-        $sheet->mergeCells('A11:G11', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->setCellValue('H11', 'HARGA');
-        $sheet->mergeCells('H11:K11', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->setCellValue('L11', 'DOKUMEN PABEAN');
-        $sheet->mergeCells('L11:N11', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->setCellValue('Q11', 'NILAI PUNGUTAN');
-        $sheet->mergeCells('Q11:T11', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue('A11', 'BARANG');
+        $sheet->mergeCells('A11:H11', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue('I11', 'BAHAN BAKU');
+        $sheet->mergeCells('I11:O11', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue('P11', 'HARGA');
+        $sheet->mergeCells('P11:S11', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue('T11', 'DOKUMEN PABEAN');
+        $sheet->mergeCells('T11:V11', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue('Y11', 'NILAI PUNGUTAN');
+        $sheet->mergeCells('Y11:AB11', $sheet::MERGE_CELL_CONTENT_HIDE);
 
         $sheet->setCellValue('A12', 'No.');
         $sheet->setCellValue('B12', 'HS Code');
         $sheet->setCellValue('C12', 'Nama Barang');
         $sheet->setCellValue('D12', 'Kode Barang');
-        $sheet->setCellValue('E12', 'Koefisien (BOM)');
-        $sheet->setCellValue('F12', 'Jumlah terpakai');
-        $sheet->setCellValue('G12', 'Satuan');
-        $sheet->setCellValue('H12', 'Unit Price');
-        $sheet->setCellValue('I12', 'Valuta');
-        $sheet->setCellValue('J12', 'NDPBM');
-        $sheet->setCellValue('K12', 'Total');
-        $sheet->setCellValue('K13', 'Harga');
-        $sheet->setCellValue('K14', '(Rp)');
-        $sheet->setCellValue('L12', 'Jenis');
-        $sheet->setCellValue('L13', 'Dokumen');
-        $sheet->setCellValue('L14', '');
-        $sheet->setCellValue('M12', 'No Daftar');
-        $sheet->mergeCells('M12:M14', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->getStyle('M12')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('M12')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $sheet->setCellValue('N12', 'Tanggal');
-        $sheet->setCellValue('N13', 'Dokumen');
-        $sheet->setCellValue('O11', 'BM');
-        $sheet->mergeCells('O11:P13', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->getStyle('O12')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('O12')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $sheet->setCellValue('O14', 'Tarif(%)');
-        $sheet->setCellValue('P14', 'Nilai (Rp)');
-        $sheet->setCellValue('Q12', 'PPN Import');
-        $sheet->mergeCells('Q12:R13', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->getStyle('Q12')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('Q12')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $sheet->setCellValue('Q14', 'Tarif(%)');
-        $sheet->setCellValue('R14', 'Nilai (Rp)');
-
-        $sheet->setCellValue('S12', 'PPN Lokal');
-        $sheet->mergeCells('S12:T13', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->getStyle('S12')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('S12')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $sheet->setCellValue('S14', 'Tarif(%)');
-        $sheet->setCellValue('T14', 'Nilai (Rp)');
-
-        $sheet->setCellValue('U11', 'PPh Ps.22');
-        $sheet->mergeCells('U11:V13', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue('E12', 'Satuan');
+        $sheet->setCellValue('F12', 'Jumlah');
+        $sheet->setCellValue('G12', 'Berat');
+        $sheet->setCellValue('H12', 'Harga Penyerahan');
+        $sheet->setCellValue('I12', 'No.');
+        $sheet->setCellValue('J12', 'HS Code');
+        $sheet->setCellValue('K12', 'Nama Barang');
+        $sheet->setCellValue('L12', 'Kode Barang');
+        $sheet->setCellValue('M12', 'Koefisien (BOM)');
+        $sheet->setCellValue('N12', 'Jumlah terpakai');
+        $sheet->setCellValue('O12', 'Satuan');
+        $sheet->setCellValue('P12', 'Unit Price');
+        $sheet->setCellValue('Q12', 'Valuta');
+        $sheet->setCellValue('R12', 'NDPBM');
+        $sheet->setCellValue('S12', 'Total');
+        $sheet->setCellValue('S13', 'Harga');
+        $sheet->setCellValue('S14', '(Rp)');
+        $sheet->setCellValue('T12', 'Jenis');
+        $sheet->setCellValue('T13', 'Dokumen');
+        $sheet->setCellValue('T14', '');
+        $sheet->setCellValue('U12', 'No Daftar');
+        $sheet->mergeCells('U12:U14', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->getStyle('U12')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
         $sheet->getStyle('U12')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $sheet->setCellValue('U14', 'Tarif(%)');
-        $sheet->setCellValue('V14', 'Nilai (Rp)');
+        $sheet->setCellValue('V12', 'Tanggal');
+        $sheet->setCellValue('V13', 'Dokumen');
+        $sheet->setCellValue('W11', 'BM');
+        $sheet->mergeCells('W11:X13', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->getStyle('W12')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('W12')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->setCellValue('W14', 'Tarif(%)');
+        $sheet->setCellValue('X14', 'Nilai (Rp)');
+        $sheet->setCellValue('Y12', 'PPN Import');
+        $sheet->mergeCells('Y12:Z13', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->getStyle('Y12')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('Y12')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->setCellValue('Y14', 'Tarif(%)');
+        $sheet->setCellValue('Z14', 'Nilai (Rp)');
+
+        $sheet->setCellValue('AA12', 'PPN Lokal');
+        $sheet->mergeCells('AA12:AB13', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->getStyle('AA12')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('AA12')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->setCellValue('AA14', 'Tarif(%)');
+        $sheet->setCellValue('AB14', 'Nilai (Rp)');
+
+        $sheet->setCellValue('AC11', 'PPh Ps.22');
+        $sheet->mergeCells('AC11:AD13', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->getStyle('AC12')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('AC12')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->setCellValue('AC14', 'Tarif(%)');
+        $sheet->setCellValue('AD14', 'Nilai (Rp)');
 
         $sheet->mergeCells('A12:A14', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->mergeCells('A8:C8', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->mergeCells('A9:C9', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->mergeCells('B12:B14', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->mergeCells('C12:C14', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->mergeCells('D12:D14', $sheet::MERGE_CELL_CONTENT_HIDE);
@@ -188,11 +196,23 @@ class DeliveryController extends Controller
         $sheet->mergeCells('F12:F14', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->mergeCells('G12:G14', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->mergeCells('H12:H14', $sheet::MERGE_CELL_CONTENT_HIDE);
+
         $sheet->mergeCells('I12:I14', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('I8:K8', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('I9:K9', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->mergeCells('J12:J14', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->getStyle('A11:V14')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('A11:V14')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('A11:V14')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('d4d4d4');
+        $sheet->mergeCells('K12:K14', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('L12:L14', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('M12:M14', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('N12:N14', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('O12:O14', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('P12:P14', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('Q12:Q14', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('R12:R14', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->getStyle('A11:AD14')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('A11:AD14')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('A11:AD14')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('d4d4d4');
+        $sheet->getStyle('A11:AD14')->getAlignment()->setWrapText(true);
 
         $dataHead = DB::table('DLV_TBL')
             ->leftJoin('SER_TBL', 'DLV_SER', '=', 'SER_ID')
@@ -203,11 +223,19 @@ class DeliveryController extends Controller
 
         $kurs = DB::table('MEXRATE_TBL')->where('MEXRATE_DT', $dataHead->DLV_BCDATE)->get(['MEXRATE_CURR', 'MEXRATE_VAL']);
         $data = $this->conversion_test_data(['doc' => $request->doc]);
+        $packaging = DB::select('exec SP_PACKINGLIST_BY_DONO ?', [$request->doc]);
+        $prices = DB::table('DLVPRC_TBL')
+            ->leftJoin('SER_TBL', 'DLVPRC_SER', '=', 'SER_ID')
+            ->groupBy('SER_ITMID', 'DLVPRC_PRC')
+            ->where('DLVPRC_TXID', $request->doc)
+            ->get(['SER_ITMID', 'DLVPRC_PRC', DB::raw("SUM(DLVPRC_QTY) * DLVPRC_PRC HARGA_PENYERAHAN")]);
 
         $sheet->setCellValue('A6', 'No Aju : ' . $dataHead->DLV_ZNOMOR_AJU);
         $sheet->mergeCells('A6:C6', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->setCellValue('A7', 'No BC & Tgl BC : ' . $dataHead->DLV_NOPEN . ', ' . $dataHead->DLV_RPDATE);
         $sheet->mergeCells('A7:C7', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('A8:C8', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('A9:C9', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->freezePane('A15');
 
         $rowAt = 15;
@@ -226,6 +254,20 @@ class DeliveryController extends Controller
             ->get([DB::raw("RTRIM(MSUP_SUPCD) SUPCD"), DB::raw("RTRIM(MSUP_SUPCR) SUPCR")]);
 
         foreach ($data['data'] as $r) {
+            $berat = 0;
+            $hargaFG = 0;
+
+            foreach ($packaging as $p) {
+                if ($r['SER_ITMID'] == $p->SI_ITMCD) {
+                    $berat += $p->MITM_GWG;
+                }
+            }
+
+            foreach ($prices as $p) {
+                if ($r['SER_ITMID'] == $p->SER_ITMID) {
+                    $hargaFG += $p->HARGA_PENYERAHAN;
+                }
+            }
 
             if ($tempFG != $r['SER_ITMID']) {
                 $fgAt++;
@@ -233,51 +275,71 @@ class DeliveryController extends Controller
                 $rmAt = 1;
             } else {
                 $rmAt++;
+                $sheet->getStyle('A' . $rowAt)->getFont()->getColor()->setARGB(Color::COLOR_WHITE);
+                $sheet->getStyle('B' . $rowAt)->getFont()->getColor()->setARGB(Color::COLOR_WHITE);
+                $sheet->getStyle('C' . $rowAt)->getFont()->getColor()->setARGB(Color::COLOR_WHITE);
+                $sheet->getStyle('D' . $rowAt)->getFont()->getColor()->setARGB(Color::COLOR_WHITE);
+                $sheet->getStyle('E' . $rowAt)->getFont()->getColor()->setARGB(Color::COLOR_WHITE);
+                $sheet->getStyle('F' . $rowAt)->getFont()->getColor()->setARGB(Color::COLOR_WHITE);
+                $sheet->getStyle('G' . $rowAt)->getFont()->getColor()->setARGB(Color::COLOR_WHITE);
+                $sheet->getStyle('H' . $rowAt)->getFont()->getColor()->setARGB(Color::COLOR_WHITE);
             }
             $currency = $suppliers->firstWhere('SUPCD', $r['SUPCD'])->SUPCR;
             $ndpbm = in_array($currency, ['IDR', 'RPH']) ? 1 : $kurs->firstWhere('MEXRATE_CURR', $currency)->MEXRATE_VAL;
 
             $_BM = $r['BM'] >= 5 ? 5 : $r['BM'];
             $_PPN = $r['PPN'] == 10 ? 11 : $r['PPN'];
-            $sheet->setCellValue('A' . $rowAt,  " " . $fgAt . '.' . (string)$rmAt);
-            $sheet->setCellValue('B' . $rowAt, $r['RCV_HSCD']);
-            $sheet->setCellValue('C' . $rowAt, $r['PARTDESCRIPTION']);
-            $sheet->setCellValue('D' . $rowAt, $r['SERD2_ITMCD']);
-            $sheet->setCellValue('E' . $rowAt, $r['PER']);
-            $sheet->setCellValue('F' . $rowAt, $r['RMQT']);
-            $sheet->setCellValue('G' . $rowAt, $r['PART_UOM']);
-            $sheet->setCellValue('H' . $rowAt, $r['PART_PRICE']);
-            $sheet->setCellValue('I' . $rowAt, $currency);
-            $sheet->setCellValue('J' . $rowAt,  $ndpbm);
-            $sheet->setCellValue('K' . $rowAt, "=(F" . $rowAt . "*" . "H" . $rowAt . ")*J" . $rowAt);
-            $sheet->setCellValue('L' . $rowAt, $r['BCTYPE']);
-            $sheet->setCellValue('M' . $rowAt, $r['RPSTOCK_BCNUM']);
-            $sheet->setCellValue('N' . $rowAt, $r['RPSTOCK_BCDATE']);
-            $sheet->setCellValue('O' . $rowAt, $r['BCTYPE'] == '40' ? 0 : $_BM);
-            $sheet->setCellValue('P' . $rowAt, "=(K" . $rowAt . "*" . "O" . $rowAt . "/100)");
-            $sheet->setCellValue('Q' . $rowAt, $r['BCTYPE'] == '40' ? 0 : $_PPN);
-            $sheet->setCellValue('R' . $rowAt, "=(K" . $rowAt . "+P" . $rowAt . ")*" . "Q" . $rowAt . "/100");
-            $sheet->setCellValue('S' . $rowAt, $r['BCTYPE'] == '40' ? $_PPN : 0);
-            $sheet->setCellValue('T' . $rowAt, "=(K" . $rowAt . "+P" . $rowAt . ")*" . "S" . $rowAt . "/100");
-            $sheet->setCellValue('U' . $rowAt, $r['BCTYPE'] == '40' ? 0 : $r['PPH']);
-            $sheet->setCellValue('V' . $rowAt, "=(K" . $rowAt . "+P" . $rowAt . ")*" . "U" . $rowAt . "/100");
+
+
+            $sheet->setCellValue('A' . $rowAt, $fgAt);
+            $sheet->setCellValue('B' . $rowAt, $r['SER_ITM_HSCODE']);
+            $sheet->setCellValue('C' . $rowAt, $r['SER_ITMNM']);
+            $sheet->setCellValue('D' . $rowAt, $r['SER_ITMID']);
+            $sheet->setCellValue('E' . $rowAt, $r['SER_ITM_UOM']);
+            $sheet->setCellValue('F' . $rowAt, $r['DLVQT']);
+            $sheet->setCellValue('G' . $rowAt, $berat);
+            $sheet->setCellValue('H' . $rowAt, $hargaFG);
+            $sheet->setCellValue('I' . $rowAt, (string)$rmAt);
+            $sheet->setCellValue('J' . $rowAt, $r['RCV_HSCD']);
+            $sheet->setCellValue('K' . $rowAt, $r['PARTDESCRIPTION']);
+            $sheet->setCellValue('L' . $rowAt, $r['SERD2_ITMCD']);
+            $sheet->setCellValue('M' . $rowAt, $r['PER']);
+            $sheet->setCellValue('N' . $rowAt, $r['RMQT']);
+            $sheet->setCellValue('O' . $rowAt, $r['PART_UOM']);
+            $sheet->setCellValue('P' . $rowAt, $r['PART_PRICE']);
+            $sheet->setCellValue('Q' . $rowAt, $currency);
+            $sheet->setCellValue('R' . $rowAt,  $ndpbm);
+            $sheet->setCellValue('S' . $rowAt, "=(N" . $rowAt . "*" . "P" . $rowAt . ")*R" . $rowAt);
+            $sheet->setCellValue('T' . $rowAt, $r['BCTYPE']);
+            $sheet->setCellValue('U' . $rowAt, $r['RPSTOCK_BCNUM']);
+            $sheet->setCellValue('V' . $rowAt, $r['RPSTOCK_BCDATE']);
+            $sheet->setCellValue('W' . $rowAt, $r['BCTYPE'] == '40' ? 0 : $_BM);
+            $sheet->setCellValue('X' . $rowAt, "=(S" . $rowAt . "*" . "W" . $rowAt . "/100)");
+            $sheet->setCellValue('Y' . $rowAt, $r['BCTYPE'] == '40' ? 0 : $_PPN);
+            $sheet->setCellValue('Z' . $rowAt, "=(S" . $rowAt . "+X" . $rowAt . ")*" . "Y" . $rowAt . "/100");
+            $sheet->setCellValue('AA' . $rowAt, $r['BCTYPE'] == '40' ? $_PPN : 0);
+            $sheet->setCellValue('AB' . $rowAt, "=(S" . $rowAt . "+X" . $rowAt . ")*" . "AA" . $rowAt . "/100");
+            $sheet->setCellValue('AC' . $rowAt, $r['BCTYPE'] == '40' ? 0 : $r['PPH']);
+            $sheet->setCellValue('AD' . $rowAt, "=(S" . $rowAt . "+X" . $rowAt . ")*" . "AC" . $rowAt . "/100");
             $rowAt++;
         }
         $sheet->setCellValue('A9', '2. Jumlah Barang : ' . number_format($dataHead->TOTALQT) . ' PCS');
 
-        $sheet->getStyle('A11:V' . $rowAt - 1)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->setColor(new Color('1F1812'));
+        $sheet->getStyle('A11:AD' . $rowAt - 1)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->setColor(new Color('1F1812'));
 
-        $sheet->setCellValue('P' . $rowAt, "=CEILING(SUM(P15:P" . $rowAt - 1 . "),1000)");
-        $sheet->setCellValue('R' . $rowAt, "=CEILING(SUM(R15:R" . $rowAt - 1 . "),1000)");
-        $sheet->setCellValue('T' . $rowAt, "=CEILING(SUM(T15:T" . $rowAt - 1 . "),1000)");
-        $sheet->setCellValue('V' . $rowAt, "=CEILING(SUM(V15:V" . $rowAt - 1 . "),1000)");
+        $sheet->setCellValue('X' . $rowAt, "=CEILING(SUM(X15:X" . $rowAt - 1 . "),1000)");
+        $sheet->setCellValue('Z' . $rowAt, "=CEILING(SUM(Z15:Z" . $rowAt - 1 . "),1000)");
+        $sheet->setCellValue('AB' . $rowAt, "=CEILING(SUM(AB15:AB" . $rowAt - 1 . "),1000)");
+        $sheet->setCellValue('AD' . $rowAt, "=CEILING(SUM(AD15:AD" . $rowAt - 1 . "),1000)");
 
         $sheet->getStyle('F11:F' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
-        $sheet->getStyle('K11:K' . $rowAt)->getNumberFormat()->setFormatCode('#,##0.00');
-        $sheet->getStyle('P11:P' . $rowAt)->getNumberFormat()->setFormatCode('#,##0.00');
-        $sheet->getStyle('R11:R' . $rowAt)->getNumberFormat()->setFormatCode('#,##0.00');
-        $sheet->getStyle('T11:T' . $rowAt)->getNumberFormat()->setFormatCode('#,##0.00');
-        $sheet->getStyle('V11:V' . $rowAt)->getNumberFormat()->setFormatCode('#,##0.00');
+        $sheet->getStyle('H11:H' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->getStyle('N11:N' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->getStyle('S11:S' . $rowAt)->getNumberFormat()->setFormatCode('#,##0.00');
+        $sheet->getStyle('X11:X' . $rowAt)->getNumberFormat()->setFormatCode('#,##0.00');
+        $sheet->getStyle('Z11:Z' . $rowAt)->getNumberFormat()->setFormatCode('#,##0.00');
+        $sheet->getStyle('AB11:AB' . $rowAt)->getNumberFormat()->setFormatCode('#,##0.00');
+        $sheet->getStyle('AD11:AD' . $rowAt)->getNumberFormat()->setFormatCode('#,##0.00');
 
 
 
@@ -305,9 +367,13 @@ class DeliveryController extends Controller
         $sheet->setCellValue('T' . $rowAt, 'Indra Andesa');
         $sheet->setCellValue('T' . $rowAt + 1, 'Asst. GM');
 
-        foreach (range('A', 'V') as $r) {
+        foreach (range('A', 'Z') as $r) {
             $sheet->getColumnDimension($r)->setAutoSize(true);
         }
+        $sheet->getColumnDimension('AA')->setAutoSize(true);
+        $sheet->getColumnDimension('AB')->setAutoSize(true);
+        $sheet->getColumnDimension('AC')->setAutoSize(true);
+        $sheet->getColumnDimension('AD')->setAutoSize(true);
 
         $sheet->getPageSetup()
             ->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE);
@@ -341,7 +407,7 @@ class DeliveryController extends Controller
             ->leftJoinSub($serd2A, 'A', 'DLV_SER', '=', 'A.SERD2_SER')
             ->leftJoin('SER_TBL', 'DLV_SER', '=', 'SER_ID')
             ->leftJoin('SERC_TBL', "DLV_SER", "=", "SERC_NEWID")
-            ->leftJoinSub($serd2B, 'B', 'DLV_SER', '=', 'B.SERD2_SER')
+            ->leftJoinSub($serd2B, 'B', 'SERC_COMID', '=', 'B.SERD2_SER')
             ->leftJoin('MITM_TBL', 'B.SERD2_ITMCD', '=', 'MITM_ITMCD')
             ->leftJoinSub($psnSub, 'VPSN', 'SERC_COMJOB', '=', 'PPSN1_WONO')
             ->whereIn('SER_ITMID', $arFG)
@@ -447,6 +513,9 @@ class DeliveryController extends Controller
                                 'BM' => $b['BM'],
                                 'PPN' => $b['PPN'],
                                 'PPH' => $b['PPH'],
+                                'SER_ITMNM' => $r['SER_ITMNM'],
+                                'SER_ITM_HSCODE' => $r['SER_ITM_HSCODE'],
+                                'SER_ITM_UOM' => $r['SER_ITM_UOM'],
                             ];
 
                             if ($r['RMQT'] == $r['PLOTQT']) {
@@ -491,6 +560,9 @@ class DeliveryController extends Controller
                                 'BM' => $b['BM'],
                                 'PPN' => $b['PPN'],
                                 'PPH' => $b['PPH'],
+                                'SER_ITMNM' => $r['SER_ITMNM'],
+                                'SER_ITM_HSCODE' => $r['SER_ITM_HSCODE'],
+                                'SER_ITM_UOM' => $r['SER_ITM_UOM'],
                             ];
 
                             if ($r['RMQT'] == $r['PLOTQT']) {
