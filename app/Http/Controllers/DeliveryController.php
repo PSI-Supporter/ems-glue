@@ -251,6 +251,9 @@ class DeliveryController extends Controller
             }
         }
 
+        $tempFgRmUse = '';
+        $RMUsageDisplay = '';
+
         $suppliers = DB::table('MSUP_TBL')->whereIn('MSUP_SUPCD', $suppliersCode)
             ->get([DB::raw("RTRIM(MSUP_SUPCD) SUPCD"), DB::raw("RTRIM(MSUP_SUPCR) SUPCR")]);
 
@@ -268,6 +271,13 @@ class DeliveryController extends Controller
                 if ($r['SER_ITMID'] == $p->SER_ITMID) {
                     $hargaFG += $p->HARGA_PENYERAHAN;
                 }
+            }
+
+            if ($tempFgRmUse != $r['SER_ITMID'] . $r['SERD2_ITMCD'] . $r['PER']) {
+                $tempFgRmUse = $r['SER_ITMID'] . $r['SERD2_ITMCD'] . $r['PER'];
+                $RMUsageDisplay = $r['PER'];
+            } else {
+                $RMUsageDisplay = '';
             }
 
             if ($tempFG != $r['SER_ITMID']) {
@@ -304,7 +314,7 @@ class DeliveryController extends Controller
             $sheet->setCellValue('J' . $rowAt, $r['RCV_HSCD']);
             $sheet->setCellValue('K' . $rowAt, $r['PARTDESCRIPTION']);
             $sheet->setCellValue('L' . $rowAt, $r['SERD2_ITMCD']);
-            $sheet->setCellValue('M' . $rowAt, $r['PER']);
+            $sheet->setCellValue('M' . $rowAt, $RMUsageDisplay);
             $sheet->setCellValue('N' . $rowAt, $r['RMQT']);
             $sheet->setCellValue('O' . $rowAt, $r['PART_UOM']);
             $sheet->setCellValue('P' . $rowAt, $r['PART_PRICE']);
