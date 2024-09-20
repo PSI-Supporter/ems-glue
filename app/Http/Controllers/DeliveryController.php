@@ -118,7 +118,8 @@ class DeliveryController extends Controller
 
         $sheet->setCellValue('A6', 'No Aju :');
         $sheet->setCellValue('A7', 'No BC & Tgl BC :');
-        $sheet->setCellValue('A8', '1. Nama Barang : Assembly PCB');
+        $sheet->setCellValue('A8', '1. Nama Perusahaan : PT. SMT Indonesia');
+        $sheet->setCellValue('A9', '2. Alamat Perushan : JL. Cisokan 5 Plot 5C-2 EJIP Industrial Park. Sukaresmi, Cikarang Selatan. Kabupaten Bekasi, Jawa Barat, 17857');
 
         $sheet->setCellValue('A11', 'BARANG');
         $sheet->mergeCells('A11:H11', $sheet::MERGE_CELL_CONTENT_HIDE);
@@ -234,8 +235,8 @@ class DeliveryController extends Controller
         $sheet->mergeCells('A6:C6', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->setCellValue('A7', 'No BC & Tgl BC : ' . $dataHead->DLV_NOPEN . ', ' . $dataHead->DLV_RPDATE);
         $sheet->mergeCells('A7:C7', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->mergeCells('A8:C8', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->mergeCells('A9:C9', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('A8:H8', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('A9:H9', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->freezePane('A15');
 
         $rowAt = 15;
@@ -323,7 +324,6 @@ class DeliveryController extends Controller
             $sheet->setCellValue('AD' . $rowAt, "=(S" . $rowAt . "+X" . $rowAt . ")*" . "AC" . $rowAt . "/100");
             $rowAt++;
         }
-        $sheet->setCellValue('A9', '2. Jumlah Barang : ' . number_format($dataHead->TOTALQT) . ' PCS');
 
         $sheet->getStyle('A11:AD' . $rowAt - 1)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->setColor(new Color('1F1812'));
 
