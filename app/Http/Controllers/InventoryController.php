@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\InventoryPapper;
+use DateTime;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -324,5 +325,185 @@ class InventoryController extends Controller
                 'id' => $request->id,
             ]
         ];
+    }
+
+    function accountingMutasiBarangJadiReport(Request $request)
+    {
+        // $SaldoAwal = DB::table('XFTRN_TBL')
+        //     // ->where('FTRN_ITMCD', $request->item)
+        //     ->where('FTRN_ISUDT', '<', $request->dateFrom)
+        //     ->whereIn('FTRN_LOCCD', ['AFWH3', 'QAFG', 'AWIP1', 'AFWH3RT'])
+        //     ->groupBy('FTRN_ITMCD', 'FTRN_LOCCD')
+        //     ->get([DB::raw('RTRIM(FTRN_ITMCD) ITMCD'), DB::raw('SUM(IOQT) BEGINNINGQT'), 'FTRN_LOCCD']);
+
+        // $SaldoAwalRawMaterial = DB::table('XITRN_TBL')
+        //     // ->where('FTRN_ITMCD', $request->item)
+        //     ->where('ITRN_ISUDT', '<', $request->dateFrom)
+        //     ->whereIn('ITRN_LOCCD', ['PLANT1', 'PLANT2', 'ARWH0PD', 'ARWH2', 'ARWH1', 'QA'])
+        //     ->groupBy('ITRN_ITMCD', 'ITRN_LOCCD')
+        //     ->get([DB::raw('RTRIM(ITRN_ITMCD) ITMCD'), DB::raw('SUM(IOQT) BEGINNINGQT'), 'ITRN_LOCCD']);
+
+        // $t = new DateTime($request->dateFrom);
+        // $t->modify('-10 years');
+
+        $tEOM = new DateTime($request->dateFrom);
+        $tEOM->modify('-1 days');
+
+        // $dateTenYearAgo = $t->format('Y-m-d');
+        $dateEOMPreviousMonth = $tEOM->format('Y-m-d');
+
+        // NEW
+
+        $IGRN_TBL = DB::table('XIGRN_TBL')
+            ->leftJoin('XPFGI_TBL', function ($join) {
+                $join
+                    ->on('PFGI_BSGRP', '=', 'IGRN_BSGRP')
+                    ->on('PFGI_MDLCD', '=', 'IGRN_ITMCD')
+                    ->on('PFGI_GRLNO', '=', 'IGRN_GRLNO');
+            })
+            ->leftJoin('XPGRN_TBL', function ($join) {
+                $join
+                    ->on('IGRN_BSGRP', '=', 'PGRN_BSGRP')
+                    ->on('IGRN_ITMCD', '=', 'PGRN_ITMCD')
+                    ->on('IGRN_GRLNO', '=', 'PGRN_GRLNO');
+            })
+            ->leftJoin('XMITM_V', 'MITM_ITMCD', '=', 'IGRN_ITMCD')
+            // ->where('IGRN_ITMCD', $request->item)
+            ->where('IGRN_PYEAR', $tEOM->format('Y'))
+            ->where('IGRN_PMTH', $tEOM->format('m'))
+            ->whereIn('IGRN_LOCCD', ['AFWH3', 'QAFG', 'AWIP1', 'AFWH3RT'])
+            ->get(
+                [
+                    'IGRN_BSGRP',
+                    'IGRN_GRLNO',
+                    'IGRN_LOCCD',
+                    DB::raw('RTRIM(IGRN_ITMCD) ITMCD'),
+                    'IGRN_DATE',
+                    DB::raw("'' MAKERPART"),
+                    DB::raw("ISNULL(PFGI_SUPNO,'') SUPNO"),
+                    DB::raw("ISNULL(PFGI_SUPCD,'') SUPCD"),
+                    DB::raw("'USD' SUPCR"),
+                    DB::raw("ISNULL(PFGI_ROKQT, ISNULL(PGRN_ROKQT, 0)) OKQT_FROM_FGI_OR_PGRN"),
+                    DB::raw('IGRN_BALQT OKQT'),
+                    DB::raw("1 FLAGAJA"),
+                    DB::raw("ISNULL(PFGI_LOCPC, isnull(PGRN_PRPRC, 0)) LOCPCPRPRC_FROM_FGI_OR_PGRN"),
+                    DB::raw("ISNULL(PFGI_LOCPC, isnull(PGRN_LOCPC, 0)) LOCPC_FROM_FGI_OR_PGRN"),
+                    DB::raw("ROUND(ISNULL(PFGI_ASYCT,0) * ISNULL(PFGI_XRATE,0), 6) ROUND_ASYCTRATE"),
+                    DB::raw("DATEDIFF(DAY, IGRN_DATE, '" . $dateEOMPreviousMonth . "') DATEDIFF_IGRN_AND_SELECTED")
+                ]
+            );
+
+        $IGRN_TBL = json_decode(json_encode($IGRN_TBL), true);
+        $HEADERS = [
+            'IGRN_BSGRP',
+            'IGRN_GRLNO',
+            'IGRN_LOCCD',
+            'ITMCD',
+            'IGRN_DATE',
+            "MAKERPART",
+            "SUPNO",
+            "SUPCD",
+            "SUPCR",
+            "OKQT_FROM_FGI_OR_PGRN",
+            "OKQT",
+            "FLAGAJA",
+            "LOCPCPRPRC_FROM_FGI_OR_PGRN",
+            "LOCPC_FROM_FGI_OR_PGRN",
+            "ROUND_ASYCTRATE",
+            "DATEDIFF_IGRN_AND_SELECTED"
+        ];
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $sheet->fromArray($HEADERS, null, 'A1');
+        $sheet->fromArray($IGRN_TBL, null, 'A2');
+
+        $filename = "$request->dateFrom FG";
+
+        $Excel_writer = new Xls($spreadsheet);
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment;filename="' . $filename . '"');
+        header('Cache-Control: max-age=0');
+        ob_end_clean();
+        $Excel_writer->save('php://output');
+    }
+
+    function accountingMutasiBahanBakuReport(Request $request)
+    {
+        // $t = new DateTime($request->dateFrom);
+        // $t->modify('-10 years');
+
+        $tEOM = new DateTime($request->dateFrom);
+        $tEOM->modify('-1 days');
+
+        // $dateTenYearAgo = $t->format('Y-m-d');
+        $dateEOMPreviousMonth = $tEOM->format('Y-m-d');
+
+        // NEW
+
+        $IGRN_TBL = DB::table('XIGRN_TBL')
+            ->leftJoin('XPGRN_TBL', function ($join) {
+                $join
+                    ->on('PGRN_BSGRP', '=', 'IGRN_BSGRP')
+                    ->on('PGRN_ITMCD', '=', 'IGRN_ITMCD')
+                    ->on('PGRN_GRLNO', '=', 'IGRN_GRLNO');
+            })
+            ->leftJoin('XMITM_V', 'MITM_ITMCD', '=', 'IGRN_ITMCD')
+            // ->where('IGRN_ITMCD', $request->item)
+            ->where('IGRN_PYEAR', $tEOM->format('Y'))
+            ->where('IGRN_PMTH', $tEOM->format('m'))
+            ->whereIn('IGRN_LOCCD', ['ARWH0PD', 'ARWH2', 'ARWH1', 'QA', 'PLANT1', 'PLANT2'])
+            ->get(
+                [
+                    'IGRN_BSGRP',
+                    'IGRN_GRLNO',
+                    'IGRN_LOCCD',
+                    DB::raw('RTRIM(IGRN_ITMCD) ITMCD'),
+                    'IGRN_DATE',
+                    DB::raw("ISNULL(PGRN_SPART,'') MAKERPART"),
+                    DB::raw("ISNULL(PGRN_SUPNO,'') SUPNO"),
+                    DB::raw("ISNULL(PGRN_SUPCD,'') SUPCD"),
+                    DB::raw("'USD' SUPCR"),
+                    DB::raw("ISNULL(PGRN_ROKQT, 0) OKQT_FROM_FGI_OR_PGRN"),
+                    DB::raw('IGRN_BALQT OKQT'),
+                    DB::raw('ISNULL(PGRN_XRATE,0) PGRN_XRATE'),
+                    DB::raw("ISNULL(PGRN_LOCPC,0) LOCPC_FROM_FGI_OR_PGRN"),
+                    DB::raw("DATEDIFF(DAY, IGRN_DATE, '" . $dateEOMPreviousMonth . "') DATEDIFF_IGRN_AND_SELECTED"),
+                    DB::raw("CASE WHEN PGRN_XRATE = 1 THEN ROUND(IGRN_BALQT * (ISNULL(PGRN_PRPRC,0) + 0), 6)
+				        ELSE ROUND(IGRN_BALQT * (ISNULL(PGRN_LOCPC,0) + 0), 6) END AS LBALAM")
+                ]
+            );
+        $IGRN_TBL = json_decode(json_encode($IGRN_TBL), true);
+        $HEADERS = [
+            'IGRN_BSGRP',
+            'IGRN_GRLNO',
+            'IGRN_LOCCD',
+            'ITMCD',
+            'IGRN_DATE',
+            "MAKERPART",
+            "SUPNO",
+            "SUPCD",
+            "SUPCR",
+            "OKQT_FROM_FGI_OR_PGRN",
+            'OKQT',
+            'PGRN_XRATE',
+            "LOCPC_FROM_FGI_OR_PGRN",
+            "DATEDIFF_IGRN_AND_SELECTED",
+            "LBALAM"
+        ];
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $sheet->fromArray($HEADERS, null, 'A1');
+        $sheet->fromArray($IGRN_TBL, null, 'A2');
+
+        $filename = "$request->dateFrom RM";
+
+        $Excel_writer = new Xls($spreadsheet);
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment;filename="' . $filename . '"');
+        header('Cache-Control: max-age=0');
+        ob_end_clean();
+        $Excel_writer->save('php://output');
     }
 }

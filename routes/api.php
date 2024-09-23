@@ -53,6 +53,7 @@ Route::prefix('supply')->group(function () {
     Route::get('report', [SupplyController::class, 'reportPSNJOBPeriod']);
     Route::get('document-delivery', [SupplyController::class, 'getDocumentByDelivery']);
     Route::get('validate-label', [SupplyController::class, 'validateUniquekeyVsDoc']);
+    Route::post('join-reel', [LabelController::class, 'validateUniquekeyVsDoc']);
 });
 # Terkait Return Part
 Route::prefix('return')->group(function () {
@@ -103,6 +104,8 @@ Route::prefix('report')->group(function () {
     Route::post("stock-wms", [ITHController::class, 'getStockMultipleItemWMS']);
     Route::get("fg-ng-customer", [ReceiveController::class, 'getReportFGNGCustomer']);
     Route::get("konversi-bahan-baku", [DeliveryController::class, 'reportKonversiBahanBaku']);
+    Route::get("accounting-mutasi-barang-jadi", [InventoryController::class, 'accountingMutasiBarangJadiReport']);
+    Route::get("accounting-mutasi-barang-bahan-baku", [InventoryController::class, 'accountingMutasiBahanBakuReport']);
 });
 
 # Terkait Bom Calculation

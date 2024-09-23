@@ -278,6 +278,9 @@ class DeliveryController extends Controller
                 $RMUsageDisplay = $r['PER'];
             } else {
                 $RMUsageDisplay = '';
+                $sheet->getStyle('J' . $rowAt)->getFont()->getColor()->setARGB(Color::COLOR_WHITE);
+                $sheet->getStyle('K' . $rowAt)->getFont()->getColor()->setARGB(Color::COLOR_WHITE);
+                $sheet->getStyle('L' . $rowAt)->getFont()->getColor()->setARGB(Color::COLOR_WHITE);
             }
 
             if ($tempFG != $r['SER_ITMID']) {
