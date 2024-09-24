@@ -506,4 +506,82 @@ class InventoryController extends Controller
         ob_end_clean();
         $Excel_writer->save('php://output');
     }
+
+    function accountingMutasiInOutBarangJadiReport(Request $request)
+    {
+        $InOut = DB::table('XFTRN_TBL')
+            // ->where('FTRN_ITMCD', $request->item)
+            ->where('FTRN_ISUDT', '>=', $request->dateFrom)
+            ->where('FTRN_ISUDT', '<=', $request->dateTo)
+            ->whereIn('FTRN_LOCCD', ['AFWH3', 'QAFG', 'AWIP1', 'AFWH3RT'])
+            ->whereIn('FTRN_DOCCD', ['GRN', 'SHP', 'ADJ'])
+            ->groupBy('FTRN_ITMCD', 'FTRN_LOCCD', 'FTRN_PRICE')
+            ->get([
+                DB::raw('RTRIM(FTRN_ITMCD) ITMCD'),
+                'FTRN_PRICE',
+                DB::raw('SUM(CASE WHEN IOQT > 0 THEN IOQT END) INQT'),
+                DB::raw('SUM(CASE WHEN IOQT < 0 THEN IOQT END) OUTQT'),
+                'FTRN_LOCCD'
+            ]);
+
+        $InOut = json_decode(json_encode($InOut), true);
+        $HEADERS = [
+            'ITMCD',
+            'FTRN_PRICE',
+            'INQT',
+            'OUTQT',
+            'FTRN_LOCCD'
+        ];
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $sheet->fromArray($HEADERS, null, 'A1');
+        $sheet->fromArray($InOut, null, 'A2');
+        $filename = "$request->dateFrom to $request->dateTo IN OUT FG";
+
+        $Excel_writer = new Xls($spreadsheet);
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment;filename="' . $filename . '"');
+        header('Cache-Control: max-age=0');
+        ob_end_clean();
+        $Excel_writer->save('php://output');
+    }
+
+    function accountingMutasiInOutBarangBahanBakuReport(Request $request)
+    {
+        $InOut = DB::table('XITRN_TBL')
+            ->where('ITRN_ISUDT', '>=', $request->dateFrom)
+            ->where('ITRN_ISUDT', '<=', $request->dateTo)
+            ->whereIn('ITRN_LOCCD', ['ARWH0PD', 'ARWH2', 'ARWH1', 'QA', 'PLANT1', 'PLANT2'])
+            ->groupBy('ITRN_ITMCD', 'ITRN_LOCCD', 'ITRN_PRICE')
+            ->get([
+                DB::raw('RTRIM(ITRN_ITMCD) ITMCD'),
+                'ITRN_PRICE',
+                DB::raw('SUM(CASE WHEN IOQT > 0 THEN IOQT END) INQT'),
+                DB::raw('SUM(CASE WHEN IOQT < 0 THEN IOQT END) OUTQT'),
+                'ITRN_LOCCD'
+            ]);
+
+        $InOut = json_decode(json_encode($InOut), true);
+        $HEADERS = [
+            'ITMCD',
+            'FTRN_PRICE',
+            'INQT',
+            'OUTQT',
+            'FTRN_LOCCD'
+        ];
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $sheet->fromArray($HEADERS, null, 'A1');
+        $sheet->fromArray($InOut, null, 'A2');
+        $filename = "$request->dateFrom to $request->dateTo IN OUT RM";
+
+        $Excel_writer = new Xls($spreadsheet);
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment;filename="' . $filename . '"');
+        header('Cache-Control: max-age=0');
+        ob_end_clean();
+        $Excel_writer->save('php://output');
+    }
 }

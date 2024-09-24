@@ -480,12 +480,19 @@ class SupplyController extends Controller
 
     function isPartInDocumentExist(Request $request)
     {
+        $whereParam = [];
+        if ($request->category) {
+            $whereParam[] = ['SPL_CAT', '=',  $request->category];
+        }
+        if ($request->line) {
+            $whereParam[] = ['SPL_LINE', '=',  $request->line];
+        }
+
         $RSSPL = DB::table("SPL_TBL")->select(DB::raw("RTRIM(MITM_SPTNO) MITM_SPTNO"), "SPL_RACKNO")
             ->leftJoin("MITM_TBL", "SPL_ITMCD", "=", "MITM_ITMCD")
             ->where("SPL_DOC", $request->doc)
-            ->where("SPL_CAT", $request->category)
-            ->where("SPL_LINE", $request->line)
             ->where("SPL_ITMCD", $request->item)
+            ->where($whereParam)
             ->get();
         $result = [];
         if (count($RSSPL) > 0) {
@@ -501,17 +508,25 @@ class SupplyController extends Controller
 
     function isPartAlreadySuppliedInDocument(Request $request)
     {
-        $SuppliedPartCount = DB::table("SPLSCN_TBL")
+        $whereParam = [];
+        if ($request->item) {
+            $whereParam[] = ['SPLSCN_ITMCD', '=',  $request->item];
+        }
+        if ($request->lotNumber) {
+            $whereParam[] = ['SPLSCN_LOTNO', '=',  $request->lotNumber];
+        }
+        if ($request->qty) {
+            $whereParam[] = ['SPLSCN_QTY', '=',  $request->qty];
+        }
+
+        $SuppliedPart = DB::table("SPLSCN_TBL")
             ->where("SPLSCN_DOC", $request->doc)
-            ->where("SPLSCN_CAT", $request->category)
-            ->where("SPLSCN_LINE", $request->line)
-            ->where("SPLSCN_ITMCD", $request->item)
-            ->where("SPLSCN_LOTNO", $request->lotNumber)
-            ->where("SPLSCN_QTY", $request->qty)
-            ->count();
+            ->where($whereParam)
+            ->get();
+            
         $result = [];
-        if ($SuppliedPartCount > 0) {
-            $result[] = ["cd" => 1, "msg" => "GO AHEAD"];
+        if ($SuppliedPart->count() > 0) {
+            $result[] = ["cd" => 1, "msg" => "GO AHEAD", 'data' => $SuppliedPart];
         } else {
             $result[] = ["cd" => 0, "msg" => "Lot No not found $request->lotNumber"];
         }

@@ -106,6 +106,8 @@ Route::prefix('report')->group(function () {
     Route::get("konversi-bahan-baku", [DeliveryController::class, 'reportKonversiBahanBaku']);
     Route::get("accounting-mutasi-barang-jadi", [InventoryController::class, 'accountingMutasiBarangJadiReport']);
     Route::get("accounting-mutasi-barang-bahan-baku", [InventoryController::class, 'accountingMutasiBahanBakuReport']);
+    Route::get("accounting-mutasi-in-out-barang-jadi", [InventoryController::class, 'accountingMutasiInOutBarangJadiReport']);
+    Route::get("accounting-mutasi-in-out-barang-bahan-baku", [InventoryController::class, 'accountingMutasiInOutBarangBahanBakuReport']);
 });
 
 # Terkait Bom Calculation
