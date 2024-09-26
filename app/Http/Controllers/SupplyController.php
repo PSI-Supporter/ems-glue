@@ -518,6 +518,9 @@ class SupplyController extends Controller
         if ($request->qty) {
             $whereParam[] = ['SPLSCN_QTY', '=',  $request->qty];
         }
+        if ($request->uniquekey) {
+            $whereParam[] = ['SPLSCN_UNQCODE', '=',  $request->uniquekey];
+        }
 
         $SuppliedPart = DB::table("SPLSCN_TBL")
             ->where("SPLSCN_DOC", $request->doc)
