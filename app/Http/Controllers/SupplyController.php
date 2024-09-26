@@ -523,7 +523,6 @@ class SupplyController extends Controller
             ->where("SPLSCN_DOC", $request->doc)
             ->where($whereParam)
             ->get();
-            
         $result = [];
         if ($SuppliedPart->count() > 0) {
             $result[] = ["cd" => 1, "msg" => "GO AHEAD", 'data' => $SuppliedPart];
@@ -2592,10 +2591,32 @@ class SupplyController extends Controller
         }
     }
 
-    function checkIP()
+    function joinReels(Request $request)
     {
-        $ip = $_SERVER["SERVER_ADDRESS"];
+        $dataTobeSaved = [];
+        $data = $request->json()->all();
+        $dataTobeSaved['REELC_DOC'] = $data['REELC_DOC'];
+        $dataTobeSaved['REELC_ITMCD'] = $data['REELC_ITMCD'];
+        $dataTobeSaved['REELC_FOR_PROCESS'] = $data['REELC_FOR_PROCESS'];
+        $dataTobeSaved['REELC_FOR_MC'] = $data['REELC_FOR_MC'];
+        $dataTobeSaved['REELC_FOR_MCZ'] = $data['REELC_FOR_MCZ'];
+        $ke = 1;
 
-        return ['ipnya' => $ip];
+        foreach ($data['detail'] as $r) {
+            $dataTobeSaved['REELC_UNIQUE' . $ke] = $r['id'];
+            $dataTobeSaved['REELC_LOT' . $ke] = $r['lotNumber'];
+            $dataTobeSaved['REELC_QTY' . $ke] = $r['qty'];
+            $ke++;
+        }
+
+        try {
+            DB::beginTransaction();
+            DB::table('REELC_TBL')->insert($dataTobeSaved);
+            DB::commit();
+            return ['message' => 'Saved successfully'];
+        } catch (Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => $e->getMessage()], 400);
+        }
     }
 }

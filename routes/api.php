@@ -53,7 +53,7 @@ Route::prefix('supply')->group(function () {
     Route::get('report', [SupplyController::class, 'reportPSNJOBPeriod']);
     Route::get('document-delivery', [SupplyController::class, 'getDocumentByDelivery']);
     Route::get('validate-label', [SupplyController::class, 'validateUniquekeyVsDoc']);
-    Route::post('join-reel', [LabelController::class, 'validateUniquekeyVsDoc']);
+    Route::post('join-reel', [SupplyController::class, 'joinReels']);
 });
 # Terkait Return Part
 Route::prefix('return')->group(function () {
