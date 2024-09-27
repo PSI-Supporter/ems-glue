@@ -2603,6 +2603,8 @@ class SupplyController extends Controller
         $dataTobeSaved['REELC_FOR_PROCESS'] = $data['REELC_FOR_PROCESS'];
         $dataTobeSaved['REELC_FOR_MC'] = $data['REELC_FOR_MC'];
         $dataTobeSaved['REELC_FOR_MCZ'] = $data['REELC_FOR_MCZ'];
+        $dataTobeSaved['created_at'] = date('Y-m-d H:i:s');
+        $dataTobeSaved['created_by'] = $data['user_id'];
         $ke = 1;
 
         foreach ($data['detail'] as $r) {
