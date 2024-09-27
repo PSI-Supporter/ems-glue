@@ -2704,9 +2704,6 @@ class SupplyController extends Controller
                 'REELC_LOT5'
             ]);
 
-        $rowAt = 7;
-        $nomorUrut = 1;
-
         $distinctDoc = $data->unique('REELC_DOC')->values()->pluck('REELC_DOC');
         $dataPSN = DB::table('XPPSN1')->leftJoin('XMITM_V', 'PPSN1_MDLCD', '=', 'MITM_ITMCD')
             ->whereIn('PPSN1_PSNNO', $distinctDoc)
@@ -2732,7 +2729,29 @@ class SupplyController extends Controller
         }
         unset($r);
 
+        $tempDateDoc = '';
+
+        $rowAt = 7;
+        $nomorUrut = 1;
         foreach ($data as $r) {
+
+            if ($tempDateDoc != $r->v_date . $r->REELC_DOC) {
+                $tempDateDoc = $r->v_date . $r->REELC_DOC;
+                $diplayedDate = $r->v_date;
+                $diplayedModel = $r->v_model;
+                $diplayedDoc = $r->REELC_DOC;
+                $diplayedAssyCode = $r->v_assy_code;
+                $diplayedJob = $r->v_job;
+                $diplayedLotSize = $r->v_lot_size;
+            } else {
+                $diplayedDate = '';
+                $diplayedModel = '';
+                $diplayedDoc = '';
+                $diplayedAssyCode = '';
+                $diplayedJob = '';
+                $diplayedLotSize = '';
+            }
+
             $_total_qty = $r->REELC_QTY1;
             $_total_joint = 0;
             if ($r->REELC_QTY2) {
@@ -2752,12 +2771,12 @@ class SupplyController extends Controller
                 $_total_joint++;
             }
             $sheet->setCellValue('B' . $rowAt, $nomorUrut);
-            $sheet->setCellValue('C' . $rowAt, $r->v_date);
-            $sheet->setCellValue('D' . $rowAt, $r->v_model);
-            $sheet->setCellValue('E' . $rowAt, $r->REELC_DOC);
-            $sheet->setCellValue('F' . $rowAt, $r->v_assy_code);
-            $sheet->setCellValue('G' . $rowAt, $r->v_job);
-            $sheet->setCellValue('H' . $rowAt, $r->v_lot_size);
+            $sheet->setCellValue('C' . $rowAt, $diplayedDate);
+            $sheet->setCellValue('D' . $rowAt, $diplayedModel);
+            $sheet->setCellValue('E' . $rowAt, $diplayedDoc);
+            $sheet->setCellValue('F' . $rowAt, $diplayedAssyCode);
+            $sheet->setCellValue('G' . $rowAt, $diplayedJob);
+            $sheet->setCellValue('H' . $rowAt, $diplayedLotSize);
             $sheet->setCellValue('I' . $rowAt, '3N1' . $r->REELC_ITMCD);
             $sheet->setCellValue('J' . $rowAt,  $r->REELC_ITMCD);
             $sheet->setCellValue('K' . $rowAt,  $r->SPTNO);
@@ -2779,6 +2798,7 @@ class SupplyController extends Controller
             $sheet->setCellValue('AA' . $rowAt,  $_total_qty);
             $sheet->setCellValue('AB' . $rowAt,  $_total_joint);
             $rowAt++;
+            $nomorUrut++;
         }
 
         $sheet->getStyle('B5:AB' . $rowAt - 1)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->setColor(new Color('1F1812'));
