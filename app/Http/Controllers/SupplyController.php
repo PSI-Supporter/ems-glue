@@ -2803,6 +2803,13 @@ class SupplyController extends Controller
 
         $sheet->getStyle('B5:AB' . $rowAt - 1)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->setColor(new Color('1F1812'));
         $sheet->getStyle('B5:AB' . 6)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('d9d9d9');
+        $sheet->getStyle('E7:E' . $rowAt - 1)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('b7dee8');
+        $sheet->getStyle('I7:I' . $rowAt - 1)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('b7dee8');
+        $sheet->getStyle('L7:L' . $rowAt - 1)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('b7dee8');
+        $sheet->getStyle('O7:O' . $rowAt - 1)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('b7dee8');
+        $sheet->getStyle('R7:R' . $rowAt - 1)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('b7dee8');
+        $sheet->getStyle('U7:U' . $rowAt - 1)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('b7dee8');
+        $sheet->getStyle('X7:X' . $rowAt - 1)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('b7dee8');
 
         foreach (range('A', 'Z') as $r) {
             $sheet->getColumnDimension($r)->setAutoSize(true);
