@@ -2649,20 +2649,30 @@ class SupplyController extends Controller
         $sheet->setCellValue('L6', '1');
         $sheet->setCellValue('M6', 'QTY');
         $sheet->setCellValue('N6', 'LOT NO');
-        $sheet->setCellValue('O6', '2');
-        $sheet->setCellValue('P6', 'QTY');
-        $sheet->setCellValue('Q6', 'LOT NO');
-        $sheet->setCellValue('R6', '3');
-        $sheet->setCellValue('S6', 'QTY');
-        $sheet->setCellValue('T6', 'LOT NO');
-        $sheet->setCellValue('U6', '4');
-        $sheet->setCellValue('V6', 'QTY');
-        $sheet->setCellValue('W6', 'LOT NO');
-        $sheet->setCellValue('X6', '5');
+        $sheet->setCellValue('O6', 'ID');
+
+        $sheet->setCellValue('P6', '2');
+        $sheet->setCellValue('Q6', 'QTY');
+        $sheet->setCellValue('R6', 'LOT NO');
+        $sheet->setCellValue('S6', 'ID');
+
+        $sheet->setCellValue('T6', '3');
+        $sheet->setCellValue('U6', 'QTY');
+        $sheet->setCellValue('V6', 'LOT NO');
+        $sheet->setCellValue('W6', 'ID');
+
+        $sheet->setCellValue('X6', '4');
         $sheet->setCellValue('Y6', 'QTY');
         $sheet->setCellValue('Z6', 'LOT NO');
-        $sheet->setCellValue('AA5', 'Total Qty');
-        $sheet->setCellValue('AB5', 'Jumlah Joint');
+        $sheet->setCellValue('AA6', 'ID');
+
+        $sheet->setCellValue('AB6', '5');
+        $sheet->setCellValue('AC6', 'QTY');
+        $sheet->setCellValue('AD6', 'LOT NO');
+        $sheet->setCellValue('AE6', 'ID');
+
+        $sheet->setCellValue('AF5', 'Total Qty');
+        $sheet->setCellValue('AG5', 'Jumlah Joint');
 
         $sheet->mergeCells('B5:B6', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->mergeCells('C5:C6', $sheet::MERGE_CELL_CONTENT_HIDE);
@@ -2674,12 +2684,12 @@ class SupplyController extends Controller
         $sheet->mergeCells('I5:I6', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->mergeCells('J5:J6', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->mergeCells('K5:K6', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->mergeCells('L5:Z5', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->mergeCells('AA5:AA6', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->mergeCells('AB5:AB6', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('L5:AE5', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('AF5:AF6', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('AG5:AG6', $sheet::MERGE_CELL_CONTENT_HIDE);
 
-        $sheet->getStyle('B5:AB6')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('B5:AB6')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('B5:AG6')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('B5:AG6')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
         $data = DB::table('REELC_TBL')
             ->leftJoin('MITM_TBL', 'REELC_ITMCD', '=', 'MITM_ITMCD')
@@ -2701,7 +2711,12 @@ class SupplyController extends Controller
                 'REELC_LOT2',
                 'REELC_LOT3',
                 'REELC_LOT4',
-                'REELC_LOT5'
+                'REELC_LOT5',
+                'REELC_UNIQUE1',
+                'REELC_UNIQUE2',
+                'REELC_UNIQUE3',
+                'REELC_UNIQUE4',
+                'REELC_UNIQUE5',
             ]);
 
         $distinctDoc = $data->unique('REELC_DOC')->values()->pluck('REELC_DOC');
@@ -2783,39 +2798,63 @@ class SupplyController extends Controller
             $sheet->setCellValue('L' . $rowAt,  '3N2');
             $sheet->setCellValue('M' . $rowAt,  $r->REELC_QTY1);
             $sheet->setCellValue('N' . $rowAt,  $r->REELC_LOT1);
-            $sheet->setCellValue('O' . $rowAt,  $r->REELC_QTY2 ? '3N2' : '');
-            $sheet->setCellValue('P' . $rowAt,  $r->REELC_QTY2);
-            $sheet->setCellValue('Q' . $rowAt,  $r->REELC_LOT2);
-            $sheet->setCellValue('R' . $rowAt,  $r->REELC_QTY3 ? '3N2' : '');
-            $sheet->setCellValue('S' . $rowAt,  $r->REELC_QTY3);
-            $sheet->setCellValue('T' . $rowAt,  $r->REELC_LOT3);
-            $sheet->setCellValue('U' . $rowAt,  $r->REELC_QTY4 ? '3N2' : '');
-            $sheet->setCellValue('V' . $rowAt,  $r->REELC_QTY4);
-            $sheet->setCellValue('W' . $rowAt,  $r->REELC_LOT4);
-            $sheet->setCellValue('X' . $rowAt,  $r->REELC_QTY5 ? '3N2' : '');
-            $sheet->setCellValue('Y' . $rowAt,  $r->REELC_QTY5);
-            $sheet->setCellValue('Z' . $rowAt,  $r->REELC_LOT5);
-            $sheet->setCellValue('AA' . $rowAt,  $_total_qty);
-            $sheet->setCellValue('AB' . $rowAt,  $_total_joint);
+            $sheet->setCellValue('O' . $rowAt,  $r->REELC_UNIQUE1);
+
+            $sheet->setCellValue('P' . $rowAt,  $r->REELC_QTY2 ? '3N2' : '');
+            $sheet->setCellValue('Q' . $rowAt,  $r->REELC_QTY2);
+            $sheet->setCellValue('R' . $rowAt,  $r->REELC_LOT2);
+            $sheet->setCellValue('S' . $rowAt,  $r->REELC_UNIQUE2);
+
+            $sheet->setCellValue('T' . $rowAt,  $r->REELC_QTY3 ? '3N2' : '');
+            $sheet->setCellValue('U' . $rowAt,  $r->REELC_QTY3);
+            $sheet->setCellValue('V' . $rowAt,  $r->REELC_LOT3);
+            $sheet->setCellValue('W' . $rowAt,  $r->REELC_UNIQUE3);
+
+            $sheet->setCellValue('X' . $rowAt,  $r->REELC_QTY4 ? '3N2' : '');
+            $sheet->setCellValue('Y' . $rowAt,  $r->REELC_QTY4);
+            $sheet->setCellValue('Z' . $rowAt,  $r->REELC_LOT4);
+            $sheet->setCellValue('AA' . $rowAt,  $r->REELC_UNIQUE4);
+
+            $sheet->setCellValue('AB' . $rowAt,  $r->REELC_QTY5 ? '3N2' : '');
+            $sheet->setCellValue('AC' . $rowAt,  $r->REELC_QTY5);
+            $sheet->setCellValue('AD' . $rowAt,  $r->REELC_LOT5);
+            $sheet->setCellValue('AE' . $rowAt,  $r->REELC_UNIQUE5);
+
+
+            $sheet->setCellValue('AF' . $rowAt,  $_total_qty);
+            $sheet->setCellValue('AG' . $rowAt,  $_total_joint);
             $rowAt++;
             $nomorUrut++;
         }
 
-        $sheet->getStyle('B5:AB' . $rowAt - 1)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->setColor(new Color('1F1812'));
-        $sheet->getStyle('B5:AB' . 6)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('d9d9d9');
+        $sheet->getStyle('B5:AG' . $rowAt - 1)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->setColor(new Color('1F1812'));
+        $sheet->getStyle('B5:AG' . 6)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('d9d9d9');
         $sheet->getStyle('E7:E' . $rowAt - 1)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('b7dee8');
         $sheet->getStyle('I7:I' . $rowAt - 1)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('b7dee8');
         $sheet->getStyle('L7:L' . $rowAt - 1)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('b7dee8');
-        $sheet->getStyle('O7:O' . $rowAt - 1)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('b7dee8');
-        $sheet->getStyle('R7:R' . $rowAt - 1)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('b7dee8');
-        $sheet->getStyle('U7:U' . $rowAt - 1)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('b7dee8');
+        $sheet->getStyle('P7:P' . $rowAt - 1)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('b7dee8');
+        $sheet->getStyle('T7:T' . $rowAt - 1)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('b7dee8');
         $sheet->getStyle('X7:X' . $rowAt - 1)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('b7dee8');
+        $sheet->getStyle('AB7:AB' . $rowAt - 1)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('b7dee8');
+
+        $sheet->getStyle('O7:O' . $rowAt - 1)->getNumberFormat()->setFormatCode('@');
+        $sheet->getStyle('S7:S' . $rowAt - 1)->getNumberFormat()->setFormatCode('@');
+        $sheet->getStyle('W7:W' . $rowAt - 1)->getNumberFormat()->setFormatCode('@');
+        $sheet->getStyle('AA7:AA' . $rowAt - 1)->getNumberFormat()->setFormatCode('@');
+        $sheet->getStyle('AE7:AE' . $rowAt - 1)->getNumberFormat()->setFormatCode('@');
 
         foreach (range('A', 'Z') as $r) {
             $sheet->getColumnDimension($r)->setAutoSize(true);
         }
         $sheet->getColumnDimension('AA')->setAutoSize(true);
         $sheet->getColumnDimension('AB')->setAutoSize(true);
+        $sheet->getColumnDimension('AC')->setAutoSize(true);
+        $sheet->getColumnDimension('AD')->setAutoSize(true);
+        $sheet->getColumnDimension('AE')->setAutoSize(true);
+        $sheet->getColumnDimension('AF')->setAutoSize(true);
+        $sheet->getColumnDimension('AG')->setAutoSize(true);
+
+        $sheet->freezePane('B7');
 
         $sheet->getPageSetup()
             ->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE);
