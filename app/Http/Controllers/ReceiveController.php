@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use chillerlan\QRCode\QRCode;
+use chillerlan\QRCode\QROptions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -254,7 +257,8 @@ class ReceiveController extends Controller
         }
         return [
             'datas' => $rs,
-            'dataDO' => $rsResume, 'dataAPI' => $rsAPI
+            'dataDO' => $rsResume,
+            'dataAPI' => $rsAPI
         ];
     }
 
@@ -276,6 +280,7 @@ class ReceiveController extends Controller
 
     function downloadTemplateUpload()
     {
+        ini_set('max_execution_time', '-1');
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
 
@@ -298,5 +303,112 @@ class ReceiveController extends Controller
         header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
         header('Cache-Control: max-age=0');
         $writer->save('php://output');
+    }
+
+    function uploadMassive(Request $request)
+    {
+        ini_set('max_execution_time', '-1');
+        $reader = IOFactory::createReader(ucfirst('xls'));
+        $fileName = $request->fileName;
+        $year = $request->year;
+        $spreadsheet = $reader->load(public_path('attachment/' . $year . '/' . $fileName . '.xls'));
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $rowIndex = 2;
+        $DOUnique = [];
+        $totalAffectedRows = 0;
+        $ActionPlan = [];
+        while (!empty($sheet->getCell([1, $rowIndex])->getCalculatedValue())) {
+            $_DO = $sheet->getCell([1, $rowIndex])->getCalculatedValue();
+            $_itemCode = $sheet->getCell([3, $rowIndex])->getCalculatedValue();
+            $_itemQty = $sheet->getCell([2, $rowIndex])->getCalculatedValue();
+            $_itemNW = $sheet->getCell([9, $rowIndex])->getCalculatedValue();
+            $_itemPerUOM = $_itemNW / $_itemQty;
+
+            $affectedRow = DB::table('RCV_TBL')
+                ->where('RCV_RPNO', $_DO)
+                ->where('RCV_ITMCD', $_itemCode)
+                ->where('RCV_QTY', $_itemQty)
+                ->whereNull('RCV_PRNW')
+                ->limit(1)
+                ->update(['RCV_PRNW' => number_format($_itemPerUOM, 5)]);
+
+            $totalAffectedRows += $affectedRow;
+            if (!in_array($_DO, $DOUnique)) {
+                $DOUnique[] = $_DO;
+            }
+            $rowIndex++;
+        }
+
+        return ['data' => [
+            'TotalDO' => count($DOUnique),
+            'TotalAffected' => $totalAffectedRows,
+            'ActionPlan' => $ActionPlan,
+            'file' => ['folder1' => $year, 'fileName' => $fileName]
+        ]];
+    }
+
+    function reportRTNFG(Request $request)
+    {
+        $data = DB::table('RCV_TBL')->leftJoin('MITM_TBL', 'RCV_ITMCD', '=', 'MITM_ITMCD')
+            ->select('RCV_BSGRP', 'RCV_DONO', 'RCV_INVNO', 'RCV_ITMCD', DB::raw('RTRIM(MITM_ITMD1) ITMD1'))
+            ->where('MITM_MODEL', 1)
+            ->get();
+        return ['data' => $data];
+    }
+
+    function updateRTNFGBG()
+    {
+        $data = DB::table('RCV_TBL')->leftJoin('MITM_TBL', 'RCV_ITMCD', '=', 'MITM_ITMCD')
+            ->select('RCV_BSGRP', 'RCV_DONO', 'RCV_INVNO')
+            ->where('MITM_MODEL', 1)
+            ->whereNull('RCV_BSGRP')
+            ->groupBy('RCV_BSGRP', 'RCV_DONO', 'RCV_INVNO')
+            ->get();
+        $updatedData = [];
+        foreach ($data as $r) {
+
+            $_data = DB::table('XVU_RTN')
+                ->select('MBSG_BSGRP')
+                ->where('STKTRND1_DOCNO', $r->RCV_INVNO)->first();
+
+            if (!empty($_data->MBSG_BSGRP)) {
+
+                $affectedRow = DB::table('RCV_TBL')
+                    ->where('RCV_INVNO', $r->RCV_INVNO)
+                    ->whereNull('RCV_BSGRP')
+                    ->update(['RCV_BSGRP' => $_data->MBSG_BSGRP]) ? 1 : 0;
+
+                if ($affectedRow) {
+                    $updatedData[] = [
+                        'RCV_BSGRP_u' => $_data->MBSG_BSGRP,
+                        'RCV_DONO_u' => $r->RCV_DONO,
+                        'RCV_INVNO_u' => $r->RCV_INVNO,
+                    ];
+                }
+            }
+        }
+        return ['data' => $data, 'dataUpdated' => $updatedData];
+    }
+
+    function parseImage(Request $request)
+    {
+
+        if (preg_match('/^data:image\/(\w+);base64,/', $request->gambarnya)) {
+            $data = substr($request->gambarnya, strpos($request->gambarnya, ',') + 1);
+            $data = base64_decode($data);
+
+            Storage::disk('local')->put('tes.png', $data);
+
+            $options = new QROptions();
+            $options->readerUseImagickIfAvailable = false;
+            $options->readerGrayscale             = true;
+            $options->readerIncreaseContrast      = true;
+            // $result = (new QRCode($options))->readFromFile();
+            // $qrcode = new QRCodeReader(storage_path('tes.png'));
+
+            return ['message' => 'saved', 'datanya' => storage_path('tes.png')];
+        }
+        return $request;
     }
 }
