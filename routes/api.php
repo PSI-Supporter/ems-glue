@@ -84,6 +84,7 @@ Route::prefix('item')->group(function () {
     Route::get('searchFGXls', [ItemController::class, 'searchFGEximXls']);
     Route::get('downloadsa', [ItemController::class, 'downloadsa']);
     Route::get('xray', [ItemController::class, 'toXRAYItem']);
+    Route::post('split', [ItemController::class, 'splitC3']);
 });
 
 #Untuk Inventory
@@ -165,6 +166,7 @@ Route::prefix('receive')->group(function () {
     Route::get('upload-massively', [ReceiveController::class, 'uploadMassive']);
     Route::get('rtn-fg-report', [ReceiveController::class, 'reportRTNFG']);
     Route::get('update-rtn-fg', [ReceiveController::class, 'updateRTNFGBG']);
+    Route::post('parse-image', [ReceiveController::class, 'parseImage']);
 });
 
 Route::prefix('production-plan')->group(function () {

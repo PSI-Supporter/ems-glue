@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-
+use App\Traits\LabelingTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -14,6 +14,8 @@ use PhpOffice\PhpSpreadsheet\Writer\Xls as WriterXls;
 
 class ItemController extends Controller
 {
+    use LabelingTrait;
+
     function loadById(Request $request)
     {
         $RS = DB::table("ITMLOC_TBL")->select(DB::raw("RTRIM(MITM_ITMCD) MITM_ITMCD,RTRIM(MITM_ITMD1) ITMD1,ITMLOC_LOC,RTRIM(MITM_SPTNO) SPTNO"))
@@ -176,18 +178,21 @@ class ItemController extends Controller
                 $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
                 , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
                     ->where('MITM_ITMCD', 'LIKE', '%' . $cid . '%')
+                    ->where('MITM_MODEL', '1')
                     ->get()->toArray();
                 break;
             case 'itemnm':
                 $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
                 , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
                     ->where('MITM_ITMD1', 'LIKE', '%' . $cid . '%')
+                    ->where('MITM_MODEL', '1')
                     ->get()->toArray();
                 break;
             case 'spt':
                 $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
                 , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
                     ->where('MITM_SPTNO', 'LIKE', '%' . $cid . '%')
+                    ->where('MITM_MODEL', '1')
                     ->get()->toArray();
                 break;
         }
@@ -205,12 +210,14 @@ class ItemController extends Controller
                 $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
                 , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
                     ->where('MITM_ITMCD', 'LIKE', '%' . $search . '%')
+                    ->where('MITM_MODEL', '1')
                     ->get()->toArray();
                 break;
             case 'itemnm':
                 $rs = db::table('MITM_TBL')->selectRaw("rtrim(MITM_ITMCD) MITM_ITMCD, RTRIM(MITM_ITMD1) MITM_ITMD1, MITM_GWG, MITM_NWG
                 , ISNULL(MITM_HSCD,'') MITM_HSCD, MITM_BM, MITM_PPN, MITM_PPH,MITM_BOXWEIGHT")
                     ->where('MITM_ITMD1', 'LIKE', '%' . $search . '%')
+                    ->where('MITM_MODEL', '1')
                     ->get()->toArray();
                 break;
         }
@@ -425,15 +432,6 @@ class ItemController extends Controller
         header('Content-Type: application/pdf');
         header('Content-Disposition: inline; filename="kamu.pdf"');
         $writer->save('php://output');
-
-        // EXCEL
-        // $Excel_writer = new WriterXls($spreadsheet);
-        // header('Content-Type: application/vnd.ms-excel');
-        // header('Content-Disposition: attachment;filename="ItemReport.xls"');
-        // header('Cache-Control: max-age=0');
-        // ob_end_clean();
-        // $Excel_writer->save('php://output');
-
     }
 
     public function formItemReport()
@@ -457,5 +455,68 @@ class ItemController extends Controller
             $affectedRows += DB::connection('mysql_xray')->table('items')->insert($chunk);
         }
         return ['data' => $unregisterdItem, 'affecteRows' => $affectedRows];
+    }
+
+    public function splitC3(Request $request)
+    {
+        $message = '';
+
+        $newUnique = [];
+        if ($request->mode == 1) {
+            if ($request->uniqueBefore) {
+                // is already splited or combined
+                $rowsCount = DB::table('raw_material_labels')->where('code', $request->uniqueBefore)
+                    ->where('splitted', 1)
+                    ->orWhere('combined', 1)->count();
+                if ($rowsCount > 0) {
+                    return ['cd' => '0', 'msg' => 'Already splitted or combined'];
+                }
+            }
+
+            $qtyAfter1 = $request->new_qty;
+            $qtyAfter2 = $request->old_qty - $request->new_qty;
+            $Response = $this->generateLabelId([
+                'machineName' => $request->machineName ?? 'DF',
+                'documentCode' => 'split-doc',
+                'itemCode' => $request->item_code,
+                'qty' => $qtyAfter1,
+                'lotNumber' => $request->lot_number,
+                'userID' => $request->user_id,
+            ]);
+
+            $newUnique[] = $Response['data'];
+
+            $Response = $this->generateLabelId([
+                'machineName' => $request->machineName ?? 'DF',
+                'documentCode' => 'split-doc',
+                'itemCode' => $request->item_code,
+                'qty' => $qtyAfter2,
+                'lotNumber' => $request->lot_number,
+                'userID' => $request->user_id,
+            ]);
+            $newUnique[] = $Response['data'];
+        } else {
+        }
+        if ($request->uniqueBefore) {
+            $message = 'with unique';
+        } else {
+            $message = 'without unique';
+        }
+
+        $data = [];
+
+        if ($newUnique) {
+            $data = DB::table('raw_material_labels')
+                ->leftJoin('MITM_TBL', 'item_code', '=', 'MITM_ITMCD')
+                ->leftJoin('ITMLOC_TBL', 'MITM_ITMCD', '=', 'ITMLOC_ITM')
+                ->whereIn('code', $newUnique)
+                ->get([
+                    'code',
+                    DB::raw('RTRIM(MITM_SPTNO) SPTNO'),
+                    'quantity',
+                    DB::raw('RTRIM(ITMLOC_LOC) LOC'),                    
+                ]);
+        }
+        return ['cd' => "1", 'msg' => $message,  'data' => $data];
     }
 }
