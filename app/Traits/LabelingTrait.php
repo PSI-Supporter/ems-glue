@@ -28,6 +28,7 @@ trait LabelingTrait
             'created_by' => $data['userID'],
             'created_at' => $LabelDate . ' ' . $LabelTime,
             'composed' => $data['composed'] ?? NULL,
+            'parent_code' => $data['parent_code'] ?? NULL,
         ]);
 
         return ['data' => $NewID, 'created_at' => $LabelDate . ' ' . $LabelTime];

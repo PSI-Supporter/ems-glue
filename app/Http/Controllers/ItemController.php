@@ -462,17 +462,17 @@ class ItemController extends Controller
         $message = '';
 
         $newUnique = [];
-        if ($request->mode == 1) {
-            if ($request->uniqueBefore) {
-                // is already splited or combined
-                $rowsCount = DB::table('raw_material_labels')->where('code', $request->uniqueBefore)
-                    ->where('splitted', 1)
-                    ->orWhere('combined', 1)->count();
-                if ($rowsCount > 0) {
-                    return ['cd' => '0', 'msg' => 'Already splitted or combined'];
-                }
+        if ($request->uniqueBefore) {
+            // is already splited or combined
+            $rowsCount = DB::table('raw_material_labels')->where('code', $request->uniqueBefore)
+                ->where('splitted', 1)
+                ->orWhere('combined', 1)->count();
+            if ($rowsCount > 0) {
+                return ['cd' => '0', 'msg' => 'Already splitted or combined'];
             }
+        }
 
+        if ($request->mode == 1) {
             $qtyAfter1 = $request->new_qty;
             $qtyAfter2 = $request->old_qty - $request->new_qty;
             $Response = $this->generateLabelId([
@@ -482,8 +482,8 @@ class ItemController extends Controller
                 'qty' => $qtyAfter1,
                 'lotNumber' => $request->lot_number,
                 'userID' => $request->user_id,
+                'parent_code' => $request->uniqueBefore,
             ]);
-
             $newUnique[] = $Response['data'];
 
             $Response = $this->generateLabelId([
@@ -493,19 +493,45 @@ class ItemController extends Controller
                 'qty' => $qtyAfter2,
                 'lotNumber' => $request->lot_number,
                 'userID' => $request->user_id,
+                'parent_code' => $request->uniqueBefore,
             ]);
             $newUnique[] = $Response['data'];
         } else {
-        }
-        if ($request->uniqueBefore) {
-            $message = 'with unique';
-        } else {
-            $message = 'without unique';
+            $restValue = $request->old_qty % $request->new_qty ? 1 : 0;
+            $countLabel = floor($request->old_qty / $request->new_qty);
+            $lastLabelQty = $request->old_qty;
+            for ($i = 0; $i < $countLabel; $i++) {
+                $Response = $this->generateLabelId([
+                    'machineName' => $request->machineName ?? 'DF',
+                    'documentCode' => 'split-doc',
+                    'itemCode' => $request->item_code,
+                    'qty' => $request->new_qty,
+                    'lotNumber' => $request->lot_number,
+                    'userID' => $request->user_id,
+                    'parent_code' => $request->uniqueBefore,
+                ]);
+                $newUnique[] = $Response['data'];
+                $lastLabelQty -= $request->new_qty;
+            }
+
+            if ($restValue) {
+                $Response = $this->generateLabelId([
+                    'machineName' => $request->machineName ?? 'DF',
+                    'documentCode' => 'split-doc',
+                    'itemCode' => $request->item_code,
+                    'qty' => $lastLabelQty,
+                    'lotNumber' => $request->lot_number,
+                    'userID' => $request->user_id,
+                    'parent_code' => $request->uniqueBefore,
+                ]);
+                $newUnique[] = $Response['data'];
+            }
         }
 
         $data = [];
 
         if ($newUnique) {
+            $message = 'Splitted successfully';
             $data = DB::table('raw_material_labels')
                 ->leftJoin('MITM_TBL', 'item_code', '=', 'MITM_ITMCD')
                 ->leftJoin('ITMLOC_TBL', 'MITM_ITMCD', '=', 'ITMLOC_ITM')
@@ -514,8 +540,54 @@ class ItemController extends Controller
                     'code',
                     DB::raw('RTRIM(MITM_SPTNO) SPTNO'),
                     'quantity',
-                    DB::raw('RTRIM(ITMLOC_LOC) LOC'),                    
+                    DB::raw('RTRIM(ITMLOC_LOC) LOC'),
                 ]);
+        }
+
+        if ($request->uniqueBefore) {
+            // update parent label
+            $affectedRows = DB::table('raw_material_labels')
+                ->where('code', $request->uniqueBefore)
+                ->update(['splitted' => '1']);
+            $lastLocation = DB::table('ITH_TBL')
+                ->where('ITH_SER', $request->uniqueBefore)
+                ->groupBy('ITH_WH')
+                ->havingRaw('SUM(ITH_QTY)>0')
+                ->first('ITH_WH');
+
+            if ($lastLocation) {
+                DB::table('ITH_TBL')->insert([
+                    'ITH_ITMCD' => $request->item_code,
+                    'ITH_WH' =>  $lastLocation->ITH_WH,
+                    'ITH_DOC' => 'split-' . $request->uniqueBefore,
+                    'ITH_DATE' => date('Y-m-d'),
+                    'ITH_FORM' => 'SPLIT-C3',
+                    'ITH_QTY' => -1 * $request->old_qty,
+                    'ITH_SER' => $request->uniqueBefore,
+                    'ITH_USRID' =>  $request->user_id,
+                    'ITH_LUPDT' =>  date('Y-m-d H:i:s')
+                ]);
+
+                $dataTobeStored = [];
+
+                foreach ($data as $r) {
+                    $dataTobeStored[] = [
+                        'ITH_ITMCD' => $request->item_code,
+                        'ITH_WH' =>  $lastLocation->ITH_WH,
+                        'ITH_DOC' => 'split-' . $request->uniqueBefore,
+                        'ITH_DATE' => date('Y-m-d'),
+                        'ITH_FORM' => 'SPLIT-C3',
+                        'ITH_QTY' => $r->quantity,
+                        'ITH_SER' => $r->code,
+                        'ITH_USRID' =>  $request->user_id,
+                        'ITH_LUPDT' =>  date('Y-m-d H:i:s')
+                    ];
+                }
+
+                if ($dataTobeStored) {
+                    DB::table('ITH_TBL')->insert($dataTobeStored);
+                }
+            }
         }
         return ['cd' => "1", 'msg' => $message,  'data' => $data];
     }
