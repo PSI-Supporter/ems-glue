@@ -41,6 +41,6 @@ class UserController extends Controller
     function getName(Request $request)
     {
         $data = DB::table('VNPSI_USERS')->where('ID', $request->id)->first(['user_nicename']);
-        return ['data' => $data];
+        return ['cd' =>  $data ? 1 : 0,  'data' => $data];
     }
 }
