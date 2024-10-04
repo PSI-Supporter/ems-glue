@@ -539,7 +539,7 @@ class ItemController extends Controller
                 ->get([
                     'code',
                     DB::raw('RTRIM(MITM_SPTNO) SPTNO'),
-                    'quantity',
+                    DB::raw('CONVERT(INT,quantity) quantity'),
                     DB::raw('RTRIM(ITMLOC_LOC) LOC'),
                 ]);
         }
