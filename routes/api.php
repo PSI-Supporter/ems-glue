@@ -17,6 +17,7 @@ use App\Http\Controllers\ReturnController;
 use App\Http\Controllers\SimulationController;
 use App\Http\Controllers\SupplyController;
 use App\Http\Controllers\TransferLocationController;
+use App\Http\Controllers\UserController;
 use App\Http\Controllers\WOController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -217,4 +218,9 @@ Route::prefix('keikaku')->group(function () {
 
 Route::prefix('transaction')->group(function () {
     Route::post('shortage-part-report', [ITHController::class, 'generateShortagePartReport']);
+});
+
+# Terkait Users
+Route::prefix('users')->group(function () {
+    Route::get('{id}', [UserController::class, 'getName']);
 });
