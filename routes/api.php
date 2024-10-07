@@ -6,6 +6,7 @@ use App\Http\Controllers\CountryController;
 use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\ItemTracerController;
 use App\Http\Controllers\ITHController;
 use App\Http\Controllers\KursController;
 use App\Http\Controllers\LabelController;
@@ -223,4 +224,8 @@ Route::prefix('transaction')->group(function () {
 # Terkait Users
 Route::prefix('users')->group(function () {
     Route::get('{id}', [UserController::class, 'getName']);
+});
+
+Route::prefix('item-tracer')->group(function () {
+    Route::get('outstanding-scan', [ItemTracerController::class, 'getOustandingScan']);
 });
