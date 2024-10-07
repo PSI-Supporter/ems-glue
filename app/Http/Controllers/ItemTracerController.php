@@ -32,6 +32,9 @@ class ItemTracerController extends Controller
                 DB::raw(
                     'RTRIM(MITM_SPTNO) SPTNO',
                 ),
+                DB::raw(
+                    'RTRIM(MITM_STKUOM) UOM',
+                ),
             ]);
 
         foreach ($data as &$r) {
@@ -39,6 +42,7 @@ class ItemTracerController extends Controller
                 if ($r->itm == $d->ITMCD) {
                     $r->ITMD1  = $d->ITMD1;
                     $r->SPTNO  = $d->SPTNO;
+                    $r->UOM  = $d->UOM;
                     break;
                 }
             }
