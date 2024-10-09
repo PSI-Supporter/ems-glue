@@ -16,8 +16,8 @@ class ItemTracerController extends Controller
 
         $items = [];
         foreach ($data as $r) {
-            if (!in_array($r->itm, $items)) {
-                $items[] = $r->itm;
+            if (!in_array($r->Item_code, $items)) {
+                $items[] = $r->Item_code;
             }
         }
 
@@ -39,7 +39,7 @@ class ItemTracerController extends Controller
 
         foreach ($data as &$r) {
             foreach ($DBItems as $d) {
-                if ($r->itm == $d->ITMCD) {
+                if ($r->Item_code == $d->ITMCD) {
                     $r->ITMD1  = $d->ITMD1;
                     $r->SPTNO  = $d->SPTNO;
                     $r->UOM  = $d->UOM;
