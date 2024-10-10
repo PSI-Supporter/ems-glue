@@ -72,6 +72,7 @@ class ItemTracerController extends Controller
                 DB::raw("SWMP_LUPDT DATE_AT"),
                 DB::raw("RTRIM(SWMP_LUPBY) NIK"),
                 DB::raw("RTRIM(SWMP_REMARK) REMARK"),
+                DB::raw("RTRIM(SWMP_JOBNO) JOB"),
             );
         $data1 = DB::table('WMS_SWPS_HIS')->whereDate('SWPS_LUPDT', '>=', $request->dateFrom)
             ->whereDate('SWPS_LUPDT', '<=', $request->dateTo)
@@ -92,6 +93,7 @@ class ItemTracerController extends Controller
                 DB::raw("SWPS_LUPDT DATE_AT"),
                 DB::raw("RTRIM(SWPS_LUPBY) NIK"),
                 DB::raw("RTRIM(SWPS_REMARK) REMARK"),
+                DB::raw("RTRIM(SWPS_JOBNO) JOB"),
             );
         $data = DB::query()->fromSub($data1, "VX")
             ->orderBy('DATE_AT')
