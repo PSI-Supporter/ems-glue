@@ -614,6 +614,7 @@ class ItemController extends Controller
                 ->leftJoin('MITM_TBL', 'item_code', '=', 'MITM_ITMCD')
                 ->leftJoin('ITMLOC_TBL', 'MITM_ITMCD', '=', 'ITMLOC_ITM')
                 ->whereIn('code', $newUnique)
+                ->orderBy('created_at')
                 ->get([
                     'code',
                     DB::raw('RTRIM(MITM_SPTNO) SPTNO'),
