@@ -39,7 +39,15 @@ class LabelController extends Controller
             #END
             for ($i = 0; $i < $ttldata; $i++) {
                 $C3Data[] = [
-                    'C3LC_ITMCD' => $citm[0], 'C3LC_NLOTNO' => $lotasHome, 'C3LC_NQTY' => $newqty, 'C3LC_LOTNO' => $clot[$i], 'C3LC_QTY' => $cqty_com[$i], 'C3LC_REFF' => $newid, 'C3LC_LINE' => $i, 'C3LC_USRID' => $cuser, 'C3LC_LUPTD' => $currrtime,
+                    'C3LC_ITMCD' => $citm[0],
+                    'C3LC_NLOTNO' => $lotasHome,
+                    'C3LC_NQTY' => $newqty,
+                    'C3LC_LOTNO' => $clot[$i],
+                    'C3LC_QTY' => $cqty_com[$i],
+                    'C3LC_REFF' => $newid,
+                    'C3LC_LINE' => $i,
+                    'C3LC_USRID' => $cuser,
+                    'C3LC_LUPTD' => $currrtime,
                 ];
             }
 
@@ -63,5 +71,47 @@ class LabelController extends Controller
             $myar[] = ['cd' => '0', 'msg' => 'It seems You are using wrong menu or function'];
         }
         return ['status' => $myar, 'data' => $printdata];
+    }
+
+    function getRawMaterialLabelsHelper(Request $request)
+    {
+        $data = DB::table('raw_material_labels')
+            ->leftJoin('MITM_TBL', 'item_code', '=', 'MITM_ITMCD')
+            ->leftJoin('ITMLOC_TBL', 'item_code', '=', 'ITMLOC_ITM')
+            ->where('parent_code', '=', $request->code)
+            ->groupBy(
+                'code',
+                'doc_code',
+                'item_code',
+                'MITM_SPTNO',
+                "MITM_ITMD1",
+                'quantity',
+                'lot_code',
+                'created_by',
+            )
+            ->get([
+                'code',
+                'doc_code',
+                'item_code',
+                DB::raw("RTRIM(MITM_SPTNO) SPTNO"),
+                DB::raw("RTRIM(MITM_ITMD1) ITMD1"),
+                DB::raw('CONVERT(INT,quantity) quantity'),
+                'lot_code',
+                'created_by',
+                DB::raw("MAX(ITMLOC_LOC) LOC")
+            ]);
+        $distinctDoc = $data->unique('created_by')->values()->pluck('created_by');
+        $userDB = DB::table('VNPSI_USERS')->whereIn('ID', $distinctDoc)->get(['ID', 'user_nicename']);
+
+        foreach ($data as &$r) {
+            foreach ($userDB as $u) {
+                if ($r->created_by == $u->ID) {
+                    $userName = explode(' ', $u->user_nicename);
+                    $r->user_nicename = $userName[0];
+                    break;
+                }
+            }
+        }
+        return ['data' => $data, 'message' => 'OK'];
     }
 }

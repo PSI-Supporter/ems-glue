@@ -99,7 +99,10 @@ Route::prefix('inventory')->group(function () {
 
 
 # Terkait Label Raw Material
-Route::post('label/combine-raw-material', [LabelController::class, 'combineRMLabel']);
+Route::prefix('label')->group(function () {
+    Route::post('combine-raw-material', [LabelController::class, 'combineRMLabel']);
+    Route::post('c3-reprint', [LabelController::class, 'getRawMaterialLabelsHelper']);
+});
 
 # Terkait laporan
 Route::prefix('report')->group(function () {
