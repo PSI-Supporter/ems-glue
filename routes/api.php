@@ -232,5 +232,7 @@ Route::prefix('users')->group(function () {
 
 Route::prefix('item-tracer')->group(function () {
     Route::get('outstanding-scan', [ItemTracerController::class, 'getOustandingScan']);
+    Route::get('outstanding-scan-detail', [ItemTracerController::class, 'getOutstandingScanDetail']);
+    Route::post('adjust-detail', [ItemTracerController::class, 'adjustDetail']);
     Route::get('lot', [ItemTracerController::class, 'getReportTraceLot']);
 });

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -9,6 +10,12 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
 class ItemTracerController extends Controller
 {
+
+    public function __construct()
+    {
+        date_default_timezone_set('Asia/Jakarta');
+    }
+
     function getOustandingScan(Request $request)
     {
         $WOOutput = DB::table('WMS_CLS_JOB')->where('CLS_PSNNO', $request->PSNDoc)
@@ -201,5 +208,188 @@ class ItemTracerController extends Controller
         header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
         header('Cache-Control: max-age=0');
         $writer->save('php://output');
+    }
+
+    function getOutstandingScanDetail(Request $request)
+    {
+        $data = DB::table('SPLSCN_TBL')
+            ->leftJoin('MITM_TBL', 'SPLSCN_ITMCD', '=', 'MITM_ITMCD')
+            ->leftJoin('raw_material_labels', 'SPLSCN_UNQCODE', '=', 'code')
+            ->where('SPLSCN_DOC', $request->doc)
+            ->where('SPLSCN_ITMCD', $request->item_code)
+            ->whereNull('splitted')
+            ->get([
+                'SPLSCN_DOC',
+                'SPLSCN_UNQCODE',
+                'SPLSCN_ITMCD',
+                'SPLSCN_LOTNO',
+                'SPLSCN_QTY',
+                DB::raw("RTRIM(MITM_SPTNO) SPTNO"),
+                'SPLSCN_PROCD',
+                'SPLSCN_MC',
+                'SPLSCN_ORDERNO',
+                'splitted'
+            ]);
+
+        $PRDData1 = DB::table('WMS_SWPS_HIS')->where('SWPS_PSNNO', $request->doc)
+            ->where('SWPS_ITMCD', $request->item_code)
+            ->select(DB::raw('RTRIM(SWPS_ITMCD) NEW_ITEM_CODE'), DB::raw("RTRIM(SWPS_UNQ) NEW_UNIQUE"));
+
+        $PRDData = DB::table('WMS_SWMP_HIS')
+            ->where('SWMP_PSNNO', $request->doc)
+            ->where('SWMP_ITMCD', $request->item_code)
+            ->union($PRDData1)
+            ->select([DB::raw('RTRIM(SWMP_ITMCD) NEW_ITEM_CODE'), DB::raw("RTRIM(SWMP_UNQ) NEW_UNIQUE")]);
+
+        $PRDAct = DB::query()->fromSub($PRDData, 'VX')->get();
+
+        foreach ($data as &$r) {
+            $r->isUsed = false;
+            foreach ($PRDAct as $a) {
+                if ($r->SPLSCN_UNQCODE == $a->NEW_UNIQUE) {
+                    $r->isUsed = true;
+                }
+            }
+        }
+        unset($r);
+
+        return [
+            'data' => $PRDAct,
+            'dataPSN' => $data->filter(function ($item) {
+                return $item->isUsed == false;
+            })->values()
+        ];
+    }
+
+    function adjustDetail(Request $request)
+    {
+
+        $lastRowPS = DB::table('WMS_SWPS_HIS')
+            ->where('SWPS_PSNNO', $request->doc)
+            ->where('SWPS_PROCD', $request->procd)
+            ->where('SWPS_ITMCD', $request->item_code)
+            ->whereRaw('ISNULL(SWPS_BAL,0)!=1')
+            ->orderBy('SWPS_LUPDT', 'desc')
+            ->first();
+        $message = 'Adjusted successfully';
+
+        $wo = NULL;
+        $line_code = NULL;
+        $mc_mcz_itm = NULL;
+        $line = NULL;
+        $old_item_code = NULL;
+        $old_lot_code = NULL;
+        $old_qty = 0;
+        $old_unique_key = NULL;
+        $old_job_code = NULL;
+        $old_spid = NULL;
+        $old_mc = NULL;
+        $old_mcz = NULL;
+        $old_model_code = NULL;
+        $old_bom_rev = NULL;
+        $old_main_item_code = NULL;
+
+        try {
+            DB::beginTransaction();
+
+            if ($lastRowPS->SWPS_ITMCD ?? 0 != 0) {
+                $wo = $lastRowPS->SWPS_WONO;
+                $line_code = $lastRowPS->SWPS_LINENO;
+                $mc_mcz_itm = $lastRowPS->SWPS_MCMCZITM;
+                $line = $lastRowPS->SWPS_LINE;
+                $old_item_code = $lastRowPS->SWPS_NITMCD;
+                $old_lot_code = $lastRowPS->SWPS_NLOTNO;
+                $old_qty = $lastRowPS->NQTY;
+                $old_unique_key = $lastRowPS->SWPS_NUNQ;
+                $old_job_code = $lastRowPS->SWPS_JOBNO;
+                $old_spid = $lastRowPS->SWPS_SPID;
+                $old_mc = $lastRowPS->SWPS_MC;
+                $old_mcz = $lastRowPS->SWPS_MCZ;
+                $old_model_code = $lastRowPS->SWPS_MDLCD;
+                $old_bom_rev = $lastRowPS->SWPS_BOMRV;
+                $old_main_item_code = $lastRowPS->SWPS_MAINITMCD;
+
+                DB::table('WMS_SWPS_HIS')
+                    ->where('SWPS_WONO', $lastRowPS->SWPS_WONO)
+                    ->where('SWPS_MCMCZITM', $lastRowPS->SWPS_MCMCZITM)
+                    ->where('SWPS_NLOTNO', $lastRowPS->SWPS_NLOTNO)
+                    ->where('SWPS_NUNQ', $lastRowPS->SWPS_NUNQ)
+                    ->where('SWPS_SPID', $lastRowPS->SWPS_SPID)
+                    ->where('SWPS_NITMCD', $lastRowPS->SWPS_NITMCD)
+                    ->update(['SWPS_BAL' => 1]);
+            } else {
+                $lastRowMP = DB::table('WMS_SWMP_HIS')
+                    ->where('SWMP_PSNNO', $request->doc)
+                    ->where('SWMP_PROCD', $request->procd)
+                    ->where('SWMP_ITMCD', $request->item_code)
+                    ->whereRaw('ISNULL(SWMP_BAL,0) !=1')
+                    ->orderBy('SWMP_LUPDT', 'desc')
+                    ->first();
+
+                if (!$lastRowMP) {
+                    return ['message' => 'there is no previous supplies'];
+                }
+
+                $wo = $lastRowMP->SWMP_WONO;
+                $line_code = $lastRowMP->SWMP_LINENO;
+                $mc_mcz_itm = $lastRowMP->SWMP_MCMCZITM;
+                $line = $lastRowMP->SWMP_LINE;
+                $old_item_code = $lastRowMP->SWMP_ITMCD;
+                $old_lot_code = $lastRowMP->SWMP_LOTNO;
+                $old_qty = $lastRowMP->SWMP_QTY;
+                $old_unique_key = $lastRowMP->SWMP_UNQ;
+                $old_job_code = $lastRowMP->SWMP_JOBNO;
+                $old_spid = $lastRowMP->SWMP_SPID;
+                $old_mc = $lastRowMP->SWMP_MC;
+                $old_mcz = $lastRowMP->SWMP_MCZ;
+                $old_model_code = $lastRowMP->SWMP_MDLCD;
+                $old_bom_rev = $lastRowMP->SWMP_BOMRV;
+                $old_main_item_code = $lastRowMP->SWMP_MAINITMCD;
+
+                DB::table('WMS_SWMP_HIS')
+                    ->where('SWMP_WONO', $lastRowMP->SWMP_WONO)
+                    ->where('SWMP_MCMCZITM', $lastRowMP->SWMP_MCMCZITM)
+                    ->where('SWMP_LOTNO', $lastRowMP->SWMP_LOTNO)
+                    ->where('SWMP_UNQ', $lastRowMP->SWMP_UNQ)
+                    ->where('SWMP_SPID', $lastRowMP->SWMP_SPID)
+                    ->where('SWMP_ITMCD', $lastRowMP->SWMP_ITMCD)
+                    ->update(['SWMP_BAL' => 1]);
+            }
+
+            $data = [
+                'SWPS_WONO' => $wo,
+                'SWPS_PROCD' => $request->procd,
+                'SWPS_LINENO' => $line_code,
+                'SWPS_MCMCZITM' => $mc_mcz_itm,
+                'SWPS_ITMCD' => $old_item_code,
+                'SWPS_LOTNO' => $old_lot_code,
+                'SWPS_NITMCD' => $request->item_code,
+                'SWPS_NLOTNO' => $request->lot_code,
+                'SWPS_REMQT' => NULL,
+                'SWPS_LUPDT' => date('Y-m-d H:i:s'),
+                'SWPS_LUPBY' => $request->user_id,
+                'SWPS_REMARK' => 'OK',
+                'QTY' => $old_qty,
+                'NQTY' => $request->item_qty,
+                'SWPS_UNQ' => $old_unique_key,
+                'SWPS_NUNQ' => $request->unique_code,
+                'SWPS_PSNNO' => $request->doc,
+                'SWPS_JOBNO' => $old_job_code,
+                'SWPS_SPID' => $old_spid,
+                'SWPS_MC' => $old_mc,
+                'SWPS_MCZ' => $old_mcz,
+                'SWPS_MDLCD' => $old_model_code,
+                'SWPS_BOMRV' => $old_bom_rev,
+                'SWPS_MAINITMCD' => $old_main_item_code,
+                'SWPS_JUDGE' => 'ADJ',
+                'SWPS_BAL' => 0
+            ];
+            DB::table('WMS_SWPS_HIS')->insert($data);
+            DB::commit();
+        } catch (Exception $e) {
+            return response()->json(['message' => $e->getMessage() . " on line " . $e->getLine()], 406);
+        }
+
+        return ['message' => $message, $request->all()];
     }
 }
