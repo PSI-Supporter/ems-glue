@@ -276,7 +276,6 @@ class ItemTracerController extends Controller
         $wo = NULL;
         $line_code = NULL;
         $mc_mcz_itm = NULL;
-        $line = NULL;
         $old_item_code = NULL;
         $old_lot_code = NULL;
         $old_qty = 0;
@@ -296,7 +295,6 @@ class ItemTracerController extends Controller
                 $wo = $lastRowPS->SWPS_WONO;
                 $line_code = $lastRowPS->SWPS_LINENO;
                 $mc_mcz_itm = $lastRowPS->SWPS_MCMCZITM;
-                $line = $lastRowPS->SWPS_LINE;
                 $old_item_code = $lastRowPS->SWPS_NITMCD;
                 $old_lot_code = $lastRowPS->SWPS_NLOTNO;
                 $old_qty = $lastRowPS->NQTY;
@@ -332,8 +330,7 @@ class ItemTracerController extends Controller
 
                 $wo = $lastRowMP->SWMP_WONO;
                 $line_code = $lastRowMP->SWMP_LINENO;
-                $mc_mcz_itm = $lastRowMP->SWMP_MCMCZITM;
-                $line = $lastRowMP->SWMP_LINE;
+                $mc_mcz_itm = $lastRowMP->SWMP_MCMCZITM;                
                 $old_item_code = $lastRowMP->SWMP_ITMCD;
                 $old_lot_code = $lastRowMP->SWMP_LOTNO;
                 $old_qty = $lastRowMP->SWMP_QTY;
