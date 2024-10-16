@@ -233,20 +233,20 @@ class ItemTracerController extends Controller
 
         $PRDData1 = DB::table('WMS_SWPS_HIS')->where('SWPS_PSNNO', $request->doc)
             ->where('SWPS_ITMCD', $request->item_code)
-            ->select(DB::raw('RTRIM(SWPS_ITMCD) NEW_ITEM_CODE'), DB::raw("RTRIM(SWPS_UNQ) NEW_UNIQUE"));
+            ->select(DB::raw('RTRIM(SWPS_ITMCD) NEW_ITEM_CODE'), DB::raw("RTRIM(SWPS_UNQ) NEW_UNIQUE"), DB::raw("RTRIM(SWPS_NUNQ) NEW_UNIQUE1"));
 
         $PRDData = DB::table('WMS_SWMP_HIS')
             ->where('SWMP_PSNNO', $request->doc)
             ->where('SWMP_ITMCD', $request->item_code)
             ->union($PRDData1)
-            ->select([DB::raw('RTRIM(SWMP_ITMCD) NEW_ITEM_CODE'), DB::raw("RTRIM(SWMP_UNQ) NEW_UNIQUE")]);
+            ->select([DB::raw('RTRIM(SWMP_ITMCD) NEW_ITEM_CODE'), DB::raw("RTRIM(SWMP_UNQ) NEW_UNIQUE"), DB::raw("'' NEW_UNIQUE1")]);
 
         $PRDAct = DB::query()->fromSub($PRDData, 'VX')->get();
 
         foreach ($data as &$r) {
             $r->isUsed = false;
             foreach ($PRDAct as $a) {
-                if ($r->SPLSCN_UNQCODE == $a->NEW_UNIQUE) {
+                if ($r->SPLSCN_UNQCODE == $a->NEW_UNIQUE || $r->SPLSCN_UNQCODE == $a->NEW_UNIQUE1) {
                     $r->isUsed = true;
                 }
             }
@@ -330,7 +330,7 @@ class ItemTracerController extends Controller
 
                 $wo = $lastRowMP->SWMP_WONO;
                 $line_code = $lastRowMP->SWMP_LINENO;
-                $mc_mcz_itm = $lastRowMP->SWMP_MCMCZITM;                
+                $mc_mcz_itm = $lastRowMP->SWMP_MCMCZITM;
                 $old_item_code = $lastRowMP->SWMP_ITMCD;
                 $old_lot_code = $lastRowMP->SWMP_LOTNO;
                 $old_qty = $lastRowMP->SWMP_QTY;
