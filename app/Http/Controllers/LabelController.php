@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\C3LC;
 use App\Traits\LabelingTrait;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -11,6 +12,11 @@ class LabelController extends Controller
 {
     use LabelingTrait;
 
+    public function __construct()
+    {
+        date_default_timezone_set('Asia/Jakarta');
+    }
+    
     function combineRMLabel(Request $request)
     {
         $currdate = date('YmdHis');
@@ -20,53 +26,89 @@ class LabelController extends Controller
         $citm = $request->item;
         $clot = $request->lotNumber;
         $cqty_com = $request->qty;
+        $unique_com = $request->oldUniqueKey;
         $cuser = $request->userId;
+
+        $printdata = [];
         if (is_array($citm)) {
             $ttldata = count($citm);
-            $lot_distinc = array_values(array_unique($clot));
             $C3Data = [];
             $newqty = 0;
             $lotasHome = $clot[0];
-            if (count($lot_distinc) > 1) {
-                $lotasHome = substr($clot[0], 0, 23);
-                $lotasHome .= '$C';
-            }
+            $greatestQty = 0;
+
             for ($i = 0; $i < $ttldata; $i++) {
                 $newqty += $cqty_com[$i];
+
+                if ($greatestQty < $cqty_com[$i]) {
+                    $greatestQty = $cqty_com[$i];
+                    $lotasHome = substr($clot[0], 0, 23);
+                }
             }
+            $lotasHome .= '$C';
+
             #PREPARE NEW ROW ID
             $newid = "CM" . $currdate; #combine manual
             #END
+
             for ($i = 0; $i < $ttldata; $i++) {
-                $C3Data[] = [
-                    'C3LC_ITMCD' => $citm[0],
-                    'C3LC_NLOTNO' => $lotasHome,
-                    'C3LC_NQTY' => $newqty,
-                    'C3LC_LOTNO' => $clot[$i],
-                    'C3LC_QTY' => $cqty_com[$i],
-                    'C3LC_REFF' => $newid,
-                    'C3LC_LINE' => $i,
-                    'C3LC_USRID' => $cuser,
-                    'C3LC_LUPTD' => $currrtime,
-                ];
+                // is already splited or combined
+                $rowsCount = DB::table('raw_material_labels')->where('code', $unique_com[$i])
+                    ->where('splitted', 1)
+                    ->orWhere('combined', 1)->count();
+                if ($rowsCount > 0) {
+                    $myar[] = ['cd' => '0', 'msg' => $unique_com[$i] . ' Already splitted or combined'];
+                    return ['status' => $myar];
+                }
             }
 
-            $Response = $this->generateLabelId([
-                'machineName' => $request->machineName ?? 'DF',
-                'documentCode' => 'COMBINE-' . $newid,
-                'itemCode' => $citm[0],
-                'qty' => $newqty,
-                'lotNumber' => $lotasHome,
-                'userID' => $request->userId,
-            ]);
+            try {
+                DB::beginTransaction();
+                $Response = $this->generateLabelId([
+                    'machineName' => $request->machineName ?? 'DF',
+                    'documentCode' => 'COMBINE-' . $newid,
+                    'itemCode' => $citm[0],
+                    'qty' => $newqty,
+                    'lotNumber' => $lotasHome,
+                    'userID' => $request->userId,
+                    'composed' => 1
+                ]);
 
-            $rack = DB::table('ITMLOC_TBL')
-                ->select('ITMLOC_LOC')
-                ->where('ITMLOC_ITM', $citm[0])->first();
+                for ($i = 0; $i < $ttldata; $i++) {
+                    $C3Data[] = [
+                        'C3LC_ITMCD' => $citm[0],
+                        'C3LC_NLOTNO' => $lotasHome,
+                        'C3LC_NQTY' => $newqty,
+                        'C3LC_LOTNO' => $clot[$i],
+                        'C3LC_QTY' => $cqty_com[$i],
+                        'C3LC_REFF' => $newid,
+                        'C3LC_LINE' => $i,
+                        'C3LC_USRID' => $cuser,
+                        'C3LC_LUPTD' => $currrtime,
+                        'C3LC_COMID' => $unique_com[$i],
+                        'C3LC_NEWID' => $Response['data'],
+                    ];
 
-            C3LC::insert($C3Data);
-            $printdata[] = ['NEWQTY' => $newqty, 'NEWLOT' => $lotasHome, 'SER_ID' => $Response['data'], 'rackCode' => $rack->ITMLOC_LOC];
-            $myar[] = ['cd' => '1', 'msg' => 'Saved successfully'];
+                    if ($unique_com[$i]) {
+                        DB::table('raw_material_labels')->where('code', $unique_com[$i])->update(['combined' => 1]);
+                    }
+                }
+
+                $rack = DB::table('ITMLOC_TBL')
+                    ->select('ITMLOC_LOC')
+                    ->where('ITMLOC_ITM', $citm[0])->first();
+
+                C3LC::insert($C3Data);
+
+                $printdata[] = ['NEWQTY' => $newqty, 'NEWLOT' => $lotasHome, 'SER_ID' => $Response['data'], 'rackCode' => $rack->ITMLOC_LOC];
+                $myar[] = ['cd' => '1', 'msg' => 'Saved successfully'];
+
+                DB::commit();
+            } catch (Exception $e) {
+                DB::rollBack();
+                $myar[] = ['cd' => '0', 'msg' => $e->getMessage() . " on line " . $e->getLine()];
+                return ['status' => $myar, 'data' => $printdata];
+            }
         } else {
             $myar[] = ['cd' => '0', 'msg' => 'It seems You are using wrong menu or function'];
         }
