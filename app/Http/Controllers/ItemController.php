@@ -464,9 +464,12 @@ class ItemController extends Controller
         $newUnique = [];
         if ($request->uniqueBefore) {
             // is already splited or combined
-            $rowsCount = DB::table('raw_material_labels')->where('code', $request->uniqueBefore)
-                ->where('splitted', 1)
-                ->orWhere('combined', 1)->count();
+            $rowsCount = DB::table('raw_material_labels')
+                ->where(function ($query) use ($request) {
+                    $query->where('code', $request->uniqueBefore)->where('splitted', 1);
+                })->orWhere(function ($query) use ($request) {
+                    $query->where('code', $request->uniqueBefore)->where('combined', 1);
+                })->count();
             if ($rowsCount > 0) {
                 return ['cd' => '0', 'msg' => 'Already splitted or combined'];
             }
