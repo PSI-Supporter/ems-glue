@@ -7,6 +7,8 @@ use App\Traits\LabelingTrait;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
 class LabelController extends Controller
 {
@@ -159,5 +161,111 @@ class LabelController extends Controller
             }
         }
         return ['data' => $data, 'message' => 'OK'];
+    }
+
+    function getReportJoinReels(Request $request)
+    {
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $sheet->setCellValue('A5', 'No');
+        $sheet->setCellValue('B5', 'Date');
+        $sheet->setCellValue('C5', 'Part Code');
+        $sheet->setCellValue('D5', 'Part Name');
+        $sheet->setCellValue('E5', 'Reel');
+
+        $sheet->mergeCells('A5:A7', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('B5:B7', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('C5:C7', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('D5:D7', $sheet::MERGE_CELL_CONTENT_HIDE);
+
+
+        $data = DB::table('C3LC_TBL')->leftJoin('MITM_TBL', 'C3LC_ITMCD', '=', 'MITM_ITMCD')
+            ->whereDate('C3LC_LUPTD', '>=', $request->dateFrom)
+            ->whereDate('C3LC_LUPTD', '<=', $request->dateTo)
+            ->orderBy('C3LC_LUPTD')
+            ->orderBy('C3LC_LINE')
+            ->get(['C3LC_TBL.*', DB::raw('RTRIM(MITM_SPTNO) SPTNO'), DB::raw('CONVERT(DATE, C3LC_LUPTD) CONVERT_DATE')]);
+
+        $rowAt = 7;
+        $tempGroup = '-';
+        $columnAt = 5;
+        $orderNumber = 0;
+        $maxColumn = 3;
+
+        foreach ($data as $r) {
+            if ($tempGroup != $r->C3LC_REFF) {
+                $tempGroup = $r->C3LC_REFF;
+                $orderNumber++;
+                $rowAt++;
+                $columnAt = 5;
+
+                $sheet->setCellValue([1, $rowAt], $orderNumber);
+                $sheet->setCellValue([2, $rowAt], $r->CONVERT_DATE);
+                $sheet->setCellValue([3, $rowAt], $r->C3LC_ITMCD);
+                $sheet->setCellValue([4, $rowAt], $r->SPTNO);
+            } else {
+                $columnAt += 3;
+                if ($maxColumn < $columnAt) {
+                    $maxColumn = $columnAt;
+                }
+            }
+            $sheet->setCellValue([$columnAt, $rowAt], '3N2');
+            $sheet->setCellValue([$columnAt, $rowAt], $r->C3LC_QTY);
+            $sheet->setCellValue([$columnAt + 1, $rowAt], $r->C3LC_LOTNO);
+            $sheet->setCellValue([$columnAt + 2, $rowAt], (string)$r->C3LC_NEWID);
+            $sheet->getCell([$columnAt + 2, $rowAt])->getStyle()->getNumberFormat()->setFormatCode('@');
+        }
+
+        $reelAt = 1;
+        for ($i = 5; $i <= $maxColumn; $i += 3) {
+            $sheet->setCellValue([$i, 6], $reelAt);
+            $sheet->setCellValue([$i, 7], 'Qty');
+            $sheet->setCellValue([$i + 1, 7], 'Lot Number');
+            $sheet->setCellValue([$i + 2, 7], 'Unique Key');
+
+            $sheet->mergeCells([$i, 6, $i + 2, 6], $sheet::MERGE_CELL_CONTENT_HIDE);
+            $reelAt++;
+        }
+
+        for ($r = 8; $r <= $rowAt; $r++) {
+            $_formula = '=';
+            $_formula2 = '';
+            for ($i = 5; $i <= $maxColumn; $i += 3) {
+                $_formula .= $sheet->getCell([$i, $r])->getColumn() . $r . '+';
+                $_formula2 .= $sheet->getCell([$i, $r])->getColumn() . $r . ',';
+            }
+            $_formula = substr($_formula, 0, strlen($_formula) - 1);
+            $_formula2 = substr($_formula2, 0, strlen($_formula2) - 1);
+            $sheet->setCellValue([$maxColumn + 3, $r], $_formula);
+            $sheet->setCellValue([$maxColumn + 4, $r], "=count(" . $_formula2 . ")-1");
+        }
+        $sheet->setCellValue([$maxColumn + 3, 5], 'Total Qty');
+        $sheet->setCellValue([$maxColumn + 4, 5], 'Jumlah Joint');
+
+        $sheet->mergeCells([5, 5, ($maxColumn + 2), 5], $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells([$maxColumn + 3, 5, ($maxColumn + 3), 7], $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells([$maxColumn + 4, 5, ($maxColumn + 4), 7], $sheet::MERGE_CELL_CONTENT_HIDE);
+
+        $sheet->getStyle([1, 5, ($maxColumn + 4), 7])->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle([1, 5, ($maxColumn + 4), 7])->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
+        $sheet->getStyle([1, 5, ($maxColumn + 4), 7])->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('d3d3d3');
+
+        $sheet->freezePane('C8');
+
+        $sheet->getPageSetup()
+            ->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE);
+        $sheet->getPageSetup()
+            ->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_A4);
+
+        $stringjudul = "Join Reels Report from " . $request->dateFrom . " to " . $request->dateTo;
+
+        $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
+        $filename = $stringjudul;
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
+        header('Cache-Control: max-age=0');
+        $writer->save('php://output');
     }
 }
