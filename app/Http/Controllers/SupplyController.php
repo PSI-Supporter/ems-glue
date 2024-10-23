@@ -448,7 +448,7 @@ class SupplyController extends Controller
                         ->where("SPL_DOC", $request->doc)
                         ->groupBy("SPL_REFDOCNO")->get();
                 } else {
-                    $WorkOrder = DB::table("XPPSN1")->select("PPSN1_WONO")
+                    $WorkOrder = DB::table("XPPSN1")->select(DB::raw("RTRIM(PPSN1_WONO) PPSN1_WONO"))
                         ->where("PPSN1_PSNNO", $request->doc)
                         ->groupBy("PPSN1_WONO")->get();
 
@@ -456,8 +456,6 @@ class SupplyController extends Controller
                     $RSKittingReferenceDocument = DB::table("SPL_TBL")->select(DB::raw("SPL_DOC SPL_REFDOCNO,MAX(SPL_REFDOCCAT) REFDOCCAT"))
                         ->where("SPL_REFDOCNO", $request->doc)
                         ->groupBy("SPL_DOC")->get();
-
-                    $result[] = ["cd" => 1, "msg" => "Go ahead"];
                 }
             }
             $result[] = ["cd" => 1, "msg" => "GO AHEAD"];
