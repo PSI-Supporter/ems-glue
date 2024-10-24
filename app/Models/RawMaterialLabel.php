@@ -21,6 +21,7 @@ class RawMaterialLabel extends Model
         'created_by',
         'updated_by',
         'deleted_by',
-        'deleted_at',    
+        'deleted_at',
+        'item_value',
     ];
 }
