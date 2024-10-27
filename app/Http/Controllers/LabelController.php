@@ -26,6 +26,7 @@ class LabelController extends Controller
         $currrtime = date('Y-m-d H:i:s');
 
         $citm = $request->item;
+        $itemValue = $request->itemValue;
         $clot = $request->lotNumber;
         $cqty_com = $request->qty;
         $unique_com = $request->oldUniqueKey;
@@ -38,6 +39,7 @@ class LabelController extends Controller
             $newqty = 0;
             $lotasHome = $clot[0];
             $greatestQty = 0;
+            $valueasHome = '';
 
             for ($i = 0; $i < $ttldata; $i++) {
                 $newqty += $cqty_com[$i];
@@ -45,14 +47,16 @@ class LabelController extends Controller
                 if ($greatestQty < $cqty_com[$i]) {
                     $greatestQty = $cqty_com[$i];
                     $lotasHome = substr($clot[0], 0, 23);
+                    $valueasHome = $itemValue[$i];
                 }
             }
-            $lotasHome .= '$C';
+            $lotasHome .= '$C';            
 
             #PREPARE NEW ROW ID
             $newid = "CM" . $currdate; #combine manual
             #END
 
+            
             for ($i = 0; $i < $ttldata; $i++) {
                 // is already splited or combined
                 $rowsCount = DB::table('raw_material_labels')
@@ -77,7 +81,8 @@ class LabelController extends Controller
                     'qty' => $newqty,
                     'lotNumber' => $lotasHome,
                     'userID' => $request->userId,
-                    'composed' => 1
+                    'composed' => 1,
+                    'item_value' => $valueasHome
                 ]);
 
                 for ($i = 0; $i < $ttldata; $i++) {
@@ -93,6 +98,8 @@ class LabelController extends Controller
                         'C3LC_LUPTD' => $currrtime,
                         'C3LC_COMID' => $unique_com[$i],
                         'C3LC_NEWID' => $Response['data'],
+                        'C3LC_DOC' => $request->doc ?? NULL,
+                        'C3LC_VALUE' => $valueasHome,
                     ];
 
                     if ($unique_com[$i]) {
@@ -101,12 +108,19 @@ class LabelController extends Controller
                 }
 
                 $rack = DB::table('ITMLOC_TBL')
-                    ->select('ITMLOC_LOC')
+                    ->leftJoin('MITM_TBL', 'ITMLOC_ITM', '=', 'MITM_ITMCD')
+                    ->select('ITMLOC_LOC', DB::raw("RTRIM(MITM_SPTNO) SPTNO"))
                     ->where('ITMLOC_ITM', $citm[0])->first();
 
                 C3LC::insert($C3Data);
 
-                $printdata[] = ['NEWQTY' => $newqty, 'NEWLOT' => $lotasHome, 'SER_ID' => $Response['data'], 'rackCode' => $rack->ITMLOC_LOC];
+                $printdata[] = [
+                    'NEWQTY' => $newqty,
+                    'NEWLOT' => $lotasHome,
+                    'SER_ID' => $Response['data'],
+                    'rackCode' => $rack->ITMLOC_LOC ?? '',
+                    'itemName' => $rack->SPTNO ?? ''
+                ];
                 $myar[] = ['cd' => '1', 'msg' => 'Saved successfully'];
 
                 DB::commit();
@@ -116,7 +130,7 @@ class LabelController extends Controller
                 return ['status' => $myar, 'data' => $printdata];
             }
         } else {
-            $myar[] = ['cd' => '0', 'msg' => 'It seems You are using wrong menu or function'];
+            $myar[] = ['cd' => '0', 'msg' => 'It seems You are using wrong menu or function', $request->all()];
         }
         return ['status' => $myar, 'data' => $printdata];
     }

@@ -511,8 +511,10 @@ class SupplyController extends Controller
     function isPartAlreadySuppliedInDocument(Request $request)
     {
         $whereParam = [];
+        $partMeasurement = [];
         if ($request->item) {
             $whereParam[] = ['SPLSCN_ITMCD', '=',  $request->item];
+            $partMeasurement = DB::table('ENG_TECPRTLC')->where('PRTCD', $request->item)->first();
         }
         if ($request->lotNumber) {
             $whereParam[] = ['SPLSCN_LOTNO', '=',  $request->lotNumber];
@@ -530,7 +532,7 @@ class SupplyController extends Controller
             ->get();
         $result = [];
         if ($SuppliedPart->count() > 0) {
-            $result[] = ["cd" => 1, "msg" => "GO AHEAD", 'data' => $SuppliedPart];
+            $result[] = ["cd" => 1, "msg" => "GO AHEAD", 'data' => $SuppliedPart, 'dataMeasurement' => $partMeasurement];
         } else {
             $result[] = ["cd" => 0, "msg" => "Lot No not found $request->lotNumber"];
         }

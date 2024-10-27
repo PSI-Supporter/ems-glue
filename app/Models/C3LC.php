@@ -21,6 +21,7 @@ class C3LC extends Model
         'C3LC_LUPTD',
         'C3LC_COMID',
         'C3LC_NEWID',
-        'C3LC_DOC'
+        'C3LC_DOC',
+        'C3LC_VALUE'
     ];
 }

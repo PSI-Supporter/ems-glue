@@ -68,6 +68,7 @@ trait LabelingTrait
             'created_at' => $LabelDate . ' ' . $LabelTime,
             'composed' => $data['composed'] ?? NULL,
             'parent_code' => $data['parent_code'] ?? NULL,
+            'item_value' => $data['item_value'] ?? NULL,
         ]);
 
 
