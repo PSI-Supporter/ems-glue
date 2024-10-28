@@ -192,104 +192,88 @@ class SupplyController extends Controller
 
         #try 2nd time
         foreach ($RSBase as &$r) {
-            $think = true;
-            while ($think) {
-                $grasp = false;
-                foreach ($RSPartSupply as $d) {
-                    if (($r['PPSN2_FR'] == $d['SPLSCN_FEDR']) && ($r['PPSN2_MCZ'] == $d['SPLSCN_ORDERNO']) && ($r['PPSN2_SUBPN'] == $d['SPLSCN_ITMCD']) && $d['USED'] == false) {
-                        $grasp = true;
-                        break;
-                    }
+            $grasp = false;
+            foreach ($RSPartSupply as $d) {
+                if (($r['PPSN2_FR'] == $d['SPLSCN_FEDR']) && ($r['PPSN2_MCZ'] == $d['SPLSCN_ORDERNO']) && ($r['PPSN2_SUBPN'] == $d['SPLSCN_ITMCD']) && !$d['USED']) {
+                    $grasp = true;
+                    break;
                 }
-                if ($grasp) {
-                    foreach ($RSPartSupply as &$d) {
-                        if (($r['PPSN2_MCZ'] == $d['SPLSCN_ORDERNO']) && ($r['PPSN2_SUBPN'] == $d['SPLSCN_ITMCD']) && $d['USED'] == false and ($r['PPSN2_FR'] == $d['SPLSCN_FEDR'])) {
-                            $think2 = true;
-                            while ($think2) {
-                                if ($r['PPSN2_REQQT'] > $r['TTLSCN']) {
-                                    if ($d['USED'] == false) {
-                                        if (count($RSFinal) == 0) {
-                                            $RSFinal[] = [
-                                                "SPLSCN_ID" => $d["SPLSCN_ID"],
-                                                "SPLSCN_USRID" => $d["SPLSCN_USRID"],
-                                                "PPSN2_DATANO" => $r["PPSN2_DATANO"],
-                                                "SPLSCN_FEDR" => $d["SPLSCN_FEDR"],
-                                                "SPLSCN_ITMCD" => $d["SPLSCN_ITMCD"],
-                                                "SPLSCN_QTY" => $d["SPLSCN_QTY"],
-                                                "SPLSCN_LUPDT" => substr($d['SPLSCN_LUPDT'], 0, 16),
-                                                "SPLSCN_LOTNO" => $d["SPLSCN_LOTNO"],
-                                                "SPLSCN_ORDERNO" => $d["SPLSCN_ORDERNO"],
-                                                "SPLSCN_LINE" => $d["SPLSCN_LINE"],
-                                                "PPSN2_MC" => $r["PPSN2_MC"],
-                                                "PPSN2_PROCD" => $r["PPSN2_PROCD"],
-                                                "ISOK" => 1,
-                                            ];
-                                            $r['TTLSCN'] += $d['SPLSCN_QTY'];
-                                            $d['USED'] = true;
-                                        } else {
-                                            $isfound = false;
-                                            foreach ($RSFinal as &$t) {
-                                                if (
-                                                    ($t["PPSN2_MC"] == $r["PPSN2_MC"]) && ($t["SPLSCN_ORDERNO"] == $r["PPSN2_MCZ"])
-                                                    && ($t["SPLSCN_ITMCD"] == $r["PPSN2_SUBPN"]) && ($t["PPSN2_PROCD"] == $r["PPSN2_PROCD"])
-                                                ) {
-                                                    $r['TTLSCN'] += $d['SPLSCN_QTY'];
-                                                    $RSFinal[] =
-                                                        [
-                                                            "SPLSCN_ID" => $d["SPLSCN_ID"],
-                                                            "SPLSCN_USRID" => $d["SPLSCN_USRID"],
-                                                            "PPSN2_DATANO" => $r["PPSN2_DATANO"],
-                                                            "SPLSCN_FEDR" => $d["SPLSCN_FEDR"],
-                                                            "SPLSCN_ITMCD" => $d["SPLSCN_ITMCD"],
-                                                            "SPLSCN_QTY" => $d["SPLSCN_QTY"],
-                                                            "SPLSCN_LUPDT" => substr($d['SPLSCN_LUPDT'], 0, 16),
-                                                            "SPLSCN_LOTNO" => $d["SPLSCN_LOTNO"],
-                                                            "SPLSCN_ORDERNO" => $d["SPLSCN_ORDERNO"],
-                                                            "SPLSCN_LINE" => $d["SPLSCN_LINE"],
-                                                            "PPSN2_MC" => $r["PPSN2_MC"],
-                                                            "PPSN2_PROCD" => $r["PPSN2_PROCD"],
-                                                            "ISOK" => 1,
-                                                        ];
-                                                    $isfound = true;
-                                                    $d['USED'] = true;
-                                                    break;
-                                                }
-                                            }
-                                            unset($t);
-                                            if (!$isfound) {
-                                                $RSFinal[] = [
-                                                    "SPLSCN_ID" => $d["SPLSCN_ID"],
-                                                    "SPLSCN_USRID" => $d["SPLSCN_USRID"],
-                                                    "PPSN2_DATANO" => $r["PPSN2_DATANO"],
-                                                    "SPLSCN_FEDR" => $d["SPLSCN_FEDR"],
-                                                    "SPLSCN_ITMCD" => $d["SPLSCN_ITMCD"],
-                                                    "SPLSCN_QTY" => $d["SPLSCN_QTY"],
-                                                    "SPLSCN_LUPDT" => substr($d['SPLSCN_LUPDT'], 0, 16),
-                                                    "SPLSCN_LOTNO" => $d["SPLSCN_LOTNO"],
-                                                    "SPLSCN_ORDERNO" => $d["SPLSCN_ORDERNO"],
-                                                    "SPLSCN_LINE" => $d["SPLSCN_LINE"],
-                                                    "PPSN2_MC" => $r["PPSN2_MC"],
-                                                    "PPSN2_PROCD" => $r["PPSN2_PROCD"],
-                                                    "ISOK" => 1,
-                                                ];
-                                                $r['TTLSCN'] += $d['SPLSCN_QTY'];
-                                                $d['USED'] = true;
-                                            }
-                                        }
-                                    } else {
-                                        $think2 = false;
-                                    }
-                                } else {
-                                    $think2 = false;
-                                    $think = false;
+            }
+            if ($grasp) {
+                foreach ($RSPartSupply as &$d) {
+                    if (($r['PPSN2_MCZ'] == $d['SPLSCN_ORDERNO']) && ($r['PPSN2_SUBPN'] == $d['SPLSCN_ITMCD']) && !$d['USED'] && ($r['PPSN2_FR'] == $d['SPLSCN_FEDR'])) {
+                        if (count($RSFinal) == 0) {
+                            $RSFinal[] = [
+                                "SPLSCN_ID" => $d["SPLSCN_ID"],
+                                "SPLSCN_USRID" => $d["SPLSCN_USRID"],
+                                "PPSN2_DATANO" => $r["PPSN2_DATANO"],
+                                "SPLSCN_FEDR" => $d["SPLSCN_FEDR"],
+                                "SPLSCN_ITMCD" => $d["SPLSCN_ITMCD"],
+                                "SPLSCN_QTY" => $d["SPLSCN_QTY"],
+                                "SPLSCN_LUPDT" => substr($d['SPLSCN_LUPDT'], 0, 16),
+                                "SPLSCN_LOTNO" => $d["SPLSCN_LOTNO"],
+                                "SPLSCN_ORDERNO" => $d["SPLSCN_ORDERNO"],
+                                "SPLSCN_LINE" => $d["SPLSCN_LINE"],
+                                "PPSN2_MC" => $r["PPSN2_MC"],
+                                "PPSN2_PROCD" => $r["PPSN2_PROCD"],
+                                "ISOK" => 1,
+                            ];
+                            $r['TTLSCN'] += $d['SPLSCN_QTY'];
+                            $d['USED'] = true;
+                        } else {
+                            $isfound = false;
+                            foreach ($RSFinal as &$t) {
+                                if (
+                                    ($t["PPSN2_MC"] == $r["PPSN2_MC"]) && ($t["SPLSCN_ORDERNO"] == $r["PPSN2_MCZ"])
+                                    && ($t["SPLSCN_ITMCD"] == $r["PPSN2_SUBPN"]) && ($t["PPSN2_PROCD"] == $r["PPSN2_PROCD"])
+                                ) {
+                                    $r['TTLSCN'] += $d['SPLSCN_QTY'];
+                                    $RSFinal[] =
+                                        [
+                                            "SPLSCN_ID" => $d["SPLSCN_ID"],
+                                            "SPLSCN_USRID" => $d["SPLSCN_USRID"],
+                                            "PPSN2_DATANO" => $r["PPSN2_DATANO"],
+                                            "SPLSCN_FEDR" => $d["SPLSCN_FEDR"],
+                                            "SPLSCN_ITMCD" => $d["SPLSCN_ITMCD"],
+                                            "SPLSCN_QTY" => $d["SPLSCN_QTY"],
+                                            "SPLSCN_LUPDT" => substr($d['SPLSCN_LUPDT'], 0, 16),
+                                            "SPLSCN_LOTNO" => $d["SPLSCN_LOTNO"],
+                                            "SPLSCN_ORDERNO" => $d["SPLSCN_ORDERNO"],
+                                            "SPLSCN_LINE" => $d["SPLSCN_LINE"],
+                                            "PPSN2_MC" => $r["PPSN2_MC"],
+                                            "PPSN2_PROCD" => $r["PPSN2_PROCD"],
+                                            "ISOK" => 1,
+                                        ];
+                                    $isfound = true;
+                                    $d['USED'] = true;
+                                    break;
                                 }
+                            }
+                            unset($t);
+
+                            if (!$isfound) {
+                                $RSFinal[] = [
+                                    "SPLSCN_ID" => $d["SPLSCN_ID"],
+                                    "SPLSCN_USRID" => $d["SPLSCN_USRID"],
+                                    "PPSN2_DATANO" => $r["PPSN2_DATANO"],
+                                    "SPLSCN_FEDR" => $d["SPLSCN_FEDR"],
+                                    "SPLSCN_ITMCD" => $d["SPLSCN_ITMCD"],
+                                    "SPLSCN_QTY" => $d["SPLSCN_QTY"],
+                                    "SPLSCN_LUPDT" => substr($d['SPLSCN_LUPDT'], 0, 16),
+                                    "SPLSCN_LOTNO" => $d["SPLSCN_LOTNO"],
+                                    "SPLSCN_ORDERNO" => $d["SPLSCN_ORDERNO"],
+                                    "SPLSCN_LINE" => $d["SPLSCN_LINE"],
+                                    "PPSN2_MC" => $r["PPSN2_MC"],
+                                    "PPSN2_PROCD" => $r["PPSN2_PROCD"],
+                                    "ISOK" => 1,
+                                ];
+                                $r['TTLSCN'] += $d['SPLSCN_QTY'];
+                                $d['USED'] = true;
                             }
                         }
                     }
-                    unset($d);
-                } else {
-                    $think = false;
                 }
+                unset($d);
             }
         }
         unset($r);
