@@ -47,7 +47,7 @@ class LabelController extends Controller
                 if ($greatestQty < $cqty_com[$i]) {
                     $greatestQty = $cqty_com[$i];
                     $lotasHome = substr($clot[0], 0, 23);
-                    $valueasHome = $itemValue[$i];
+                    $valueasHome = $itemValue[$i] ?? '';
                 }
             }
             $lotasHome .= '$C';
