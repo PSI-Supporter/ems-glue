@@ -47,16 +47,16 @@ class LabelController extends Controller
                 if ($greatestQty < $cqty_com[$i]) {
                     $greatestQty = $cqty_com[$i];
                     $lotasHome = substr($clot[0], 0, 23);
-                    // $valueasHome = $itemValue[$i];
+                    $valueasHome = $itemValue[$i];
                 }
             }
-            $lotasHome .= '$C';            
+            $lotasHome .= '$C';
 
             #PREPARE NEW ROW ID
             $newid = "CM" . $currdate; #combine manual
             #END
 
-            
+
             for ($i = 0; $i < $ttldata; $i++) {
                 // is already splited or combined
                 $rowsCount = DB::table('raw_material_labels')
@@ -99,7 +99,7 @@ class LabelController extends Controller
                         'C3LC_COMID' => $unique_com[$i],
                         'C3LC_NEWID' => $Response['data'],
                         'C3LC_DOC' => $request->doc ?? NULL,
-                        'C3LC_VALUE' => $valueasHome,
+                        'C3LC_VALUE' => $itemValue[$i] ?? '',
                     ];
 
                     if ($unique_com[$i]) {
@@ -117,6 +117,7 @@ class LabelController extends Controller
                 $printdata[] = [
                     'NEWQTY' => $newqty,
                     'NEWLOT' => $lotasHome,
+                    'NEWVALUE' => $valueasHome,
                     'SER_ID' => $Response['data'],
                     'rackCode' => $rack->ITMLOC_LOC ?? '',
                     'itemName' => $rack->SPTNO ?? ''
@@ -281,5 +282,11 @@ class LabelController extends Controller
         header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
         header('Cache-Control: max-age=0');
         $writer->save('php://output');
+    }
+
+    function getLabel(Request $request)
+    {
+        $data = DB::table('raw_material_labels')->where('code', $request->id)->first();
+        return ['data' => $data];
     }
 }
