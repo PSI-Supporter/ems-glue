@@ -217,7 +217,6 @@ class ItemTracerController extends Controller
             ->leftJoin('raw_material_labels', 'SPLSCN_UNQCODE', '=', 'code')
             ->where('SPLSCN_DOC', $request->doc)
             ->where('SPLSCN_ITMCD', $request->item_code)
-            ->whereNull('splitted')
             ->get([
                 'SPLSCN_DOC',
                 'SPLSCN_UNQCODE',
@@ -230,6 +229,40 @@ class ItemTracerController extends Controller
                 'SPLSCN_ORDERNO',
                 'splitted'
             ]);
+
+        // get detail splitted
+        $SplittedID = [];
+        foreach ($data as $r) {
+            if ($r->splitted) {
+                if (!in_array($r->SPLSCN_UNQCODE, $SplittedID)) {
+                    $SplittedID[] = $r->SPLSCN_UNQCODE;
+                }
+            }
+        }
+
+        if ($SplittedID) {
+            $_data = DB::table('raw_material_labels')
+                ->leftJoin('SPLSCN_TBL', 'parent_code', '=', 'SPLSCN_UNQCODE')
+                ->leftJoin('MITM_TBL', 'SPLSCN_ITMCD', '=', 'MITM_ITMCD')
+                ->whereIn('parent_code', $SplittedID)
+                ->get(
+                    [
+                        'SPLSCN_DOC',
+                        DB::raw('code SPLSCN_UNQCODE'),
+                        'SPLSCN_ITMCD',
+                        'SPLSCN_LOTNO',
+                        DB::raw('quantity SPLSCN_QTY'),
+                        DB::raw("RTRIM(MITM_SPTNO) SPTNO"),
+                        'SPLSCN_PROCD',
+                        'SPLSCN_MC',
+                        'SPLSCN_ORDERNO',
+                        'splitted'
+                    ]
+                );
+
+            $temp = collect([$data, $_data]);
+            $data = $temp->flatten(1);
+        }
 
         $PRDData1 = DB::table('WMS_SWPS_HIS')->where('SWPS_PSNNO', $request->doc)
             ->where('SWPS_ITMCD', $request->item_code)
@@ -245,10 +278,14 @@ class ItemTracerController extends Controller
 
         foreach ($data as &$r) {
             $r->isUsed = false;
-            foreach ($PRDAct as $a) {
-                if ($r->SPLSCN_UNQCODE == $a->NEW_UNIQUE || $r->SPLSCN_UNQCODE == $a->NEW_UNIQUE1) {
-                    $r->isUsed = true;
+            if (!$r->splitted) {
+                foreach ($PRDAct as $a) {
+                    if ($r->SPLSCN_UNQCODE == $a->NEW_UNIQUE || $r->SPLSCN_UNQCODE == $a->NEW_UNIQUE1) {
+                        $r->isUsed = true;
+                    }
                 }
+            } else {
+                $r->isUsed = true;
             }
         }
         unset($r);
@@ -384,6 +421,7 @@ class ItemTracerController extends Controller
             DB::table('WMS_SWPS_HIS')->insert($data);
             DB::commit();
         } catch (Exception $e) {
+            DB::rollBack();
             return response()->json(['message' => $e->getMessage() . " on line " . $e->getLine()], 406);
         }
 
