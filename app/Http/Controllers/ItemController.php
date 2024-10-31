@@ -6,11 +6,8 @@ use App\Traits\LabelingTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\IOFactory;
-use PhpOffice\PhpSpreadsheet\Reader\Xls;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
 use PhpOffice\PhpSpreadsheet\Writer\Pdf\Mpdf;
-use PhpOffice\PhpSpreadsheet\Writer\Xls as WriterXls;
 
 class ItemController extends Controller
 {
@@ -18,10 +15,19 @@ class ItemController extends Controller
 
     function loadById(Request $request)
     {
+        $partMeasurement = DB::table('ENG_TECPRTLC')->where('PRTCD', base64_decode($request->id))->first();
         $RS = DB::table("ITMLOC_TBL")->select(DB::raw("RTRIM(MITM_ITMCD) MITM_ITMCD,RTRIM(MITM_ITMD1) ITMD1,ITMLOC_LOC,RTRIM(MITM_SPTNO) SPTNO"))
             ->join("MITM_TBL", "ITMLOC_ITM", "=", "MITM_ITMCD")
             ->where("ITMLOC_ITM", base64_decode($request->id))
             ->get();
+
+        foreach ($RS as $r) {
+            $r->STDMIN = $partMeasurement->STDMIN ?? '';
+            $r->STDMAX = $partMeasurement->STDMAX ?? '';
+            $r->MEAS = $partMeasurement->MEAS ?? '';
+        }
+        unset($r);
+
         $result[] = count($RS) ? ['cd' => '1', 'msg' => 'found'] : ['cd' => '0', 'msg' => 'not found'];
         return ['data' => $RS, 'status' => $result];
     }
