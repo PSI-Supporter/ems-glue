@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\C3LC;
+use App\Models\RawMaterialLabelPrint;
 use App\Traits\LabelingTrait;
 use Exception;
 use Illuminate\Http\Request;
@@ -288,5 +289,25 @@ class LabelController extends Controller
     {
         $data = DB::table('raw_material_labels')->where('code', $request->id)->first();
         return ['data' => $data];
+    }
+
+    function logAction(Request $request)
+    {
+        $tobePrinted = DB::table('raw_material_labels')->where('code', $request->code)
+            ->first();
+        logger($request->all());
+        if ($tobePrinted->code) {
+            RawMaterialLabelPrint::create([
+                'code' => $tobePrinted->code,
+                'item_code' => $tobePrinted->item_code,
+                'doc_code' => $tobePrinted->doc_code,
+                'parent_code' => $tobePrinted->parent_code,
+                'quantity' => $tobePrinted->quantity,
+                'lot_code' => $tobePrinted->lot_code,
+                'action' => $request->action,
+                'created_by' => $request->user_id,
+                'pc_name' => $request->machineName,
+            ]);
+        }
     }
 }
