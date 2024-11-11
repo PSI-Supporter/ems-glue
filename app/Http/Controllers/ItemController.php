@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\RawMaterialLabelPrint;
 use App\Traits\LabelingTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -607,6 +608,21 @@ class ItemController extends Controller
             $message = 'Reprint successfully';
             if ($request->uniqueBefore) {
                 $newUnique[] = $request->uniqueBefore;
+                $tobePrinted = DB::table('raw_material_labels')->where('code', $request->uniqueBefore)
+                    ->first();
+                if ($tobePrinted->code) {
+                    RawMaterialLabelPrint::create([
+                        'code' => $tobePrinted->code,
+                        'item_code' => $tobePrinted->item_code,
+                        'doc_code' => $tobePrinted->doc_code,
+                        'parent_code' => $tobePrinted->parent_code,
+                        'quantity' => $tobePrinted->quantity,
+                        'lot_code' => $tobePrinted->lot_code,
+                        'action' => 'reprint',
+                        'created_by' => $request->user_id,
+                        'pc_name' => $request->machineName,
+                    ]);
+                }
             } else {
                 $Response = $this->generateLabelId([
                     'machineName' => $request->machineName ?? 'DF',
