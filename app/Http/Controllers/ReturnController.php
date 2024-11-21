@@ -245,7 +245,8 @@ class ReturnController extends Controller
             PartReturned::insert($datas);
 
             return ['status' => [[
-                'cd' => '11', 'msg' => 'Saved',
+                'cd' => '11',
+                'msg' => 'Saved',
                 "xitem" => $request->item,
                 "xqty" => $request->qtyAfter,
                 "xlot" => $clot,
@@ -327,7 +328,15 @@ class ReturnController extends Controller
                         break;
                     }
                     $C3Data[] = [
-                        'C3LC_ITMCD' => $request->item[0], 'C3LC_NLOTNO' => $lotasHome, 'C3LC_NQTY' => $request->qtyAfter, 'C3LC_LOTNO' => $request->lotNumber[$i], 'C3LC_QTY' => $request->qtyBefore[$i], 'C3LC_REFF' => $newid, 'C3LC_LINE' => $i,  'C3LC_USRID' => $request->userId, 'C3LC_LUPTD' => date('Y-m-d H:i:s')
+                        'C3LC_ITMCD' => $request->item[0],
+                        'C3LC_NLOTNO' => $lotasHome,
+                        'C3LC_NQTY' => $request->qtyAfter,
+                        'C3LC_LOTNO' => $request->lotNumber[$i],
+                        'C3LC_QTY' => $request->qtyBefore[$i],
+                        'C3LC_REFF' => $newid,
+                        'C3LC_LINE' => $i,
+                        'C3LC_USRID' => $request->userId,
+                        'C3LC_LUPTD' => date('Y-m-d H:i:s')
                     ];
                 }
 
@@ -482,7 +491,9 @@ class ReturnController extends Controller
                         $toret = PartReturned::insert($datas);
                         if ($toret > 0) {
                             $result[] = [
-                                'cd' => '11', 'msg' => 'Saved', '_unique' => $request->uniqueKey[$v]
+                                'cd' => '11',
+                                'msg' => 'Saved',
+                                '_unique' => $request->uniqueKey[$v]
                             ];
                         }
                     } else {
@@ -742,6 +753,7 @@ class ReturnController extends Controller
                     ->where(DB::raw("ISNULL(RETSCN_HOLD,'0')"), '0')
                     ->get();
                 $RSCountedPart = json_decode(json_encode($RSCountedPart), true);
+                $datas = [];
                 foreach ($RSCountedPart as $r) {
                     $fieldsToBeUpdated = [
                         'RETSCN_SAVED' => '1',
@@ -753,9 +765,11 @@ class ReturnController extends Controller
                         ->where(DB::raw("ISNULL(RETSCN_HOLD,'0')"), "!=", '1')
                         ->update($fieldsToBeUpdated, ['timestamps' => false]);
                     $_affectedRowTemp += $affectedRow;
+
                     if ($affectedRow > 0) {
                         $ithdoc = $request->doc . '|' . trim($r['RETSCN_CAT']) . '|' . trim($r['RETSCN_LINE']) . '|' . trim($r['RETSCN_FEDR']);
-                        $datas = [
+
+                        $datas[] = [
                             'ITH_ITMCD' => $request->item[$b],
                             'ITH_DATE' => $request->dateConfirm,
                             'ITH_FORM' => 'INC-RET',
@@ -767,9 +781,8 @@ class ReturnController extends Controller
                             'ITH_LUPDT' => $thelupdt,
                             'ITH_USRID' => $request->userId
                         ];
-                        $affectedRow = ITH::insert($datas);
-                        $_affectedRowITH += $affectedRow;
-                        $datas = [
+
+                        $datas[] = [
                             'ITH_ITMCD' => $request->item[$b],
                             'ITH_DATE' => $request->dateConfirm,
                             'ITH_FORM' => 'OUT-RET',
@@ -777,12 +790,14 @@ class ReturnController extends Controller
                             'ITH_QTY' => -$r['RETSCN_QTYAFT'],
                             'ITH_WH' => $cwh_out,
                             'ITH_REMARK' => $r['RETSCN_ID'],
+                            'ITH_SER' => NULL,
                             'ITH_LUPDT' => $thelupdt,
                             'ITH_USRID' => $request->userId
                         ];
-                        $affectedRow = ITH::insert($datas);
-                        $_affectedRowITH += $affectedRow;
                     }
+                }
+                foreach (array_chunk($datas, (2100 / 3) - 2) as $chunk) {
+                    $_affectedRowITH += DB::table('ITH_TBL')->insert($chunk);
                 }
             }
             return ['message' => $_affectedRowTemp > 0 ||  $_affectedRowITH > 0  ? 'confirmed' : 'already confirmed', '_affectedRowTemp' => $_affectedRowTemp, '_affectedRowITH' => $_affectedRowITH];
