@@ -310,4 +310,13 @@ class LabelController extends Controller
             ]);
         }
     }
+
+    function updateLabelValue(Request $request)
+    {
+        $affectedRow = DB::table('raw_material_labels')->where('code', $request->code)
+            ->update(['item_value' => $request->itemValue]);
+
+        $message = $affectedRow ? 'Updated successfully' : 'Nothing updated';
+        return ['message' => $message, $request->all()];
+    }
 }
