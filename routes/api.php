@@ -163,6 +163,7 @@ Route::prefix('delivery')->group(function () {
     Route::post('limbah', [DeliveryController::class, 'saveDetailLimbah']);
     Route::get('limbah/{id}', [DeliveryController::class, 'getDetailLimbah']);
     Route::get('regular/{doc}', [DeliveryController::class, 'getDeliveryResume']);
+    Route::put('vehicle/{doc}', [DeliveryController::class, 'setActualPlatNumber']);
 });
 
 Route::prefix('redmine-wrapper')->group(function () {

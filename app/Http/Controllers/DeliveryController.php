@@ -736,4 +736,29 @@ class DeliveryController extends Controller
 
         return ['data' => $data];
     }
+
+    public function setActualPlatNumber(Request $request)
+    {
+        $doc = base64_decode($request->doc);
+        $DeliveryCheck = DB::table('WMS_DLVCHK')->where('dlv_id', $doc)->count();
+
+        if ($DeliveryCheck == 0) {
+            return response()->json(['message' => 'Delivery Checking Operation is required'], 501);
+        }
+
+        $affectedRows = DB::table('DLVH_TBL')
+            ->where('DLVH_ID', $doc)
+            ->whereNull('DLVH_ACT_TRANS')
+            ->update([
+                'DLVH_ACT_TRANS' => $request->DLVH_TRANS,
+                'updated_at' => date('Y-m-d H:i:s'),
+                'updated_by' => $request->user_id
+            ]);
+
+        if ($affectedRows) {
+            return ['message' => 'saved successfully'];
+        } else {
+            return response()->json(['message' => 'Sorry could not be updated'], 501);
+        }
+    }
 }
