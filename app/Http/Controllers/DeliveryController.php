@@ -702,4 +702,38 @@ class DeliveryController extends Controller
         unset($r);
         return ['data' => $NewRS, 'data_' => $NewRSNull];
     }
+
+
+    public function getDeliveryResume(Request $request)
+    {
+        $data = DB::table('DLV_TBL')->leftJoin('SER_TBL', 'DLV_SER', '=', 'SER_ID')
+            ->leftJoin('MITM_TBL', 'SER_ITMID', '=', 'MITM_ITMCD')
+            ->where('DLV_ID', base64_decode($request->doc))
+            ->groupBy('MITM_ITMCD', 'MITM_ITMD1')
+            ->orderBy('MITM_ITMCD')
+            ->get([
+                DB::raw("RTRIM(MITM_ITMCD) ITMCD"),
+                DB::raw("RTRIM(MITM_ITMD1) ITMD1"),
+                DB::raw("SUM(DLV_QTY) QTY"),
+                DB::raw("COUNT(MITM_ITMCD) COUNTQT"),
+            ]);
+
+        $firstElem = $data->first();
+
+        if (!$firstElem->ITMCD) {
+            $data = DB::table('DLV_TBL')
+                ->leftJoin('MITM_TBL', 'DLV_ITMCD', '=', 'MITM_ITMCD')
+                ->where('DLV_ID', base64_decode($request->doc))
+                ->groupBy('MITM_ITMCD', 'MITM_ITMD1')
+                ->orderBy('MITM_ITMCD')
+                ->get([
+                    DB::raw("RTRIM(MITM_ITMCD) ITMCD"),
+                    DB::raw("RTRIM(MITM_ITMD1) ITMD1"),
+                    DB::raw("SUM(DLV_QTY) QTY"),
+                    DB::raw("'-' COUNTQT"),
+                ]);
+        }
+
+        return ['data' => $data];
+    }
 }
