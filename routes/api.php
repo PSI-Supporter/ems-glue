@@ -162,6 +162,7 @@ Route::prefix('x-transfer')->group(function () {
 Route::prefix('delivery')->group(function () {
     Route::post('limbah', [DeliveryController::class, 'saveDetailLimbah']);
     Route::get('limbah/{id}', [DeliveryController::class, 'getDetailLimbah']);
+    Route::get('regular/{doc}', [DeliveryController::class, 'getDeliveryResume']);
 });
 
 Route::prefix('redmine-wrapper')->group(function () {
