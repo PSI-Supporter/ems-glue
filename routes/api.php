@@ -237,6 +237,11 @@ Route::prefix('transaction')->group(function () {
 # Terkait Users
 Route::prefix('users')->group(function () {
     Route::get('{id}', [UserController::class, 'getName']);
+    Route::get('group', [UserController::class, 'getByGroup']);
+});
+
+Route::prefix('user')->group(function () {    
+    Route::get('group', [UserController::class, 'getByGroup']);
 });
 
 Route::prefix('item-tracer')->group(function () {

@@ -49,4 +49,11 @@ class UserController extends Controller
         }
         return ['cd' =>  $data ? 1 : 0,  'data' => $data];
     }
+
+    function getByGroup(Request $request)
+    {
+        $groups = array_merge([''], $request->groupId);
+        $data = DB::table('MSTEMP_TBL')->whereIn('MSTEMP_GRP', $groups)->get([DB::raw("CONCAT(RTRIM(MSTEMP_FNM), ' ', RTRIM(MSTEMP_FNM)) FULL_NAME")]);
+        return ['data' => $data];
+    }
 }
