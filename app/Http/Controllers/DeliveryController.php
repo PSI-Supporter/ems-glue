@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -12,6 +13,11 @@ use PhpOffice\PhpSpreadsheet\Style\Color;
 
 class DeliveryController extends Controller
 {
+    public function __construct()
+    {
+        date_default_timezone_set('Asia/Jakarta');
+    }
+
     function saveDetailLimbah(Request $request)
     {
         $validator = Validator::make(
@@ -742,7 +748,7 @@ class DeliveryController extends Controller
         $doc = base64_decode($request->doc);
         $DeliveryCheck = DB::table('WMS_DLVCHK')->where('dlv_id', $doc)->count();
 
-        if ($DeliveryCheck == 0) {
+        if ($DeliveryCheck == 0 && !str_contains($doc, 'RTN')) {
             return response()->json(['message' => 'Delivery Checking Operation is required'], 501);
         }
 
@@ -759,6 +765,95 @@ class DeliveryController extends Controller
             return ['message' => 'saved successfully'];
         } else {
             return response()->json(['message' => 'Sorry could not be updated'], 501);
+        }
+    }
+
+    public function getNotGateOut()
+    {
+        $data = DB::table('v_delivery_not_gate_out_yet')->groupBy('DLVH_ACT_TRANS')
+            ->get(['DLVH_ACT_TRANS']);
+        return ['data' => $data];
+    }
+
+    public function getNotGateOutDetail(Request $request)
+    {
+        $data = DB::table('v_delivery_not_gate_out_yet')->where('DLVH_ACT_TRANS', base64_decode($request->doc))
+            ->get();
+        return ['data' => $data];
+    }
+
+    public function setGateOut(Request $request)
+    {
+        $vechicleRegNumber = base64_decode($request->regNumber);
+        $documents = DB::table('DLVH_TBL')->where('DLVH_ACT_TRANS', $vechicleRegNumber)->get(['DLVH_ID'])->pluck('DLVH_ID')->toArray();
+
+        $dataSI = DB::table('DLV_TBL')->whereIn('DLV_ID', $documents)
+            ->leftJoin('SISCN_TBL', 'DLV_SER', '=', 'SISCN_SER')
+            ->leftJoin('SI_TBL', 'SISCN_LINENO', '=', 'SI_LINENO')
+            ->leftJoin('SER_TBL', 'DLV_SER', '=', 'SER_ID')
+            ->get(['DLV_ID', 'DLV_SER', 'SI_WH', DB::raw("RTRIM(SER_ITMID) SER_ITMID"), 'SISCN_SERQTY']);
+        $ITHLUPDT = date('Y-m-d H:i:s');
+        $ITHDATE = date('Y-m-d');
+
+        $datam = [];
+        foreach ($dataSI as $r) {
+            if (
+                DB::table("ITH_TBL")->where("ITH_SER", $r->DLV_SER)
+                ->where('ITH_FORM', "OUT-SHP-FG")->count() == 0
+            ) {
+                $thewh = '';
+                if ($r->SI_WH == "AFWH3") {
+                    $thewh = "ARSHP";
+                } elseif ($r->SI_WH == "AFWH3RT") {
+                    $thewh = "ARSHPRTN2";
+                } else {
+                    $thewh = "ARSHPRTN";
+                }
+                $datam[] = [
+                    "ITH_ITMCD" => $r->SER_ITMID,
+                    "ITH_DATE" => $ITHDATE,
+                    "ITH_FORM" => "OUT-SHP-FG",
+                    "ITH_DOC" => $r->DLV_ID,
+                    "ITH_QTY" => -$r->SISCN_SERQTY,
+                    "ITH_WH" => $thewh,
+                    "ITH_SER" => $r->DLV_SER,
+                    "ITH_LUPDT" => $ITHLUPDT,
+                    "ITH_USRID" => $request->user_id,
+                ];
+            }
+        }
+
+        if (!empty($datam)) {
+            try {
+                DB::beginTransaction();
+                $TOTAL_COLUMN = 9;
+                $insert_data = collect($datam);
+                $chunks = $insert_data->chunk(2000 / $TOTAL_COLUMN);
+                foreach ($chunks as $chunk) {
+                    DB::table('ITH_TBL')->insert($chunk->toArray());
+                }
+
+                DB::table('WMS_DLVCHK')->whereIn('dlv_id', $documents)
+                    ->update([
+                        'dlv_PicSend' => $request->user_id,
+                        'dlv_DateSend' => $ITHLUPDT,
+                        'dlv_stcfm' => 1
+                    ]);
+
+                DB::table('DLVH_TBL')->where('DLVH_ACT_TRANS', $vechicleRegNumber)
+                    ->update([
+                        'DLVH_DRIVER_NAME' => $request->driverName,
+                        'DLVH_CODRIVER_NAME' => $request->codriverName
+                    ]);
+                DB::commit();
+
+                return ['message' => 'Confirmed successfully'];
+            } catch (Exception $e) {
+                DB::rollBack();
+                return response()->json(['message' => $e->getMessage()], 501);
+            }
+        } else {
+            return ['message' => 'Confirmed successfully..'];
         }
     }
 }

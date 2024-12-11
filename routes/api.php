@@ -164,6 +164,9 @@ Route::prefix('delivery')->group(function () {
     Route::get('limbah/{id}', [DeliveryController::class, 'getDetailLimbah']);
     Route::get('regular/{doc}', [DeliveryController::class, 'getDeliveryResume']);
     Route::put('vehicle/{doc}', [DeliveryController::class, 'setActualPlatNumber']);
+    Route::get('gate-out', [DeliveryController::class, 'getNotGateOut']);
+    Route::get('gate-out/{doc}', [DeliveryController::class, 'getNotGateOutDetail']);
+    Route::post('gate-out', [DeliveryController::class, 'setGateOut']);
 });
 
 Route::prefix('redmine-wrapper')->group(function () {
