@@ -120,6 +120,7 @@ Route::prefix('report')->group(function () {
     Route::get("accounting-mutasi-in-out-barang-bahan-baku", [InventoryController::class, 'accountingMutasiInOutBarangBahanBakuReport']);
     Route::get('lot-tracer', [ItemTracerController::class, 'getReportTraceLotAsSpreadsheet']);
     Route::get('join-reels', [LabelController::class, 'getReportJoinReels']);
+    Route::get('gate-out', [DeliveryController::class, 'reportGateOut']);
 });
 
 # Terkait Bom Calculation
