@@ -71,18 +71,19 @@ class DeliveryController extends Controller
                     'DLVSCR_BB_AJU' => $request->NomorAju[$i],
                     'DLVSCR_BB_NOPEN' => $request->NomorPendaftaran[$i],
                     'DLVSCR_BB_TGLPEN' => $request->TanggalPendaftaran[$i],
-                    'DLVSCR_BB_ITMNW' => (float)$request->BeratBersih[$i],
+                    'DLVSCR_BB_ITMNW' => rtrim(number_format($request->BeratBersih[$i], 6), "0"),
                     'DLVSCR_BB_ITMUOM' => $request->Satuan[$i],
                     'DLVSCR_BB_BC_DEDUCTION_TYPE' => 1,
                     'DLVSCR_BB_BCURUT' => $request->SeriBarangAsal[$i],
                     'DLVSCR_BB_REMARK' => $request->Remark[$i],
                     'DLVSCR_BB_MATA_UANG' => $request->MataUang[$i],
-                    'DLVSCR_BB_ZPRPRC' => $request->Harga[$i],
+                    'DLVSCR_BB_ZPRPRC' => (float)$request->Harga[$i],
                     'DLVSCR_BB_BM' => $request->BM[$i],
                     'DLVSCR_BB_LINE' => ($i + 1),
                 ];
             }
             if (!empty($tobeSaved)) {
+                        
                 DB::table("DLVSCR_BB_TBL")->where('DLVSCR_BB_TXID', $request->document)->delete();
                 foreach (array_chunk($tobeSaved, (1500 / 16) - 2) as $chunk) {
                     DB::table("DLVSCR_BB_TBL")->insert($chunk);
@@ -855,5 +856,15 @@ class DeliveryController extends Controller
         } else {
             return ['message' => 'Confirmed successfully..'];
         }
+    }
+
+    function getDeliveryCheckingDetail(Request $request)
+    {
+        $data = DB::table('WMS_DLVCHK')
+            ->leftJoin('SER_TBL', 'dlv_refno', '=', 'SER_ID')
+            ->where('dlv_id', base64_decode($request->doc))
+            ->get(['SER_ID', 'SER_ITMID', 'dlv_qty']);
+
+        return ['data' => $data];
     }
 }
