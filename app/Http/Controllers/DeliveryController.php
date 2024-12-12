@@ -83,10 +83,11 @@ class DeliveryController extends Controller
                 ];
             }
             if (!empty($tobeSaved)) {
-                        
+                $TOTAL_COLUMN = 19;
                 DB::table("DLVSCR_BB_TBL")->where('DLVSCR_BB_TXID', $request->document)->delete();
-                foreach (array_chunk($tobeSaved, (1500 / 16) - 2) as $chunk) {
-                    DB::table("DLVSCR_BB_TBL")->insert($chunk);
+                $chunks = collect($tobeSaved)->chunk(2000 / $TOTAL_COLUMN);
+                foreach ($chunks as $chunk) {
+                    DB::table("DLVSCR_BB_TBL")->insert($chunk->toArray());
                 }
                 $message = "Saved successfully";
             }
