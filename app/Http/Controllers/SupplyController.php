@@ -2041,6 +2041,7 @@ class SupplyController extends Controller
                                 $nom++;
                             }
                             $cury += $isleft ? 9 : 1;
+                            $cwos = [];
                             if (count($PSNDocAsReff) > 0) {
                                 $rsJob = DB::table('XPPSN1')->join('XMITM_V', 'PPSN1_MDLCD', '=', 'MITM_ITMCD')
                                     ->whereIn('PPSN1_PSNNO', $PSNDocAsReff)
@@ -2048,7 +2049,7 @@ class SupplyController extends Controller
                                     ->selectRaw("PPSN1_WONO,PPSN1_MDLCD,MITM_ITMD1,PPSN1_SIMQT");
                                 $rsJob = json_decode(json_encode($rsJob), true);
 
-                                $cwos = [];
+                                
                                 $cmodels = [];
                                 $clotsize = [];
                                 foreach ($rsJob as $rj) {
