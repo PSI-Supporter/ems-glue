@@ -167,6 +167,8 @@ Route::prefix('delivery')->group(function () {
     Route::get('gate-out', [DeliveryController::class, 'getNotGateOut']);
     Route::get('gate-out/{doc}', [DeliveryController::class, 'getNotGateOutDetail']);
     Route::post('gate-out', [DeliveryController::class, 'setGateOut']);
+    Route::get('checking/{doc}', [DeliveryController::class, 'getDeliveryCheckingDetail']);
+    Route::delete('checking', [DeliveryController::class, 'deleteDeliveryChecking']);
 });
 
 Route::prefix('redmine-wrapper')->group(function () {
@@ -240,7 +242,7 @@ Route::prefix('users')->group(function () {
     Route::get('group', [UserController::class, 'getByGroup']);
 });
 
-Route::prefix('user')->group(function () {    
+Route::prefix('user')->group(function () {
     Route::get('group', [UserController::class, 'getByGroup']);
 });
 

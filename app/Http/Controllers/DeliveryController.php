@@ -863,9 +863,31 @@ class DeliveryController extends Controller
     {
         $data = DB::table('WMS_DLVCHK')
             ->leftJoin('SER_TBL', 'dlv_refno', '=', 'SER_ID')
+            ->leftJoin('MITM_TBL', 'SER_ITMID', '=', 'MITM_ITMCD')
             ->where('dlv_id', base64_decode($request->doc))
-            ->get(['SER_ID', 'SER_ITMID', 'dlv_qty']);
+            ->orderBy('SER_ITMID')
+            ->get(['SER_ID', 'SER_ITMID', 'dlv_qty', DB::raw("RTRIM(MITM_ITMD1) ITMD1")]);
 
         return ['data' => $data];
+    }
+
+    function deleteDeliveryChecking(Request $request)
+    {
+        try {
+            DB::beginTransaction();
+            $affectedRows = DB::table('WMS_DLVCHK')->where('dlv_id', $request->doc)
+                ->where('dlv_refno', $request->id)
+                ->delete();
+
+            if ($affectedRows) {
+                DB::table('DLVCK_TBL')->where('DLVCK_TXID', $request->doc)
+                    ->where('DLVCK_ITMCD', $request->itemCode)->update(['DLVCK_CNFQTY' => NULL]);
+            }
+            DB::commit();
+            return ['message' => 'Successfully'];
+        } catch (Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => $e->getMessage()], 501);
+        }
     }
 }
