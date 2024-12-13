@@ -313,8 +313,9 @@ class LabelController extends Controller
 
     function updateLabelValue(Request $request)
     {
-        $affectedRow = DB::table('raw_material_labels')->where('code', $request->code)
-            ->update(['item_value' => $request->itemValue]);
+        $affectedRow = $request->measurementStatus == 'O' ?
+            DB::table('raw_material_labels')->where('code', $request->code)
+            ->update(['item_value' => $request->itemValue]) : 0;
 
         $message = $affectedRow ? 'Updated successfully' : 'Nothing updated';
         return ['message' => $message, $request->all()];
