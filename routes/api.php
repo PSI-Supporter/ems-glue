@@ -121,6 +121,7 @@ Route::prefix('report')->group(function () {
     Route::get('lot-tracer', [ItemTracerController::class, 'getReportTraceLotAsSpreadsheet']);
     Route::get('join-reels', [LabelController::class, 'getReportJoinReels']);
     Route::get('gate-out', [DeliveryController::class, 'reportGateOut']);
+    Route::get('value-checking', [LabelController::class, 'reportValueChecking']);
 });
 
 # Terkait Bom Calculation

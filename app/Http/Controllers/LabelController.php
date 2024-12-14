@@ -341,4 +341,79 @@ class LabelController extends Controller
         $message = $affectedRow ? 'Updated successfully' : 'Nothing updated';
         return ['message' => $message, $request->all()];
     }
+
+    function reportValueChecking(Request $request)
+    {
+        $data = DB::table('value_checking_histories')
+            ->leftJoin('MSTEMP_TBL', 'created_by', '=', 'MSTEMP_ID')
+            ->leftJoin('MITM_TBL', 'item_code', '=', 'MITM_ITMCD')
+            ->whereDate('created_at', '>=', $request->dateFrom)
+            ->whereDate('created_at', '<=', $request->dateTo)
+            ->orderBy('value_checking_histories.created_at')
+            ->get([
+                'value_checking_histories.created_at',
+                DB::raw("CONCAT(MSTEMP_FNM, ' ', MSTEMP_LNM) FULL_NAME"),
+                'code',
+                'item_code',
+                DB::raw('RTRIM(MITM_SPTNO) SPTNO'),
+                DB::raw('RTRIM(MITM_ITMD1) ITMD1'),
+                'doc_code',
+                'quantity',
+                'lot_code',
+                'item_value',
+                'checking_status',
+            ]);
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+
+        $sheet->setCellValue('A2', 'Time');
+        $sheet->setCellValue('B2', 'User');
+        $sheet->setCellValue('C2', 'ID');
+        $sheet->setCellValue('D2', 'Part Code');
+        $sheet->setCellValue('E2', 'Part Name');
+        $sheet->setCellValue('F2', 'Part Description');
+        $sheet->setCellValue('G2', 'Document');
+        $sheet->setCellValue('H2', 'Quantity');
+        $sheet->setCellValue('I2', 'Lot Code');
+        $sheet->setCellValue('J2', 'Part Value');
+        $sheet->setCellValue('K2', 'Status');
+
+        $rowAt = 3;
+        foreach ($data as $r) {
+            $sheet->setCellValue('A' . $rowAt, $r->created_at);
+            $sheet->setCellValue('B' . $rowAt, $r->FULL_NAME);
+            $sheet->setCellValue('C' . $rowAt, "'" . $r->code);
+            $sheet->setCellValue('D' . $rowAt, $r->item_code);
+            $sheet->setCellValue('E' . $rowAt, $r->SPTNO);
+            $sheet->setCellValue('F' . $rowAt, $r->ITMD1);
+            $sheet->setCellValue('G' . $rowAt, $r->doc_code);
+            $sheet->setCellValue('H' . $rowAt, $r->quantity);
+            $sheet->setCellValue('I' . $rowAt, $r->lot_code);
+            $sheet->setCellValue('J' . $rowAt, $r->item_value);
+            $sheet->setCellValue('K' . $rowAt, $r->checking_status);
+            $rowAt++;
+        }
+
+        $sheet->freezePane('A3');
+
+        foreach (range('A', 'K') as $r) {
+            $sheet->getColumnDimension($r)->setAutoSize(true);
+        }
+
+        $sheet->getPageSetup()
+            ->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE);
+        $sheet->getPageSetup()
+            ->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_A4);
+
+        $stringjudul = "Value Checking from " . $request->dateFrom . " to " . $request->dateTo;
+
+        $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
+        $filename = $stringjudul;
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
+        header('Cache-Control: max-age=0');
+        $writer->save('php://output');
+    }
 }
