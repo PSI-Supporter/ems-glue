@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\C3LC;
 use App\Models\RawMaterialLabelPrint;
+use App\Models\ValueCheckingHistory;
 use App\Traits\LabelingTrait;
 use Exception;
 use Illuminate\Http\Request;
@@ -315,7 +316,27 @@ class LabelController extends Controller
     {
         $affectedRow = $request->measurementStatus == 'O' ?
             DB::table('raw_material_labels')->where('code', $request->code)
-            ->update(['item_value' => $request->itemValue]) : 0;
+            ->update([
+                'item_value' => $request->itemValue,
+                'updated_by' => $request->userId
+            ]) : 0;
+
+        $tobeLogged = DB::table('raw_material_labels')
+            ->where('code', $request->code)->first();
+
+        if ($tobeLogged) {
+            ValueCheckingHistory::create([
+                'code' => $tobeLogged->code,
+                'item_code' => $tobeLogged->item_code,
+                'doc_code' => $tobeLogged->doc_code,
+                'quantity' => $tobeLogged->quantity,
+                'lot_code' => $tobeLogged->lot_code,
+                'item_value' => $request->itemValue,
+                'checking_status' => $request->measurementStatus,
+                'created_by' => $request->userId,
+                'client_ip' => $request->ip(),
+            ]);
+        }
 
         $message = $affectedRow ? 'Updated successfully' : 'Nothing updated';
         return ['message' => $message, $request->all()];
