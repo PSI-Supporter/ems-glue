@@ -875,6 +875,9 @@ class DeliveryController extends Controller
     {
         try {
             DB::beginTransaction();
+            $bakDeliveryCheck = DB::table('WMS_DLVCHK')->where('dlv_id', $request->doc)
+                ->where('dlv_refno', $request->id)->first();
+
             $affectedRows = DB::table('WMS_DLVCHK')->where('dlv_id', $request->doc)
                 ->where('dlv_refno', $request->id)
                 ->delete();
@@ -882,6 +885,22 @@ class DeliveryController extends Controller
             if ($affectedRows) {
                 DB::table('DLVCK_TBL')->where('DLVCK_TXID', $request->doc)
                     ->where('DLVCK_ITMCD', $request->itemCode)->update(['DLVCK_CNFQTY' => NULL]);
+
+                DB::table('WMS_DLVCHK_LOGS')->insert([
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'dlv_id' => $bakDeliveryCheck->dlv_id,
+                    'dlv_itmcd' => $bakDeliveryCheck->dlv_itmcd,
+                    'dlv_refno' => $bakDeliveryCheck->dlv_refno,
+                    'dlv_qty' => $bakDeliveryCheck->dlv_qty,
+                    'dlv_PIC' => $bakDeliveryCheck->dlv_PIC,
+                    'dlv_date' => $bakDeliveryCheck->dlv_date,
+                    'dlv_PicSend' => $bakDeliveryCheck->dlv_PicSend,
+                    'dlv_DateSend' => $bakDeliveryCheck->dlv_DateSend,
+                    'dlv_stchk' => $bakDeliveryCheck->dlv_stchk,
+                    'dlv_stcfm' => $bakDeliveryCheck->dlv_stcfm,
+                    'dlv_transno' => $bakDeliveryCheck->dlv_transno,
+                    'created_by' => $request->user_id,
+                ]);
             }
             DB::commit();
             return ['message' => 'Successfully'];
