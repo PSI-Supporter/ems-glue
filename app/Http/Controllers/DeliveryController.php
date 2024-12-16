@@ -756,7 +756,6 @@ class DeliveryController extends Controller
 
         $affectedRows = DB::table('DLVH_TBL')
             ->where('DLVH_ID', $doc)
-            ->whereNull('DLVH_ACT_TRANS')
             ->update([
                 'DLVH_ACT_TRANS' => $request->DLVH_TRANS,
                 'updated_at' => date('Y-m-d H:i:s'),
