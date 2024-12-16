@@ -543,7 +543,7 @@ class WOController extends Controller
             $_asMatrixHeader3
         ];
 
-
+        $asMatrixSensor = [];
         foreach ($dataKeikakuData as $d) {
             $_shouldChangeModel = false;
             if (strlen($tempModel) > 0) {
@@ -571,33 +571,31 @@ class WOController extends Controller
             $_asMatrix3 = [
                 $d->item_code,
                 NULL,
-                0,
-                NULL,
-                NULL,
+                $d->production_worktime,
+                $d->wo_full_code,
+                'process_code_container',
                 NULL
             ];
-            $lastActualColumn = 6;
+
             foreach ($dataCalc as $c) {
                 $_jam = substr(explode(' ', $c->calculation_at)[1], 0, 2);
                 $_asMatrix1[] = NULL;
                 $_asMatrix2[] = NULL;
 
-                $_asMatrix3[] = 7;
+                $_asMatrix3[] = 0;
                 $lastActualColumn = count($_asMatrix3) - 1;
                 foreach ($dataOutputSensor as $o) {
                     if ($o->wo_code == $d->wo_full_code) {
                         if (substr($c->calculation_at, 0, 13) == substr($o->running_at, 0, 13)) {
-                            // die('sinio' .$o->ok_qty);
                             $_asMatrix3[$lastActualColumn] += $o->ok_qty;
-                            // $_asMatrix3['11d'] = 9;
-                            // die (json_encode($_asMatrix3));
+                            $_asMatrix3[4] = $o->process_code;
                         }
                     }
                 }
-                $lastActualColumn++;
             }
             $asMatrix[] = $_asMatrix1;
             $asMatrix[] = $_asMatrix2;
+            $asMatrixSensor[] = $_asMatrix3;
         }
 
         // bismillah proses kalkulasi waktu
@@ -652,7 +650,7 @@ class WOController extends Controller
             }
         }
 
-        return [$asMatrix, $asProdPlanX, $_asMatrix3];
+        return [$asMatrix, $asProdPlanX, $asMatrixSensor];
     }
 
     private function _plotTime($data, $parX, $parY, $parProductionHours)
@@ -717,13 +715,13 @@ class WOController extends Controller
 
         $dataSensor = DB::table('keikaku_outputs')->whereNull('deleted_at')
             ->where('production_date', $request->production_date)
-            ->get(['ok_qty', 'wo_code', 'running_at']);
+            ->where('line_code', $request->line_code)
+            ->groupBy('wo_code', 'running_at', 'process_code')
+            ->get([DB::raw('sum(ok_qty) ok_qty'), 'wo_code', 'running_at', 'process_code']);
 
         $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc, $dataSensor);
 
         return [
-            '$dataKeikakuData' => $dataKeikakuData,
-            '$dataCalc' => $dataCalc,
             'asProdplan' => $asProdPlan[1],
             'asMatrix' => $asProdPlan[0],
             'dataSensor' => $asProdPlan[2],
