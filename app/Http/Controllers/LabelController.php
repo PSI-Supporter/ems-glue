@@ -314,11 +314,12 @@ class LabelController extends Controller
 
     function updateLabelValue(Request $request)
     {
-        $affectedRow = $request->measurementStatus == 'O' ?
+        $affectedRow = in_array($request->measurementStatus, ['O', 'T']) ?
             DB::table('raw_material_labels')->where('code', $request->code)
             ->update([
                 'item_value' => $request->itemValue,
-                'updated_by' => $request->userId
+                'updated_by' => $request->userId,
+                'updated_at' => date('Y-m-d H:i:s')
             ]) : 0;
 
         $tobeLogged = DB::table('raw_material_labels')
