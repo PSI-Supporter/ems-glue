@@ -27,7 +27,7 @@ return new class extends Migration
             $table->float('worktype4');
             $table->float('worktype5');
             $table->float('worktype6');
-            $table->string('flag_mot', 2)->nullable(); // change model (M) or Overtime (OT)
+            $table->string('flag_mot', 5)->nullable(); // change model (M) or Overtime (OT)
             $table->float('efficiency');
             $table->float('plan_worktime');
             $table->string('created_by', 9);
