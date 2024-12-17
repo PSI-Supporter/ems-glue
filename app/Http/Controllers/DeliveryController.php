@@ -786,7 +786,9 @@ class DeliveryController extends Controller
     public function setGateOut(Request $request)
     {
         $vechicleRegNumber = base64_decode($request->regNumber);
-        $documents = DB::table('DLVH_TBL')->where('DLVH_ACT_TRANS', $vechicleRegNumber)->get(['DLVH_ID'])->pluck('DLVH_ID')->toArray();
+        $documents = DB::table('DLVH_TBL')->where('DLVH_ACT_TRANS', $vechicleRegNumber)
+            ->whereNull('DLVH_DRIVER_NAME')
+            ->get(['DLVH_ID'])->pluck('DLVH_ID')->toArray();
 
         $dataSI = DB::table('DLV_TBL')->whereIn('DLV_ID', $documents)
             ->leftJoin('SISCN_TBL', 'DLV_SER', '=', 'SISCN_SER')
