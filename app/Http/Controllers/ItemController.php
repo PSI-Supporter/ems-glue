@@ -498,6 +498,7 @@ class ItemController extends Controller
                     'lotNumber' => $request->lot_number,
                     'userID' => $request->user_id,
                     'parent_code' => $request->uniqueBefore,
+                    'item_value' => $request->itemValue ?? '',
                 ]);
                 $newUnique[] = $Response['data'];
 
@@ -509,6 +510,7 @@ class ItemController extends Controller
                     'lotNumber' => $request->lot_number,
                     'userID' => $request->user_id,
                     'parent_code' => $request->uniqueBefore,
+                    'item_value' => $request->itemValue ?? '',
                 ]);
                 $newUnique[] = $Response['data'];
             } else {
@@ -525,6 +527,7 @@ class ItemController extends Controller
                         'lotNumber' => $request->lot_number,
                         'userID' => $request->user_id,
                         'parent_code' => $request->uniqueBefore,
+                        'item_value' => $request->itemValue ?? '',
                     ]);
                     $newUnique[] = $Response['data'];
                     $lastLabelQty -= $request->new_qty;
@@ -539,6 +542,7 @@ class ItemController extends Controller
                         'lotNumber' => $request->lot_number,
                         'userID' => $request->user_id,
                         'parent_code' => $request->uniqueBefore,
+                        'item_value' => $request->itemValue ?? '',
                     ]);
                     $newUnique[] = $Response['data'];
                 }
@@ -554,6 +558,7 @@ class ItemController extends Controller
                         DB::raw('RTRIM(MITM_SPTNO) SPTNO'),
                         DB::raw('CONVERT(INT,quantity) quantity'),
                         DB::raw('RTRIM(ITMLOC_LOC) LOC'),
+                        'item_value',
                     ]);
             }
 
@@ -645,6 +650,7 @@ class ItemController extends Controller
                     DB::raw('RTRIM(MITM_SPTNO) SPTNO'),
                     DB::raw('CONVERT(INT,quantity) quantity'),
                     DB::raw('RTRIM(ITMLOC_LOC) LOC'),
+                    'item_value',
                 ]);
         }
         return ['cd' => "1", 'msg' => $message,  'data' => $data];
