@@ -23,7 +23,7 @@ class ItemController extends Controller
             ->get();
 
         foreach ($RS as $r) {
-            $r->STDMIN = $partMeasurement->STDMIN ?? '';
+            $r->STDMIN = (string)(float)$partMeasurement->STDMIN ?? '';
             $r->STDMAX = $partMeasurement->STDMAX ?? '';
             $r->MEAS = $partMeasurement->MEAS ?? '';
         }
