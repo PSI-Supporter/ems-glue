@@ -486,11 +486,29 @@ class ItemController extends Controller
 
         if ($request->old_qty != $request->new_qty) {
             // Split mode
+            if ($request->uniqueBefore) {
+                $data = DB::table('raw_material_labels')
+                    ->where('code', $request->uniqueBefore)
+                    ->first();
+
+                if ($data->quantity != $request->old_qty) {
+                    return ['cd' => '0', 'msg' => 'Old qty must be same with qty in database'];
+                }
+
+                if ($data->lot_code != $request->lot_number) {
+                    return ['cd' => '0', 'msg' => 'Lot must be same with lot in database'];
+                }
+
+                if ($data->item_code != $request->item_code) {
+                    return ['cd' => '0', 'msg' => 'item code must be same with item in database'];
+                }
+            }
+
             if ($request->mode == 1) {
                 // two labels mode
                 $qtyAfter1 = $request->new_qty;
                 $qtyAfter2 = $request->old_qty - $request->new_qty;
-                $Response = $this->generateLabelId([
+                $_data = [
                     'machineName' => $request->machineName ?? 'DF',
                     'documentCode' => 'split-doc',
                     'itemCode' => $request->item_code,
@@ -499,10 +517,11 @@ class ItemController extends Controller
                     'userID' => $request->user_id,
                     'parent_code' => $request->uniqueBefore,
                     'item_value' => $request->itemValue ?? '',
-                ]);
+                ];
+                $Response = $this->generateLabelId($_data);
                 $newUnique[] = $Response['data'];
 
-                $Response = $this->generateLabelId([
+                $_data = [
                     'machineName' => $request->machineName ?? 'DF',
                     'documentCode' => 'split-doc',
                     'itemCode' => $request->item_code,
@@ -511,7 +530,8 @@ class ItemController extends Controller
                     'userID' => $request->user_id,
                     'parent_code' => $request->uniqueBefore,
                     'item_value' => $request->itemValue ?? '',
-                ]);
+                ];
+                $Response = $this->generateLabelId($_data);
                 $newUnique[] = $Response['data'];
             } else {
                 // multiple label mode
@@ -567,7 +587,11 @@ class ItemController extends Controller
                 // update parent label
                 $affectedRows = DB::table('raw_material_labels')
                     ->where('code', $request->uniqueBefore)
-                    ->update(['splitted' => '1']);
+                    ->update([
+                        'splitted' => '1',
+                        'updated_at' => date('Y-m-d H:i:s'),
+                        'updated_by' => $request->user_id
+                    ]);
                 $lastLocation = DB::table('ITH_TBL')
                     ->where('ITH_SER', $request->uniqueBefore)
                     ->groupBy('ITH_WH')
