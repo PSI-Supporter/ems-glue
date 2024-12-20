@@ -292,6 +292,17 @@ class LabelController extends Controller
         return ['data' => $data];
     }
 
+    function getActiveLabel(Request $request)
+    {
+        $data = DB::table('raw_material_labels')
+            ->where('code', $request->id)
+            ->whereNull('splitted')
+            ->whereNull('combined')
+            ->first();
+            
+        return ['data' => $data];
+    }
+
     function logAction(Request $request)
     {
         $tobePrinted = DB::table('raw_material_labels')->where('code', $request->code)
