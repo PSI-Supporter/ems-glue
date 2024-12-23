@@ -71,7 +71,7 @@ class DeliveryController extends Controller
                     'DLVSCR_BB_AJU' => $request->NomorAju[$i],
                     'DLVSCR_BB_NOPEN' => $request->NomorPendaftaran[$i],
                     'DLVSCR_BB_TGLPEN' => $request->TanggalPendaftaran[$i],
-                    'DLVSCR_BB_ITMNW' => rtrim(number_format($request->BeratBersih[$i], 6), "0"),
+                    'DLVSCR_BB_ITMNW' => rtrim(number_format($request->BeratBersih[$i], 6, ".", ""), "0"),
                     'DLVSCR_BB_ITMUOM' => $request->Satuan[$i],
                     'DLVSCR_BB_BC_DEDUCTION_TYPE' => 1,
                     'DLVSCR_BB_BCURUT' => $request->SeriBarangAsal[$i],
@@ -82,6 +82,7 @@ class DeliveryController extends Controller
                     'DLVSCR_BB_LINE' => ($i + 1),
                 ];
             }
+
             if (!empty($tobeSaved)) {
                 $TOTAL_COLUMN = 19;
                 DB::table("DLVSCR_BB_TBL")->where('DLVSCR_BB_TXID', $request->document)->delete();
