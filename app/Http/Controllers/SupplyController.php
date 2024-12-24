@@ -2049,7 +2049,7 @@ class SupplyController extends Controller
                                     ->selectRaw("PPSN1_WONO,PPSN1_MDLCD,MITM_ITMD1,PPSN1_SIMQT");
                                 $rsJob = json_decode(json_encode($rsJob), true);
 
-                                
+
                                 $cmodels = [];
                                 $clotsize = [];
                                 foreach ($rsJob as $rj) {
@@ -2861,5 +2861,114 @@ class SupplyController extends Controller
         header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
         header('Cache-Control: max-age=0');
         $writer->save('php://output');
+    }
+
+    function changeSuppliedReel(Request $request)
+    {
+        $data = $request->json()->all();
+
+        $currentReel = DB::table('SPLSCN_TBL')
+            ->where('SPLSCN_ID', $data['scan_id'])
+            ->first();
+
+        if ($currentReel) {
+            try {
+                DB::beginTransaction();
+                $tobeSaved = [];
+
+                $lastNum = $this->getLastSPLSCNID() + 1;
+                foreach ($data['details'] as $r) {
+                    if (DB::table('SPLSCN_TBL')->where('SPLSCN_UNQCODE', $r['code'])->count() > 0) {
+                        return response()->json(['message' => 'Kode unik sudah digunakan'], 406);
+                    }
+
+                    $newID = date('Ymd') . $lastNum;
+                    $_tobeSaved = [
+                        'SPLSCN_ID' => $newID,
+                        'SPLSCN_DOC' => $currentReel->SPLSCN_DOC,
+                        'SPLSCN_CAT' => $currentReel->SPLSCN_CAT,
+                        'SPLSCN_LINE' => $currentReel->SPLSCN_LINE,
+                        'SPLSCN_FEDR' => $currentReel->SPLSCN_FEDR,
+                        'SPLSCN_ORDERNO' => $currentReel->SPLSCN_ORDERNO,
+                        'SPLSCN_ITMCD' => $currentReel->SPLSCN_ITMCD,
+                        'SPLSCN_LOTNO' => $r['lot'],
+                        'SPLSCN_SAVED' => $currentReel->SPLSCN_SAVED,
+                        'SPLSCN_QTY' => $r['qty'],
+                        'SPLSCN_LUPDT' => date('Y-m-d H:i:s'),
+                        'SPLSCN_USRID' => $currentReel->SPLSCN_USRID,
+                        'SPLSCN_EXPORTED' => $currentReel->SPLSCN_EXPORTED,
+                        'SPLSCN_MC' => $currentReel->SPLSCN_MC,
+                        'SPLSCN_PROCD' => $currentReel->SPLSCN_PROCD,
+                        'SPLSCN_UNQCODE' => $r['code'],
+                    ];
+                    DB::table('SPLSCN_TBL')->insert($_tobeSaved);
+                    $tobeSaved[] = $_tobeSaved;
+                    $lastNum++;
+                }
+
+                foreach ($tobeSaved as $r) {
+                    DB::table('SPLSCN_LOG2')->insert([
+                        'SPLSCN_ID' => $r['SPLSCN_ID'],
+                        'SPLSCN_DOC' => $r['SPLSCN_DOC'],
+                        'SPLSCN_CAT' => $r['SPLSCN_CAT'],
+                        'SPLSCN_LINE' => $r['SPLSCN_LINE'],
+                        'SPLSCN_FEDR' => $r['SPLSCN_FEDR'],
+                        'SPLSCN_ORDERNO' => $r['SPLSCN_ORDERNO'],
+                        'SPLSCN_ITMCD' => $r['SPLSCN_ITMCD'],
+                        'SPLSCN_LOTNO' => $r['SPLSCN_LOTNO'],
+                        'SPLSCN_SAVED' => $r['SPLSCN_SAVED'],
+                        'SPLSCN_QTY' => $r['SPLSCN_QTY'],
+                        'SPLSCN_LUPDT' => $r['SPLSCN_LUPDT'],
+                        'SPLSCN_USRID' => $r['SPLSCN_USRID'],
+                        'SPLSCN_EXPORTED' => $r['SPLSCN_EXPORTED'],
+                        'SPLSCN_MC' => $r['SPLSCN_MC'],
+                        'SPLSCN_PROCD' => $r['SPLSCN_PROCD'],
+                        'SPLSCN_UNQCODE' => $r['SPLSCN_UNQCODE'],
+                        'SPLSCN_ID_PARENT' => $currentReel->SPLSCN_ID,
+                        'SPLSCN_LOG_TYPE' => 'REPLACEMENT'
+                    ]);
+                }
+
+                DB::table('SPLSCN_LOG2')->insert([
+                    'SPLSCN_ID' => $currentReel->SPLSCN_ID,
+                    'SPLSCN_DOC' => $currentReel->SPLSCN_DOC,
+                    'SPLSCN_CAT' => $currentReel->SPLSCN_CAT,
+                    'SPLSCN_LINE' => $currentReel->SPLSCN_LINE,
+                    'SPLSCN_FEDR' => $currentReel->SPLSCN_FEDR,
+                    'SPLSCN_ORDERNO' => $currentReel->SPLSCN_ORDERNO,
+                    'SPLSCN_ITMCD' => $currentReel->SPLSCN_ITMCD,
+                    'SPLSCN_LOTNO' => $currentReel->SPLSCN_LOTNO,
+                    'SPLSCN_SAVED' => $currentReel->SPLSCN_SAVED,
+                    'SPLSCN_QTY' => $currentReel->SPLSCN_QTY,
+                    'SPLSCN_LUPDT' => $currentReel->SPLSCN_LUPDT,
+                    'SPLSCN_USRID' => $currentReel->SPLSCN_USRID,
+                    'SPLSCN_EXPORTED' => $currentReel->SPLSCN_EXPORTED,
+                    'SPLSCN_MC' => $currentReel->SPLSCN_MC,
+                    'SPLSCN_PROCD' => $currentReel->SPLSCN_PROCD,
+                    'SPLSCN_UNQCODE' => $currentReel->SPLSCN_UNQCODE,
+                    'SPLSCN_ID_PARENT' => '',
+                    'SPLSCN_LOG_TYPE' => 'REPLACED'
+                ]);
+
+                DB::commit();
+                return ['message' => 'Saved successfully'];
+            } catch (Exception $e) {
+                DB::rollBack();
+                return response()->json(['message' => $e->getMessage()], 400);
+            }
+        }
+    }
+
+    function getLastSPLSCNID()
+    {
+        $lastID = DB::table('SPLSCN_TBL')
+            ->whereDate('SPLSCN_LUPDT', date('Y-m-d'))
+            ->orderByRaw("convert(bigint,SUBSTRING(SPLSCN_ID,9,11)) desc")
+            ->first([DB::raw('substring(SPLSCN_ID, 9, 20) lser')]);
+        if ($lastID) {
+            return $lastID->lser;
+        } else {
+            return '0';
+        }
     }
 }

@@ -57,6 +57,7 @@ Route::prefix('supply')->group(function () {
     Route::get('validate-label', [SupplyController::class, 'validateUniquekeyVsDoc']);
     Route::post('join-reel', [SupplyController::class, 'joinReels']);
     Route::get('join-reel-report', [SupplyController::class, 'reportJoinReels']);
+    Route::post('change-reel', [SupplyController::class, 'changeSuppliedReel']);
 });
 # Terkait Return Part
 Route::prefix('return')->group(function () {
