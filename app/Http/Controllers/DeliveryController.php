@@ -786,6 +786,14 @@ class DeliveryController extends Controller
 
     public function setGateOut(Request $request)
     {
+        if (!$request->has('datetimeShip')) {
+            return response()->json(['message' => 'datetime is required'], 400);
+        } else {
+            if ($request->datetimeShip > date('Y-m-d H:i:s')) {
+                return response()->json(['message' => 'datetime is invalid'], 400);
+            }
+        }
+
         $vechicleRegNumber = base64_decode($request->regNumber);
         $documents = DB::table('DLVH_TBL')->where('DLVH_ACT_TRANS', $vechicleRegNumber)
             ->whereNull('DLVH_DRIVER_NAME')
@@ -796,8 +804,7 @@ class DeliveryController extends Controller
             ->leftJoin('SI_TBL', 'SISCN_LINENO', '=', 'SI_LINENO')
             ->leftJoin('SER_TBL', 'DLV_SER', '=', 'SER_ID')
             ->get(['DLV_ID', 'DLV_SER', 'SI_WH', DB::raw("RTRIM(SER_ITMID) SER_ITMID"), 'SISCN_SERQTY']);
-        $ITHLUPDT = date('Y-m-d H:i:s');
-        $ITHDATE = date('Y-m-d');
+
 
         $datam = [];
         foreach ($dataSI as $r) {
@@ -815,13 +822,13 @@ class DeliveryController extends Controller
                 }
                 $datam[] = [
                     "ITH_ITMCD" => $r->SER_ITMID,
-                    "ITH_DATE" => $ITHDATE,
+                    "ITH_DATE" => $request->datetimeShip,
                     "ITH_FORM" => "OUT-SHP-FG",
                     "ITH_DOC" => $r->DLV_ID,
                     "ITH_QTY" => -$r->SISCN_SERQTY,
                     "ITH_WH" => $thewh,
                     "ITH_SER" => $r->DLV_SER,
-                    "ITH_LUPDT" => $ITHLUPDT,
+                    "ITH_LUPDT" => $request->datetimeShip,
                     "ITH_USRID" => $request->user_id,
                 ];
             }
@@ -840,14 +847,15 @@ class DeliveryController extends Controller
                 DB::table('WMS_DLVCHK')->whereIn('dlv_id', $documents)
                     ->update([
                         'dlv_PicSend' => $request->user_id,
-                        'dlv_DateSend' => $ITHLUPDT,
+                        'dlv_DateSend' => $request->datetimeShip,
                         'dlv_stcfm' => 1
                     ]);
 
                 DB::table('DLVH_TBL')->where('DLVH_ACT_TRANS', $vechicleRegNumber)
                     ->update([
                         'DLVH_DRIVER_NAME' => $request->driverName,
-                        'DLVH_CODRIVER_NAME' => $request->codriverName
+                        'DLVH_CODRIVER_NAME' => $request->codriverName,
+                        'gate_out_done_at' => date('Y-m-d H:i:s')
                     ]);
                 DB::commit();
 
