@@ -914,21 +914,20 @@ class DeliveryController extends Controller
 
     function reportGateOut(Request $request)
     {
-        $data = DB::table('v_ith_tblc')->leftJoin('DLVH_TBL', 'ITH_DOC', '=', 'DLVH_ID')
+        $data = DB::table('ITH_TBL')->leftJoin('DLVH_TBL', 'ITH_DOC', '=', 'DLVH_ID')
             ->leftJoin('DLV_TBL', 'ITH_DOC', '=', 'DLV_ID')
             ->leftJoin('MDEL_TBL', 'DLV_CONSIGN', '=', 'MDEL_DELCD')
             ->leftJoin('SER_TBL', 'ITH_SER', '=', 'SER_ID')
             ->leftJoin('MITM_TBL', 'SER_ITMID', '=', 'MITM_ITMCD')
             ->where('ITH_FORM', 'OUT-SHP-FG')
-            ->where('ITH_DATEC', '>=', $request->dateFrom)
-            ->where('ITH_DATEC', '<=', $request->dateTo)
+            ->where('ITH_DATE', '>=', $request->dateFrom)
+            ->where('ITH_DATE', '<=', $request->dateTo)
             ->orderBy('ITH_LUPDT')
             ->orderBy('ITH_DOC')
             ->orderBy('MITM_ITMD1')
-            ->groupBy('ITH_LUPDT', 'ITH_DOC', 'DLVH_ACT_TRANS', 'DLVH_DRIVER_NAME', 'MDEL_DELNM', 'MITM_ITMD1', 'ITH_DATEC')
+            ->groupBy('ITH_LUPDT', 'ITH_DOC', 'DLVH_ACT_TRANS', 'DLVH_DRIVER_NAME', 'MDEL_DELNM', 'MITM_ITMD1')
             ->get([
                 'ITH_LUPDT',
-                'ITH_DATEC',
                 'ITH_DOC',
                 'DLVH_ACT_TRANS',
                 'DLVH_DRIVER_NAME',
@@ -938,41 +937,33 @@ class DeliveryController extends Controller
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setCellValue('A1', 'Time');
-        $sheet->setCellValue('B1', 'NoPol');
-        $sheet->setCellValue('C1', 'Driver Name');
-        $sheet->setCellValue('D1', '3rd Party');
-        $sheet->setCellValue('E1', 'Document Number');
-        $sheet->setCellValue('F1', 'Item Description');
-        $sheet->getStyle('A1:F1')->getFont()->setBold(true);
+        $sheet->setCellValue('A1', 'Transaction');
+        $sheet->setCellValue('B1', 'Time');
+        $sheet->setCellValue('C1', 'NoPol');
+        $sheet->setCellValue('D1', 'Driver Name');
+        $sheet->setCellValue('E1', '3rd Party');
+        $sheet->setCellValue('F1', 'Document Number');
+        $sheet->setCellValue('G1', 'Item Description');
+        $sheet->getStyle('A1:G1')->getFont()->setBold(true);
         $sheet->freezePane('A2');
 
         $rowAt = 2;
         $flagDate = '';
         foreach ($data as $r) {
-            if ($flagDate != $r->ITH_DATEC) {
-                $flagDate = $r->ITH_DATEC;
-                $sheet->setCellValue('A' . $rowAt, date_format(date_create($r->ITH_DATEC), 'D, d F Y'));
-                $sheet->mergeCells('A' . $rowAt . ':F' . $rowAt, $sheet::MERGE_CELL_CONTENT_HIDE);
-                $rowAt++;
-                $sheet->setCellValue('A' . $rowAt, 'OUTGOING');
-                $sheet->mergeCells('A' . $rowAt . ':F' . $rowAt, $sheet::MERGE_CELL_CONTENT_HIDE);
-                $sheet->getStyle('A' . ($rowAt - 1) . ':F' . ($rowAt))->getFont()->setBold(true);
-                $rowAt++;
-            }
-            $sheet->setCellValue('A' . $rowAt, explode(' ', $r->ITH_LUPDT)[1]);
-            $sheet->setCellValue('B' . $rowAt, $r->DLVH_ACT_TRANS);
-            $sheet->setCellValue('C' . $rowAt, $r->DLVH_DRIVER_NAME);
-            $sheet->setCellValue('D' . $rowAt, $r->MDEL_DELNM);
-            $sheet->setCellValue('E' . $rowAt, $r->ITH_DOC);
-            $sheet->setCellValue('F' . $rowAt, $r->ITMD1);
+            $sheet->setCellValue('A' . $rowAt, 'OUTGOING');
+            $sheet->setCellValue('B' . $rowAt, $r->ITH_LUPDT);
+            $sheet->setCellValue('C' . $rowAt, $r->DLVH_ACT_TRANS);
+            $sheet->setCellValue('D' . $rowAt, $r->DLVH_DRIVER_NAME);
+            $sheet->setCellValue('E' . $rowAt, $r->MDEL_DELNM);
+            $sheet->setCellValue('F' . $rowAt, $r->ITH_DOC);
+            $sheet->setCellValue('G' . $rowAt, $r->ITMD1);
             $rowAt++;
         }
 
-        $sheet->getStyle('A1:F' . $rowAt - 1)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->setColor(new Color('1F1812'));
-        $sheet->getStyle('A1:F' . $rowAt - 1)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('A1:G' . $rowAt - 1)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->setColor(new Color('1F1812'));
+        $sheet->getStyle('A1:G' . $rowAt - 1)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
-        foreach (range('A', 'F') as $r) {
+        foreach (range('A', 'G') as $r) {
             $sheet->getColumnDimension($r)->setAutoSize(true);
         }
 
