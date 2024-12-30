@@ -751,8 +751,13 @@ class DeliveryController extends Controller
         $doc = base64_decode($request->doc);
         $DeliveryCheck = DB::table('WMS_DLVCHK')->where('dlv_id', $doc)->count();
 
+        $deliveryConsigment = DB::table('DLV_TBL')->where('DLV_ID', $doc)->first();
+
         if ($DeliveryCheck == 0 && !str_contains($doc, 'RTN') && !str_contains($doc, 'WS')) {
-            return response()->json(['message' => 'Delivery Checking Operation is required'], 501);
+            if ($deliveryConsigment->DLV_CONSIGN == 'IEI' && $deliveryConsigment->DLV_CUSTCD == 'IEP001U') {
+            } else {
+                return response()->json(['message' => 'Delivery Checking Operation is required'], 501);
+            }
         }
 
         $affectedRows = DB::table('DLVH_TBL')
