@@ -1643,7 +1643,7 @@ class WOController extends Controller
         $running_at = $request->productionDate . ' ' . $request->runningAtTime . ':00';
         if ($request->XCoordinate >= 33) {
             $_date = date_create($request->productionDate);
-            date_add($_date, date_interval_create_from_date_string('1 day'));
+            date_add($_date, date_interval_create_from_date_string('1 days'));
             $running_at = date_format($_date, 'Y-m-d') . ' ' . $request->runningAtTime . ':00';
         }
 
