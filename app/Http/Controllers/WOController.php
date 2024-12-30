@@ -1324,13 +1324,23 @@ class WOController extends Controller
 
     function getKeikakuData(Request $request)
     {
+        $dataOutput = DB::table('keikaku_outputs')->where('production_date', $request->production_date)
+            ->where('line_code', $request->line_code)
+            ->whereNull('deleted_at')
+            ->groupBy('wo_code', 'process_code')
+            ->select('wo_code', 'process_code', DB::raw('sum(ok_qty) ok_qty'));
+
         $data = DB::table('keikaku_data')
             ->leftJoin('XWO', 'wo_full_code', '=', 'PDPP_WONO')
+            ->leftJoinSub($dataOutput, 'output', function ($join) {
+                $join->on('keikaku_data.wo_full_code', '=', 'output.wo_code')
+                    ->on('keikaku_data.specs_side', '=', 'output.process_code');
+            })
             ->whereNull('deleted_at')
             ->where('production_date', $request->production_date)
             ->where('line_code', $request->line_code)
             ->orderBy('id')
-            ->get(['keikaku_data.*', 'PDPP_BOMRV']);
+            ->get(['keikaku_data.*', 'PDPP_BOMRV', 'ok_qty']);
         return ['data' => $data];
     }
 
