@@ -1340,7 +1340,7 @@ class WOController extends Controller
             ->where('production_date', $request->production_date)
             ->where('line_code', $request->line_code)
             ->orderBy('id')
-            ->get(['keikaku_data.*', 'PDPP_BOMRV', 'ok_qty']);
+            ->get(['keikaku_data.*', 'PDPP_BOMRV', DB::raw('ISNULL(ok_qty,0) ok_qty')]);
         return ['data' => $data];
     }
 
