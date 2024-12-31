@@ -73,15 +73,18 @@ class ProcessMasterController extends Controller
                 'model_type' => $r['model_type'],
                 'process_code' => $r['process_code'],
                 'created_by' => $data['user_id'],
-                'created_at' => date('Y-m-d H:i:s')
+                'created_at' => date('Y-m-d H:i:s'),
+                'valid_date_time' => $data['valid_from'],
             ];
         }
 
         try {
             DB::beginTransaction();
 
-            foreach (array_chunk($tobeSaved, (1500 / 6) - 2) as $chunk) {
-                ProcessMaster::insert($chunk);
+            $insert_data = collect($tobeSaved);
+            $chunks = $insert_data->chunk(2000 / 9);
+            foreach ($chunks as $chunk) {
+                ProcessMaster::insert($chunk->toArray());
             }
 
             DB::commit();
@@ -121,6 +124,7 @@ class ProcessMasterController extends Controller
                         ->whereNull('deleted_at')
                         ->where('line_code', $dataInput['line_code'])
                         ->whereIn('assy_code', $uniqueAssyCodeList)
+                        ->whereDate('valid_date_time', '<=', $dataInput['production_date'])
                         ->get(['assy_code', 'cycle_time']);
                 }
             }
