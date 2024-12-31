@@ -1671,7 +1671,6 @@ class WOController extends Controller
 
         $currentOutput = DB::table('keikaku_outputs')
             ->whereDate('production_date', $request->productionDate)
-            ->where("running_at", "<=", $maxTimeKeikaku)
             ->whereRaw("datepart(hour, running_at) != ?", [$request->runningAtTime])
             ->where('line_code', $request->line)
             ->where('wo_code', $request->job)
