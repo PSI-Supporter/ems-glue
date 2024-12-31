@@ -1655,7 +1655,7 @@ class WOController extends Controller
         date_add($nextDate, date_interval_create_from_date_string('1 days'));
         $maxTimeKeikaku = date_format($nextDate, 'Y-m-d') . ' 07:00:00';
 
-        if ($request->XCoordinate >= 33) {
+        if ($request->XCoordinate >= 26) {
             $_date = date_create($request->productionDate);
             date_add($_date, date_interval_create_from_date_string('1 days'));
             $running_at = date_format($_date, 'Y-m-d') . ' ' . $request->runningAtTime . ':00';
