@@ -1651,10 +1651,41 @@ class WOController extends Controller
         }
 
         $running_at = $request->productionDate . ' ' . $request->runningAtTime . ':00';
+        $nextDate = date_create($request->productionDate);
+        date_add($nextDate, date_interval_create_from_date_string('1 days'));
+        $maxTimeKeikaku = date_format($nextDate, 'Y-m-d') . ' 07:00:00';
+
         if ($request->XCoordinate >= 33) {
             $_date = date_create($request->productionDate);
             date_add($_date, date_interval_create_from_date_string('1 days'));
             $running_at = date_format($_date, 'Y-m-d') . ' ' . $request->runningAtTime . ':00';
+        }
+
+        $productionPlan = DB::table('keikaku_data')
+            ->where('production_date', $request->productionDate)
+            ->where('line_code', $request->line)
+            ->where('wo_full_code', $request->job)
+            ->where('specs_side', $request->side)
+            ->whereNull('deleted_at')
+            ->first();
+
+        $currentOutput = DB::table('keikaku_outputs')
+            ->whereDate('production_date', $request->productionDate)
+            ->where("running_at", "<=", $maxTimeKeikaku)
+            ->whereRaw("datepart(hour, running_at) != ?", [$request->runningAtTime])
+            ->where('line_code', $request->line)
+            ->where('wo_code', $request->job)
+            ->where('process_code', $request->side)
+            ->whereNull('deleted_at')
+            ->select(DB::raw('isnull(sum(ok_qty),0) ok_qty'))
+            ->first();
+
+        if ($currentOutput->ok_qty + $request->quantity > $productionPlan->plan_qty) {
+            return response()->json(
+                ['message' => 'Prodplan=' . $productionPlan->plan_qty . ', output=' .
+                    $currentOutput->ok_qty . '+' . $request->quantity],
+                406
+            );
         }
 
         DB::table('keikaku_outputs')->whereDate('running_at', $running_at)
