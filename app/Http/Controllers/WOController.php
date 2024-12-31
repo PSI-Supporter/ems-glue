@@ -1671,7 +1671,7 @@ class WOController extends Controller
 
         $currentOutput = DB::table('keikaku_outputs')
             ->whereDate('production_date', $request->productionDate)
-            ->whereRaw("datepart(hour, running_at) != ?", [$request->runningAtTime])
+            ->where("running_at", "!=", $running_at)
             ->where('line_code', $request->line)
             ->where('wo_code', $request->job)
             ->where('process_code', $request->side)
@@ -1687,8 +1687,8 @@ class WOController extends Controller
             );
         }
 
-        DB::table('keikaku_outputs')->whereDate('running_at', $running_at)
-            ->whereRaw("datepart(hour, running_at) = ?", [$request->runningAtTime])
+        DB::table('keikaku_outputs')
+            ->where("running_at",  $running_at)
             ->where('line_code', $request->line)
             ->where('wo_code', $request->job)
             ->where('process_code', $request->side)
