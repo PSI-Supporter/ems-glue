@@ -1707,4 +1707,8 @@ class WOController extends Controller
 
         return $affectedRows ? ['message' => 'Recorded successfully'] : ['message' => 'Failed, please try again'];
     }
+
+    public function saveKeikakuDownTime(Request $request) {
+        
+    }
 }
