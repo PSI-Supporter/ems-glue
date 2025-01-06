@@ -1708,7 +1708,64 @@ class WOController extends Controller
         return $affectedRows ? ['message' => 'Recorded successfully'] : ['message' => 'Failed, please try again'];
     }
 
-    public function saveKeikakuDownTime(Request $request) {
-        
+    public function saveKeikakuDownTime(Request $request)
+    {
+        $validator = Validator::make($request->json()->all(), [
+            'lineCode' => 'required',
+            'productionDate' => 'required|date',
+            'shift' => 'required',
+        ], [
+            'lineCode.required' => ':attribute is required',
+            'productionDate.required' => ':attribute is required',
+            'productionDate.date' => ':attribute should be date',
+            'shift.required' => ':attribute is required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 406);
+        }
+
+        $data = $request->json()->all();
+
+        try {
+            DB::beginTransaction();
+            $headQuery = DB::table('production_downtime')
+                ->whereNull('deleted_at')
+                ->where('line_code', $data['lineCode'])
+                ->where('production_date', $data['productionDate'])
+                ->where('shift_code', $data['shift']);
+            if (
+                $headQuery->count() >= 1
+            ) {
+                $headQuery->update(['deleted_at' => date('Y-m-d H:i:s')]);
+            }
+
+            $tobeSaved = [];
+
+            foreach ($data['detail'] as $r) {
+                $tobeSaved[] = [
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'line_code' => $data['lineCode'],
+                    'production_date' => $data['productionDate'],
+                    'created_by' => $data['user_id'],
+                    'shift_code' => $data['shift'],
+                    'downtime_code' => $r['downTimeCode'],
+                    'remark' => $r['remark'],
+                    'req_minutes' => $r['reqMinutes'],
+                    'running_at' => $data['productionDate'] . ' ' . $r['runningAt'] . ':00',
+                ];
+            }
+
+            if (!empty($tobeSaved)) {
+                DB::table('production_downtime')->insert($tobeSaved);
+            }
+
+            DB::commit();
+
+            return ['message' => 'Saved successfully'];
+        } catch (Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => $e->getMessage()], 400);
+        }
     }
 }
