@@ -200,6 +200,7 @@ class LabelController extends Controller
         $data = DB::table('C3LC_TBL')->leftJoin('MITM_TBL', 'C3LC_ITMCD', '=', 'MITM_ITMCD')
             ->whereDate('C3LC_LUPTD', '>=', $request->dateFrom)
             ->whereDate('C3LC_LUPTD', '<=', $request->dateTo)
+            ->where('C3LC_REFF', 'like', 'CM%')
             ->orderBy('C3LC_LUPTD')
             ->orderBy('C3LC_LINE')
             ->get(['C3LC_TBL.*', DB::raw('RTRIM(MITM_SPTNO) SPTNO'), DB::raw('CONVERT(DATE, C3LC_LUPTD) CONVERT_DATE')]);
