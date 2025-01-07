@@ -1768,4 +1768,16 @@ class WOController extends Controller
             return response()->json(['message' => $e->getMessage()], 400);
         }
     }
+
+    public function getKeikakuDownTime(Request $request)
+    {
+        $data = DB::table('production_downtime')
+            ->whereNull('deleted_at')
+            ->where('line_code', $request->lineCode)
+            ->where('production_date', $request->productionDate)
+            ->where('shift_code', $request->shift)
+            ->get();
+
+        return ['data' => $data];
+    }
 }

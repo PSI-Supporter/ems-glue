@@ -236,6 +236,7 @@ Route::prefix('keikaku')->group(function () {
     Route::get('production-plan', [WOController::class, 'getProdPlanSimulation']);
     Route::post('output', [WOController::class, 'saveKeikakuOutput']);
     Route::post('downtime', [WOController::class, 'saveKeikakuDownTime']);
+    Route::get('downtime', [WOController::class, 'getKeikakuDownTime']);
 });
 
 Route::prefix('transaction')->group(function () {
