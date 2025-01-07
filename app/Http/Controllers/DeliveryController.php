@@ -857,6 +857,7 @@ class DeliveryController extends Controller
                     ]);
 
                 DB::table('DLVH_TBL')->where('DLVH_ACT_TRANS', $vechicleRegNumber)
+                    ->whereNull('DLVH_DRIVER_NAME')
                     ->update([
                         'DLVH_DRIVER_NAME' => $request->driverName,
                         'DLVH_CODRIVER_NAME' => $request->codriverName,
