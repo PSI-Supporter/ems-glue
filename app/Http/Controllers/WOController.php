@@ -7,6 +7,7 @@ use App\Models\ProductionTime;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Validator;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -1324,6 +1325,16 @@ class WOController extends Controller
 
     function getKeikakuData(Request $request)
     {
+        $currentActiveUser = Redis::command('EXISTS', ['keikaku_' . base64_encode($request->line_code . '#' . $request->production_date)]);
+
+        if ($currentActiveUser) {
+            $currentActiveUser = Redis::command('GET', ['keikaku_' . base64_encode($request->line_code . '#' . $request->production_date)]);
+        } else {
+            Redis::command('SET', ['keikaku_' . base64_encode($request->line_code . '#' . $request->production_date), $request->user_id]);
+            Redis::command('EXPIRE', ['keikaku_' . base64_encode($request->line_code . '#' . $request->production_date), 1800]);
+            $currentActiveUser = Redis::command('GET', ['keikaku_' . base64_encode($request->line_code . '#' . $request->production_date)]);
+        }
+
         $dataOutput = DB::table('keikaku_outputs')->where('production_date', $request->production_date)
             ->where('line_code', $request->line_code)
             ->whereNull('deleted_at')
@@ -1341,7 +1352,7 @@ class WOController extends Controller
             ->where('line_code', $request->line_code)
             ->orderBy('id')
             ->get(['keikaku_data.*', 'PDPP_BOMRV', DB::raw('ISNULL(ok_qty,0) ok_qty')]);
-        return ['data' => $data];
+        return ['data' => $data, '$currentActiveUser' => $currentActiveUser];
     }
 
     function saveKeikakuFromPreviousBalance(Request $request)
@@ -1779,5 +1790,12 @@ class WOController extends Controller
             ->get();
 
         return ['data' => $data];
+    }
+
+    public function tesRedis()
+    {
+        Redis::command('set', ['keikaku_' . base64_encode('KD & ASP # 2025-01-01'), 'Indra']);
+        $hasilRedisCheck = Redis::command('EXISTS', ['keikaku_' . base64_encode('KD & ASP # 2025-01-01')]);
+        return 'nah sudah ' . $hasilRedisCheck . ' dah';
     }
 }
