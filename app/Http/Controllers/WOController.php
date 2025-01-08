@@ -1352,7 +1352,7 @@ class WOController extends Controller
             ->where('line_code', $request->line_code)
             ->orderBy('id')
             ->get(['keikaku_data.*', 'PDPP_BOMRV', DB::raw('ISNULL(ok_qty,0) ok_qty')]);
-        return ['data' => $data, '$currentActiveUser' => $currentActiveUser];
+        return ['data' => $data, 'currentActiveUser' => $currentActiveUser];
     }
 
     function saveKeikakuFromPreviousBalance(Request $request)
@@ -1664,7 +1664,6 @@ class WOController extends Controller
         $running_at = $request->productionDate . ' ' . $request->runningAtTime . ':00';
         $nextDate = date_create($request->productionDate);
         date_add($nextDate, date_interval_create_from_date_string('1 days'));
-        $maxTimeKeikaku = date_format($nextDate, 'Y-m-d') . ' 07:00:00';
 
         if ($request->XCoordinate >= 26) {
             $_date = date_create($request->productionDate);
