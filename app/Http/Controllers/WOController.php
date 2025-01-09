@@ -1325,14 +1325,20 @@ class WOController extends Controller
 
     function getKeikakuData(Request $request)
     {
-        $currentActiveUser = Redis::command('EXISTS', ['keikaku_' . base64_encode($request->line_code . '#' . $request->production_date)]);
+        $currentActiveUser = NULL;
+        try {
+            $currentActiveUser = Redis::command('EXISTS', ['keikaku_' . base64_encode($request->line_code . '#' . $request->production_date)]);
 
-        if ($currentActiveUser) {
-            $currentActiveUser = Redis::command('GET', ['keikaku_' . base64_encode($request->line_code . '#' . $request->production_date)]);
-        } else {
-            Redis::command('SET', ['keikaku_' . base64_encode($request->line_code . '#' . $request->production_date), $request->user_id]);
-            Redis::command('EXPIRE', ['keikaku_' . base64_encode($request->line_code . '#' . $request->production_date), 1800]);
-            $currentActiveUser = Redis::command('GET', ['keikaku_' . base64_encode($request->line_code . '#' . $request->production_date)]);
+            if ($currentActiveUser) {
+                $currentActiveUser = Redis::command('GET', ['keikaku_' . base64_encode($request->line_code . '#' . $request->production_date)]);
+            } else {
+                Redis::command('SET', ['keikaku_' . base64_encode($request->line_code . '#' . $request->production_date), $request->user_id]);
+                Redis::command('EXPIRE', ['keikaku_' . base64_encode($request->line_code . '#' . $request->production_date), 1800]);
+                $currentActiveUser = Redis::command('GET', ['keikaku_' . base64_encode($request->line_code . '#' . $request->production_date)]);
+            }
+        } catch (Exception $e) {
+            // ketika redis tidak aktif
+            $currentActiveUser = $request->user_id;
         }
 
         $dataOutput = DB::table('keikaku_outputs')->where('production_date', $request->production_date)
