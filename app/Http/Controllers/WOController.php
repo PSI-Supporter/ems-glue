@@ -527,6 +527,9 @@ class WOController extends Controller
     private function plotProdPlan($dataKeikakuData, $dataCalc, $dataOutputSensor)
     {
         $tempModel = '';
+        $tempType = '';
+        $tempSpecs = '';
+        $tempAssyCode = '';
 
         // assy code|should change model| productio total hour |wo | specs side |times...
         $_asMatrixHeader1 = [NULL, NULL, NULL, NULL, NULL, NULL];
@@ -549,20 +552,43 @@ class WOController extends Controller
         $asMatrixSensor = [];
         foreach ($dataKeikakuData as $d) {
             $_shouldChangeModel = false;
+            $_usedTime = 0;
             if (strlen($tempModel) > 0) {
-                if ($tempModel != $d->model_code) {
+                if (substr($d->type, 0, 4) == substr($tempType, 0, 4) && $tempSpecs == $d->specs_side) {
+                    if ($tempAssyCode == $d->item_code) {
+                        $_shouldChangeModel = false;
+                    } else {
+                        $_shouldChangeModel = true;
+                        $_usedTime = 0.08;
+                    }
+                } else {
+                    $_usedTime = 0.25;
                     $_shouldChangeModel = true;
-                    $tempModel = $d->model_code;
+                }
+
+                if ($tempSpecs != $d->specs_side) {
+                    $tempSpecs = $d->specs_side;
+                }
+
+                if (substr($d->type, 0, 4) != substr($tempType, 0, 4)) {
+                    $tempType = $d->type;
+                }
+
+                if ($tempAssyCode != $d->item_code) {
+                    $tempAssyCode = $d->item_code;
                 }
             } else {
                 if ($tempModel != $d->model_code) {
                     $_shouldChangeModel = false; // first row always set to false
                     $tempModel = $d->model_code;
+                    $tempType = $d->type;
+                    $tempSpecs = $d->specs_side;
+                    $tempAssyCode = $d->item_code;
                 }
             }
 
 
-            $_asMatrix1 = [NULL, $_shouldChangeModel, ($_shouldChangeModel ? 0.25 : 0), NULL, NULL, NULL];
+            $_asMatrix1 = [NULL, $_shouldChangeModel, ($_shouldChangeModel ? $_usedTime : 0), NULL, NULL, NULL];
             $_asMatrix2 = [
                 $d->item_code,
                 NULL,
@@ -724,7 +750,7 @@ class WOController extends Controller
             ->groupBy('wo_code', 'running_at', 'process_code')
             ->get([DB::raw('sum(ok_qty) ok_qty'), 'wo_code', 'running_at', 'process_code']);
 
-        $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc, $dataSensor);        
+        $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc, $dataSensor);
 
         return [
             'asProdplan' => $asProdPlan[1],
