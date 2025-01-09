@@ -708,6 +708,7 @@ class WOController extends Controller
             ->get(['*', DB::raw("cycle_time/3600*plan_qty as production_worktime"), DB::raw("cycle_time/3600 ct_hour")]);
 
         $dataCalc = DB::table('keikaku_calcs')->whereNull('deleted_at')->where('production_date', $request->production_date)
+            ->where('line_code', $request->line_code)
             ->orderBy('calculation_at')
             ->get([
                 'plan_worktime',
