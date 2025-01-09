@@ -532,11 +532,13 @@ class WOController extends Controller
         $_asMatrixHeader1 = [NULL, NULL, NULL, NULL, NULL, NULL];
         $_asMatrixHeader2 = [NULL, NULL, NULL, NULL, NULL, NULL];
         $_asMatrixHeader3 = [NULL, NULL, NULL, NULL, NULL, NULL];
+        $_asMatrixHeader4 = [NULL, NULL, NULL, NULL, NULL, NULL];
         foreach ($dataCalc as $c) {
             $_jam = substr(explode(' ', $c->calculation_at)[1], 0, 2);
             $_asMatrixHeader1[] = $_jam;
             $_asMatrixHeader2[] = $c->effective_worktime;
             $_asMatrixHeader3[] = $c->plan_worktime;
+            $_asMatrixHeader4[] = $c->flag_mot;
         }
         $asMatrix = [
             $_asMatrixHeader1,
@@ -651,7 +653,7 @@ class WOController extends Controller
             }
         }
 
-        return [$asMatrix, $asProdPlanX, $asMatrixSensor];
+        return [$asMatrix, $asProdPlanX, $asMatrixSensor,  $_asMatrixHeader4];
     }
 
     private function _plotTime($data, $parX, $parY, $parProductionHours)
@@ -711,6 +713,7 @@ class WOController extends Controller
                 'plan_worktime',
                 'efficiency',
                 'calculation_at',
+                'flag_mot',
                 DB::raw("plan_worktime*efficiency as effective_worktime"),
             ]);
 
@@ -720,12 +723,13 @@ class WOController extends Controller
             ->groupBy('wo_code', 'running_at', 'process_code')
             ->get([DB::raw('sum(ok_qty) ok_qty'), 'wo_code', 'running_at', 'process_code']);
 
-        $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc, $dataSensor);
+        $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc, $dataSensor);        
 
         return [
             'asProdplan' => $asProdPlan[1],
             'asMatrix' => $asProdPlan[0],
             'dataSensor' => $asProdPlan[2],
+            'dataCalculation' => $asProdPlan[3],
         ];
     }
 
@@ -1795,12 +1799,5 @@ class WOController extends Controller
             ->get();
 
         return ['data' => $data];
-    }
-
-    public function tesRedis()
-    {
-        Redis::command('set', ['keikaku_' . base64_encode('KD & ASP # 2025-01-01'), 'Indra']);
-        $hasilRedisCheck = Redis::command('EXISTS', ['keikaku_' . base64_encode('KD & ASP # 2025-01-01')]);
-        return 'nah sudah ' . $hasilRedisCheck . ' dah';
     }
 }
