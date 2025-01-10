@@ -1389,7 +1389,11 @@ class WOController extends Controller
             ->where('line_code', $request->line_code)
             ->orderBy('id')
             ->get(['keikaku_data.*', 'PDPP_BOMRV', DB::raw('ISNULL(ok_qty,0) ok_qty')]);
-        return ['data' => $data, 'currentActiveUser' => $currentActiveUser];
+        return [
+            'data' => $data,
+            'currentActiveUser' => DB::table('MSTEMP_TBL')->where('MSTEMP_ID', $currentActiveUser)
+                ->first(['MSTEMP_ID', 'MSTEMP_FNM', 'MSTEMP_LNM'])
+        ];
     }
 
     function saveKeikakuFromPreviousBalance(Request $request)
