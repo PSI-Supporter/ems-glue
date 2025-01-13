@@ -753,10 +753,13 @@ class DeliveryController extends Controller
 
         $deliveryConsigment = DB::table('DLV_TBL')->where('DLV_ID', $doc)->first();
 
-        if ($DeliveryCheck == 0 && !str_contains($doc, 'RTN') && !str_contains($doc, 'WS')) {
+        if ($DeliveryCheck == 0 &&  !str_contains($doc, 'RTN') && !str_contains($doc, 'WS')) {
             if ($deliveryConsigment->DLV_CONSIGN == 'IEI' && $deliveryConsigment->DLV_CUSTCD == 'IEP001U') {
             } else {
-                return response()->json(['message' => 'Delivery Checking Operation is required'], 501);
+                if (str_contains($doc, 'TS')) {
+                } else {
+                    return response()->json(['message' => 'Delivery Checking Operation is required'], 501);
+                }
             }
         }
 
