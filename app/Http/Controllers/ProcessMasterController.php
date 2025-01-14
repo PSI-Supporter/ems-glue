@@ -125,6 +125,7 @@ class ProcessMasterController extends Controller
                         ->where('line_code', $dataInput['line_code'])
                         ->whereIn('assy_code', $uniqueAssyCodeList)
                         ->whereDate('valid_date_time', '<=', $dataInput['production_date'])
+                        ->orderBy('valid_date_time', 'desc')
                         ->get(['assy_code', 'cycle_time']);
                 }
             }
