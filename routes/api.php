@@ -124,6 +124,7 @@ Route::prefix('report')->group(function () {
     Route::get('join-reels', [LabelController::class, 'getReportJoinReels']);
     Route::get('gate-out', [DeliveryController::class, 'reportGateOut']);
     Route::get('value-checking', [LabelController::class, 'reportValueChecking']);
+    Route::get('keikaku', [WOController::class, 'getKeikakuReport']);
 });
 
 # Terkait Bom Calculation

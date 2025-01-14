@@ -1831,4 +1831,73 @@ class WOController extends Controller
 
         return ['data' => $data];
     }
+
+    public function getKeikakuReport(Request $request)
+    {
+        $dataOutput = DB::table('keikaku_outputs')
+            ->where('production_date', '>=', $request->dateFrom)
+            ->where('production_date', '<=', $request->dateTo)
+            ->whereNull('deleted_at')
+            ->groupBy('wo_code', 'process_code', 'production_date', 'line_code')
+            ->select('wo_code', 'process_code', 'production_date', 'line_code', DB::raw('sum(ok_qty) ok_qty'));
+
+        $data = DB::table('keikaku_data')
+            ->leftJoin('XWO', 'wo_full_code', '=', 'PDPP_WONO')
+            ->leftJoinSub($dataOutput, 'output', function ($join) {
+                $join->on('keikaku_data.wo_full_code', '=', 'output.wo_code')
+                    ->on('keikaku_data.specs_side', '=', 'output.process_code')
+                    ->on('keikaku_data.line_code', '=', 'output.line_code')
+                    ->on('keikaku_data.production_date', '=', 'output.production_date');
+            })
+            ->whereNull('deleted_at')
+            ->where('keikaku_data.production_date', '>=', $request->dateFrom)
+            ->where('keikaku_data.production_date', '<=', $request->dateTo)
+            ->orderBy('keikaku_data.production_date')
+            ->orderBy('id')
+            ->get(['keikaku_data.*', 'PDPP_BOMRV', DB::raw('ISNULL(ok_qty,0) ok_qty')]);
+
+        $spreadSheet = new Spreadsheet();
+        $sheet = $spreadSheet->getActiveSheet();
+        $sheet->setTitle('keikaku');
+        $sheet->setCellValue([1, 1], 'Production Date');
+        $sheet->setCellValue([2, 1], 'Line Code');
+        $sheet->setCellValue([3, 1], 'Assy Code');
+        $sheet->setCellValue([4, 1], 'Job No');
+        $sheet->setCellValue([5, 1], 'Specs Side');
+        $sheet->setCellValue([6, 1], 'CT / Process');
+        $sheet->setCellValue([7, 1], 'Qty');
+        $sheet->setCellValue([7, 2], 'Lot Size');
+        $sheet->setCellValue([8, 2], 'Plan');
+        $sheet->setCellValue([9, 2], 'Input');
+        $sheet->setCellValue([10, 2], 'Output');
+        $sheet->mergeCells('G1:J1', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $rowAt = 3;
+        foreach ($data as $r) {
+            $sheet->setCellValue([1, $rowAt], $r->production_date);
+            $sheet->setCellValue([2, $rowAt], $r->line_code);
+            $sheet->setCellValue([3, $rowAt], $r->item_code);
+            $sheet->setCellValue([4, $rowAt], $r->wo_full_code);
+            $sheet->setCellValue([5, $rowAt], $r->specs_side);
+            $sheet->setCellValue([6, $rowAt], $r->cycle_time);
+            $sheet->setCellValue([7, $rowAt], $r->lot_size);
+            $sheet->setCellValue([8, $rowAt], $r->plan_qty);
+            $sheet->setCellValue([9, $rowAt], $r->plan_qty);
+            $sheet->setCellValue([10, $rowAt], $r->ok_qty);
+            $rowAt++;
+        }
+
+        foreach (range('A', 'Z') as $v) {
+            $sheet->getColumnDimension($v)->setAutoSize(true);
+        }
+
+        $sheet->freezePane('A3');
+
+        $stringjudul = "Keikaku from " . $request->dateFrom . " to " . $request->dateTo;
+        $writer = IOFactory::createWriter($spreadSheet, 'Xlsx');
+        $filename = $stringjudul;
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
+        header('Cache-Control: max-age=0');
+        $writer->save('php://output');
+    }
 }
