@@ -1759,6 +1759,7 @@ class WOController extends Controller
             'line_code' =>  $request->line,
             'process_code' => $request->side,
             'ok_qty' => $request->quantity,
+            'seq_data' => $request->seq_data,
             'created_by' => $request->user_id,
         ]);
 
