@@ -1372,8 +1372,13 @@ class WOController extends Controller
             $currentActiveUser = $request->user_id;
         }
 
+        $nextDate = date_create($request->production_date);
+        date_add($nextDate, date_interval_create_from_date_string('1 days'));
+        $maxCalculationDate = date_format($nextDate, 'Y-m-d') . ' 07:00:00';
+
         $dataOutput = DB::table('keikaku_outputs')->where('production_date', $request->production_date)
             ->where('line_code', $request->line_code)
+            ->where('running_at', '<', $maxCalculationDate)
             ->whereNull('deleted_at')
             ->groupBy('wo_code', 'process_code')
             ->select('wo_code', 'process_code', DB::raw('sum(ok_qty) ok_qty'));
