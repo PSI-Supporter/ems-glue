@@ -1153,6 +1153,7 @@ class WOController extends Controller
             $InputWO = [];
             $InputWO1 = [];
             $InputWO2 = [];
+            $seq = 1;
             foreach ($data['detail'] as $r) {
                 $_wo = date('y') . '-' . $r['wo_code'] . '-' . trim($r['item_code']);
                 if (!in_array($_wo, $UniqueWO)) {
@@ -1165,7 +1166,7 @@ class WOController extends Controller
                     'created_by' => $data['user_id'],
                     'line_code' => $data['line_code'],
                     'production_date' => $data['production_date'],
-                    'seq' => $r['seq'],
+                    'seq' => $seq,
                     'model_code' => $r['model_code'],
                     'wo_code' => $r['wo_code'],
                     'wo_full_code' => $_wo,
@@ -1178,6 +1179,7 @@ class WOController extends Controller
                     'packaging' => $r['packaging'],
                     'cycle_time' => (float) $r['cycle_time'],
                 ];
+                $seq++;
             }
 
             # check UniqueWO on database
