@@ -613,14 +613,16 @@ class WOController extends Controller
 
                 $_asMatrix3[] = 0;
                 $lastActualColumn = count($_asMatrix3) - 1;
-                foreach ($dataOutputSensor as $o) {
-                    if ($o->wo_code == $d->wo_full_code) {
+                foreach ($dataOutputSensor as &$o) {
+                    if ($o->wo_code == $d->wo_full_code && $o->process_code == $d->specs_side && $o->ok_qty > 0) {
                         if (substr($c->calculation_at, 0, 13) == substr($o->running_at, 0, 13)) {
                             $_asMatrix3[$lastActualColumn] += $o->ok_qty;
                             $_asMatrix3[4] = $o->process_code;
+                            $o->ok_qty = 0;
                         }
                     }
                 }
+                unset($o);
             }
             $asMatrix[] = $_asMatrix1;
             $asMatrix[] = $_asMatrix2;
@@ -1234,7 +1236,6 @@ class WOController extends Controller
                         foreach ($InputWO2 as &$i) {
                             if ($d->PDPP_WONO === $i['WO']) {
                                 $i['FLAG'] = 1;
-                                break;
                             }
                         }
                         unset($i);
@@ -1839,27 +1840,43 @@ class WOController extends Controller
 
     public function getKeikakuReport(Request $request)
     {
+        $date1 = date_create($request->dateFrom);
+        $date2 = date_create($request->dateTo);
+        $dateDiff = date_diff($date1, $date2);
+        $countDate = $dateDiff->format('%a');
+        $nextDate = $date1;
+
         $dataOutput = DB::table('keikaku_outputs')
             ->where('production_date', '>=', $request->dateFrom)
             ->where('production_date', '<=', $request->dateTo)
             ->whereNull('deleted_at')
-            ->groupBy('wo_code', 'process_code', 'production_date', 'line_code')
-            ->select('wo_code', 'process_code', 'production_date', 'line_code', DB::raw('sum(ok_qty) ok_qty'));
+            ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'running_at')
+            ->get(['wo_code', 'process_code', 'production_date', 'line_code', 'running_at', DB::raw('sum(ok_qty) ok_qty')]);
+
+        for ($i = 0; $i <= $countDate; $i++) {
+            $_tempNextDate = date_format($nextDate, 'Y-m-d');
+            date_add($nextDate, date_interval_create_from_date_string('1 days'));
+
+            $maxCalculationDate = date_format($nextDate, 'Y-m-d') . ' 07:00:00';
+
+            foreach ($dataOutput as $r) {
+            }
+        }
 
         $data = DB::table('keikaku_data')
-            ->leftJoin('XWO', 'wo_full_code', '=', 'PDPP_WONO')
-            ->leftJoinSub($dataOutput, 'output', function ($join) {
-                $join->on('keikaku_data.wo_full_code', '=', 'output.wo_code')
-                    ->on('keikaku_data.specs_side', '=', 'output.process_code')
-                    ->on('keikaku_data.line_code', '=', 'output.line_code')
-                    ->on('keikaku_data.production_date', '=', 'output.production_date');
-            })
+            // ->leftJoin('XWO', 'wo_full_code', '=', 'PDPP_WONO')
+            // ->leftJoinSub($dataOutput, 'output', function ($join) {
+            //     $join->on('keikaku_data.wo_full_code', '=', 'output.wo_code')
+            //         ->on('keikaku_data.specs_side', '=', 'output.process_code')
+            //         ->on('keikaku_data.line_code', '=', 'output.line_code')
+            //         ->on('keikaku_data.production_date', '=', 'output.production_date');
+            // })
             ->whereNull('deleted_at')
             ->where('keikaku_data.production_date', '>=', $request->dateFrom)
             ->where('keikaku_data.production_date', '<=', $request->dateTo)
             ->orderBy('keikaku_data.production_date')
             ->orderBy('id')
-            ->get(['keikaku_data.*', 'PDPP_BOMRV', DB::raw('ISNULL(ok_qty,0) ok_qty')]);
+            ->get(['keikaku_data.*', DB::raw('0 ok_qty')]);
 
         $spreadSheet = new Spreadsheet();
         $sheet = $spreadSheet->getActiveSheet();
@@ -1874,10 +1891,24 @@ class WOController extends Controller
         $sheet->setCellValue([8, 1], 'CT / Process');
         $sheet->setCellValue([9, 1], 'Qty');
         $sheet->setCellValue([9, 2], 'Lot Size');
-        $sheet->setCellValue([10, 2], 'Plan');
-        $sheet->setCellValue([11, 2], 'Input');
-        $sheet->setCellValue([12, 2], 'Output');
-        $sheet->mergeCells('I1:L1', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue([10, 1], 'Plan');
+        $sheet->setCellValue([10, 2], 'Total');
+        $sheet->setCellValue([11, 2], 'M');
+        $sheet->setCellValue([12, 2], 'N');
+        $sheet->mergeCells('J1:L1', $sheet::MERGE_CELL_CONTENT_HIDE);
+
+        $sheet->setCellValue([13, 1], 'Input');
+        $sheet->setCellValue([13, 2], 'Total');
+        $sheet->setCellValue([14, 2], 'M');
+        $sheet->setCellValue([15, 2], 'N');
+        $sheet->mergeCells('M1:O1', $sheet::MERGE_CELL_CONTENT_HIDE);
+
+        $sheet->setCellValue([16, 1], 'Output');
+        $sheet->setCellValue([16, 2], 'Total');
+        $sheet->setCellValue([17, 2], 'M');
+        $sheet->setCellValue([18, 2], 'N');
+        $sheet->mergeCells('P1:R1', $sheet::MERGE_CELL_CONTENT_HIDE);
+
         $rowAt = 3;
         foreach ($data as $r) {
             $sheet->setCellValue([1, $rowAt], $r->production_date);
@@ -1889,9 +1920,9 @@ class WOController extends Controller
             $sheet->setCellValue([7, $rowAt], $r->specs_side);
             $sheet->setCellValue([8, $rowAt], $r->cycle_time);
             $sheet->setCellValue([9, $rowAt], $r->lot_size);
-            $sheet->setCellValue([10, $rowAt], $r->plan_qty);
-            $sheet->setCellValue([11, $rowAt], $r->plan_qty);
-            $sheet->setCellValue([12, $rowAt], $r->ok_qty);
+            // $sheet->setCellValue([10, $rowAt], $r->plan_qty);
+            // $sheet->setCellValue([11, $rowAt], $r->plan_qty);
+            // $sheet->setCellValue([12, $rowAt], $r->ok_qty);
             $rowAt++;
         }
 
