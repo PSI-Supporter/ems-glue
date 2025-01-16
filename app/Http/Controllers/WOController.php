@@ -749,17 +749,56 @@ class WOController extends Controller
         $dataSensor = DB::table('keikaku_outputs')->whereNull('deleted_at')
             ->where('production_date', $request->production_date)
             ->where('line_code', $request->line_code)
-            ->groupBy('wo_code', 'running_at', 'process_code','seq_data')
+            ->groupBy('wo_code', 'running_at', 'process_code', 'seq_data')
             ->get([DB::raw('sum(ok_qty) ok_qty'), 'wo_code', 'running_at', 'process_code', 'seq_data']);
 
         $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc, $dataSensor);
 
+        $this->_updateDataSimulation($asProdPlan[1]);
         return [
             'asProdplan' => $asProdPlan[1],
             'asMatrix' => $asProdPlan[0],
             'dataSensor' => $asProdPlan[2],
             'dataCalculation' => $asProdPlan[3],
         ];
+    }
+
+    function _updateDataSimulation($data)
+    {
+
+        $dataToUpdate = [];
+        foreach ($data as $r) {
+            if ($r[0]) {
+                $_prop = explode('#', $r[5]);
+
+                //calculate moring & night
+                $_morning = 0;
+                $_night = 0;
+                for ($i = 6; $i <= 29; $i++) {
+                    if ($i > 17) {
+                        $_night += $r[$i];
+                    } else {
+                        $_morning += $r[$i];
+                    }
+                }
+
+                $dataToUpdate[] = [
+                    'wo' => $r[3],
+                    'seq' => $_prop[7],
+                    'MORNING' => $_morning,
+                    'NIGHT' => $_night,
+                ];
+            }
+        }
+        foreach ($dataToUpdate as $r) {
+            DB::table('keikaku_data')->whereNull('deleted_at')
+                ->where('wo_full_code', $r['wo'])
+                ->where('seq', $r['seq'])
+                ->update([
+                    'plan_morning_qty' => $r['MORNING'],
+                    'plan_night_qty' => $r['NIGHT'],
+                ]);
+        }
     }
 
     function getDownTime(Request $request)
