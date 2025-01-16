@@ -1884,37 +1884,14 @@ class WOController extends Controller
 
     public function getKeikakuReport(Request $request)
     {
-        $date1 = date_create($request->dateFrom);
-        $date2 = date_create($request->dateTo);
-        $dateDiff = date_diff($date1, $date2);
-        $countDate = $dateDiff->format('%a');
-        $nextDate = $date1;
-
         $dataOutput = DB::table('keikaku_outputs')
             ->where('production_date', '>=', $request->dateFrom)
             ->where('production_date', '<=', $request->dateTo)
             ->whereNull('deleted_at')
-            ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'running_at')
-            ->get(['wo_code', 'process_code', 'production_date', 'line_code', 'running_at', DB::raw('sum(ok_qty) ok_qty')]);
-
-        for ($i = 0; $i <= $countDate; $i++) {
-            $_tempNextDate = date_format($nextDate, 'Y-m-d');
-            date_add($nextDate, date_interval_create_from_date_string('1 days'));
-
-            $maxCalculationDate = date_format($nextDate, 'Y-m-d') . ' 07:00:00';
-
-            foreach ($dataOutput as $r) {
-            }
-        }
+            ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'running_at', 'seq_data')
+            ->get(['wo_code', 'process_code', 'production_date', 'line_code', 'running_at', DB::raw('sum(ok_qty) ok_qty'), 'seq_data']);
 
         $data = DB::table('keikaku_data')
-            // ->leftJoin('XWO', 'wo_full_code', '=', 'PDPP_WONO')
-            // ->leftJoinSub($dataOutput, 'output', function ($join) {
-            //     $join->on('keikaku_data.wo_full_code', '=', 'output.wo_code')
-            //         ->on('keikaku_data.specs_side', '=', 'output.process_code')
-            //         ->on('keikaku_data.line_code', '=', 'output.line_code')
-            //         ->on('keikaku_data.production_date', '=', 'output.production_date');
-            // })
             ->whereNull('deleted_at')
             ->where('keikaku_data.production_date', '>=', $request->dateFrom)
             ->where('keikaku_data.production_date', '<=', $request->dateTo)
@@ -1955,6 +1932,29 @@ class WOController extends Controller
 
         $rowAt = 3;
         foreach ($data as $r) {
+            $_morningOutput = 0;
+            $_nightOutput = 0;
+            foreach ($dataOutput as $o) {
+                if (
+                    $r->production_date == $o->production_date
+                    && $r->wo_full_code == $o->wo_code
+                    && $r->seq == $o->seq_data
+                ) {
+                    $_running_at = explode(' ', $o->running_at);
+                    if ($r->production_date == $_running_at[0]) {
+                        if ($_running_at[1] >= '19:00:00') {
+                            $_nightOutput += $o->ok_qty;
+                        } else {
+                            $_morningOutput += $o->ok_qty;
+                        }
+                    } else {
+                        if ($_running_at[1] < '07:00:00') {
+                            $_nightOutput += $o->ok_qty;
+                        }
+                    }
+                }
+            }
+
             $sheet->setCellValue([1, $rowAt], $r->production_date);
             $sheet->setCellValue([2, $rowAt], $r->line_code);
             $sheet->setCellValue([3, $rowAt], $r->model_code);
@@ -1964,11 +1964,19 @@ class WOController extends Controller
             $sheet->setCellValue([7, $rowAt], $r->specs_side);
             $sheet->setCellValue([8, $rowAt], $r->cycle_time);
             $sheet->setCellValue([9, $rowAt], $r->lot_size);
-            // $sheet->setCellValue([10, $rowAt], $r->plan_qty);
-            // $sheet->setCellValue([11, $rowAt], $r->plan_qty);
-            // $sheet->setCellValue([12, $rowAt], $r->ok_qty);
+            $sheet->setCellValue([10, $rowAt], $r->plan_qty);
+            $sheet->setCellValue([11, $rowAt], $r->plan_morning_qty);
+            $sheet->setCellValue([12, $rowAt], $r->plan_night_qty);
+            $sheet->setCellValue([13, $rowAt], $r->plan_qty);
+            $sheet->setCellValue([14, $rowAt], $r->plan_morning_qty);
+            $sheet->setCellValue([15, $rowAt], $r->plan_night_qty);
+            $sheet->setCellValue([16, $rowAt], $_morningOutput + $_nightOutput);
+            $sheet->setCellValue([17, $rowAt], $_morningOutput);
+            $sheet->setCellValue([18, $rowAt], $_nightOutput);
             $rowAt++;
         }
+
+        $sheet->getStyle('I1:R' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
 
         foreach (range('A', 'Z') as $v) {
             $sheet->getColumnDimension($v)->setAutoSize(true);
