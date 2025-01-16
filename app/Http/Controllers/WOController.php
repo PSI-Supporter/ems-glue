@@ -754,7 +754,7 @@ class WOController extends Controller
 
         $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc, $dataSensor);
 
-        $this->_updateDataSimulation($asProdPlan[1]);
+        $this->_updateDataSimulation($asProdPlan[1], $request->production_date);
         return [
             'asProdplan' => $asProdPlan[1],
             'asMatrix' => $asProdPlan[0],
@@ -763,7 +763,7 @@ class WOController extends Controller
         ];
     }
 
-    function _updateDataSimulation($data)
+    function _updateDataSimulation($data, $productionDate)
     {
 
         $dataToUpdate = [];
@@ -793,6 +793,7 @@ class WOController extends Controller
         foreach ($dataToUpdate as $r) {
             DB::table('keikaku_data')->whereNull('deleted_at')
                 ->where('wo_full_code', $r['wo'])
+                ->where('production_date', $productionDate)
                 ->where('seq', $r['seq'])
                 ->update([
                     'plan_morning_qty' => $r['MORNING'],
