@@ -595,11 +595,11 @@ class WOController extends Controller
                 $d->production_worktime,
                 $d->wo_full_code,
                 $d->ct_hour,
-                $d->specs_side . "#" . $d->model_code . "#" . $d->wo_code . "#" . $d->lot_size . "#" . $d->plan_qty . "#" . $d->type . "#" . $d->specs
+                $d->specs_side . "#" . $d->model_code . "#" . $d->wo_code . "#" . $d->lot_size . "#" . $d->plan_qty . "#" . $d->type . "#" . $d->specs . "#" . $d->seq
             ];
             $_asMatrix3 = [
                 $d->item_code,
-                NULL,
+                $d->seq,
                 $d->production_worktime,
                 $d->wo_full_code,
                 'process_code_container',
@@ -614,7 +614,7 @@ class WOController extends Controller
                 $_asMatrix3[] = 0;
                 $lastActualColumn = count($_asMatrix3) - 1;
                 foreach ($dataOutputSensor as &$o) {
-                    if ($o->wo_code == $d->wo_full_code && $o->process_code == $d->specs_side && $o->ok_qty > 0) {
+                    if ($o->wo_code == $d->wo_full_code && $o->process_code == $d->specs_side && $o->ok_qty > 0 && $o->seq_data == $d->seq) {
                         if (substr($c->calculation_at, 0, 13) == substr($o->running_at, 0, 13)) {
                             $_asMatrix3[$lastActualColumn] += $o->ok_qty;
                             $_asMatrix3[4] = $o->process_code;
@@ -749,8 +749,8 @@ class WOController extends Controller
         $dataSensor = DB::table('keikaku_outputs')->whereNull('deleted_at')
             ->where('production_date', $request->production_date)
             ->where('line_code', $request->line_code)
-            ->groupBy('wo_code', 'running_at', 'process_code')
-            ->get([DB::raw('sum(ok_qty) ok_qty'), 'wo_code', 'running_at', 'process_code']);
+            ->groupBy('wo_code', 'running_at', 'process_code','seq_data')
+            ->get([DB::raw('sum(ok_qty) ok_qty'), 'wo_code', 'running_at', 'process_code', 'seq_data']);
 
         $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc, $dataSensor);
 
@@ -1383,14 +1383,15 @@ class WOController extends Controller
             ->where('line_code', $request->line_code)
             ->where('running_at', '<', $maxCalculationDate)
             ->whereNull('deleted_at')
-            ->groupBy('wo_code', 'process_code')
-            ->select('wo_code', 'process_code', DB::raw('sum(ok_qty) ok_qty'));
+            ->groupBy('wo_code', 'process_code', 'seq_data')
+            ->select('wo_code', 'process_code', 'seq_data', DB::raw('sum(ok_qty) ok_qty'));
 
         $data = DB::table('keikaku_data')
             ->leftJoin('XWO', 'wo_full_code', '=', 'PDPP_WONO')
             ->leftJoinSub($dataOutput, 'output', function ($join) {
                 $join->on('keikaku_data.wo_full_code', '=', 'output.wo_code')
-                    ->on('keikaku_data.specs_side', '=', 'output.process_code');
+                    ->on('keikaku_data.specs_side', '=', 'output.process_code')
+                    ->on('keikaku_data.seq', '=', 'output.seq_data');
             })
             ->whereNull('deleted_at')
             ->where('production_date', $request->production_date)
