@@ -1938,6 +1938,7 @@ class WOController extends Controller
                 if (
                     $r->production_date == $o->production_date
                     && $r->wo_full_code == $o->wo_code
+                    && $r->line_code == $o->line_code
                     && $r->seq == $o->seq_data
                 ) {
                     $_running_at = explode(' ', $o->running_at);
