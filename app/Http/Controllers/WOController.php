@@ -603,7 +603,7 @@ class WOController extends Controller
                 $d->production_worktime,
                 $d->wo_full_code,
                 'process_code_container',
-                NULL
+                $d->ct_hour
             ];
 
             foreach ($dataCalc as $c) {
