@@ -1184,7 +1184,24 @@ class WOController extends Controller
 
         $tobeSaved = [];
         $message = '';
+
         try {
+            DB::beginTransaction();
+            $dbStyle = DB::table('keikaku_styles')->whereNull('deleted_at')
+                ->where('production_date', $data['production_date'])
+                ->where('line_code', $data['line_code']);
+            if ($dbStyle->count() > 0) {
+                $dbStyle->update(['deleted_at' => date('Y-m-d H:i:s')]);
+            }
+            DB::table('keikaku_styles')->insert([[
+                'created_at' => date('Y-m-d H:i:s'),
+                'created_by' => $data['user_id'],
+                'line_code' => $data['line_code'],
+                'production_date' => $data['production_date'],
+                'styles' => json_encode($data['style']),
+                'sheet_code' => 'd',
+            ]]);
+
             $tobeSaved = [];
             // validate WO
             $UniqueWO = [];
@@ -1309,6 +1326,7 @@ class WOController extends Controller
 
             DB::table('keikaku_data')->insert($tobeSaved);
 
+            DB::commit();
             return ['message' => 'Saved successfully', $data];
         } catch (Exception $e) {
             $message = $e->getMessage();
@@ -1438,10 +1456,18 @@ class WOController extends Controller
             ->where('line_code', $request->line_code)
             ->orderBy('id')
             ->get(['keikaku_data.*', 'PDPP_BOMRV', DB::raw('ISNULL(ok_qty,0) ok_qty')]);
+
+        $keikakuDataStyle = DB::table('keikaku_styles')->whereNull('deleted_at')
+            ->where('production_date', $request->production_date)
+            ->where('line_code', $request->line_code)
+            ->first();
+        $keikakuDataStyleO = $keikakuDataStyle ? json_decode($keikakuDataStyle->styles) : [];
+
         return [
             'data' => $data,
             'currentActiveUser' => DB::table('MSTEMP_TBL')->where('MSTEMP_ID', $currentActiveUser)
-                ->first(['MSTEMP_ID', 'MSTEMP_FNM', 'MSTEMP_LNM'])
+                ->first(['MSTEMP_ID', 'MSTEMP_FNM', 'MSTEMP_LNM']),
+            'dataStyle' => $keikakuDataStyleO
         ];
     }
 
