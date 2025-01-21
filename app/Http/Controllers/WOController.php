@@ -1792,6 +1792,7 @@ class WOController extends Controller
             ->where('line_code', $request->line)
             ->where('wo_full_code', $request->job)
             ->where('specs_side', $request->side)
+            ->where('seq', $request->seq_data)
             ->whereNull('deleted_at')
             ->first();
 
@@ -1801,6 +1802,7 @@ class WOController extends Controller
             ->where('line_code', $request->line)
             ->where('wo_code', $request->job)
             ->where('process_code', $request->side)
+            ->where('seq_data', $request->seq_data)
             ->whereNull('deleted_at')
             ->select(DB::raw('isnull(sum(ok_qty),0) ok_qty'))
             ->first();
@@ -2019,4 +2021,6 @@ class WOController extends Controller
         header('Cache-Control: max-age=0');
         $writer->save('php://output');
     }
+
+    function getProductionOutputReport(Request $request) {}
 }
