@@ -1820,6 +1820,7 @@ class WOController extends Controller
             ->where('line_code', $request->line)
             ->where('wo_code', $request->job)
             ->where('process_code', $request->side)
+            ->where('seq_data', $request->seq_data)
             ->update(['deleted_at' => date('Y-m-d H:i:s')]);
 
         $affectedRows = DB::table('keikaku_outputs')->insert([
@@ -2020,6 +2021,55 @@ class WOController extends Controller
         header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
         header('Cache-Control: max-age=0');
         $writer->save('php://output');
+    }
+
+    function saveKeikakuModelChanges(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'line' => 'required',
+            'job' => 'required',
+            'side' => 'required',
+        ], [
+            'line.required' => ':attribute is required',
+            'job.required' => ':attribute is required',
+            'side.required' => ':attribute is required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 406);
+        }
+
+        $running_at = $request->productionDate . ' ' . $request->runningAtTime . ':00';
+        $nextDate = date_create($request->productionDate);
+        date_add($nextDate, date_interval_create_from_date_string('1 days'));
+
+        if ($request->XCoordinate >= 26) {
+            $_date = date_create($request->productionDate);
+            date_add($_date, date_interval_create_from_date_string('1 days'));
+            $running_at = date_format($_date, 'Y-m-d') . ' ' . $request->runningAtTime . ':00';
+        }
+
+        DB::table('keikaku_model_changes')
+            ->where("running_at",  $running_at)
+            ->where('line_code', $request->line)
+            ->where('wo_code', $request->job)
+            ->where('process_code', $request->side)
+            ->where('seq_data', $request->seq_data)
+            ->update(['deleted_at' => date('Y-m-d H:i:s')]);
+
+        $affectedRows = DB::table('keikaku_model_changes')->insert([
+            'created_at' => date('Y-m-d H:i:s'),
+            'production_date' => $request->productionDate,
+            'running_at' => $running_at,
+            'wo_code' => $request->job,
+            'line_code' =>  $request->line,
+            'process_code' => $request->side,
+            'change_flag' => $request->change_flag,
+            'seq_data' => $request->seq_data,
+            'created_by' => $request->user_id,
+        ]);
+
+        return $affectedRows ? ['message' => 'Recorded successfully.'] : ['message' => 'Failed, please try again.'];
     }
 
     function getProductionOutputReport(Request $request) {}

@@ -125,6 +125,7 @@ Route::prefix('report')->group(function () {
     Route::get('gate-out', [DeliveryController::class, 'reportGateOut']);
     Route::get('value-checking', [LabelController::class, 'reportValueChecking']);
     Route::get('keikaku', [WOController::class, 'getKeikakuReport']);
+    Route::get('production-output', [WOController::class, 'getKeikakuReport']);
 });
 
 # Terkait Bom Calculation
@@ -238,6 +239,7 @@ Route::prefix('keikaku')->group(function () {
     Route::post('output', [WOController::class, 'saveKeikakuOutput']);
     Route::post('downtime', [WOController::class, 'saveKeikakuDownTime']);
     Route::get('downtime', [WOController::class, 'getKeikakuDownTime']);
+    Route::post('model-changes', [WOController::class, 'saveKeikakuModelChanges']);
 });
 
 Route::prefix('transaction')->group(function () {
