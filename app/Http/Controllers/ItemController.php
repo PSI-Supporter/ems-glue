@@ -6,6 +6,7 @@ use App\Models\RawMaterialLabelPrint;
 use App\Traits\LabelingTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Pdf\Mpdf;
@@ -490,25 +491,27 @@ class ItemController extends Controller
 
         $data = [];
 
+
+        if ($request->uniqueBefore) {
+            $data = DB::table('raw_material_labels')
+                ->where('code', $request->uniqueBefore)
+                ->first();
+
+            if ($data->quantity != $request->old_qty) {
+                return ['cd' => '0', 'msg' => 'Old qty must be same with qty in database'];
+            }
+
+            if ($data->lot_code != $request->lot_number) {
+                return ['cd' => '0', 'msg' => 'Lot must be same with lot in database'];
+            }
+
+            if ($data->item_code != $request->item_code) {
+                return ['cd' => '0', 'msg' => 'item code must be same with item in database'];
+            }
+        }
+
         if ($request->old_qty != $request->new_qty) {
             // Split mode
-            if ($request->uniqueBefore) {
-                $data = DB::table('raw_material_labels')
-                    ->where('code', $request->uniqueBefore)
-                    ->first();
-
-                if ($data->quantity != $request->old_qty) {
-                    return ['cd' => '0', 'msg' => 'Old qty must be same with qty in database'];
-                }
-
-                if ($data->lot_code != $request->lot_number) {
-                    return ['cd' => '0', 'msg' => 'Lot must be same with lot in database'];
-                }
-
-                if ($data->item_code != $request->item_code) {
-                    return ['cd' => '0', 'msg' => 'item code must be same with item in database'];
-                }
-            }
 
             if ($request->mode == 1) {
                 // two labels mode
@@ -684,5 +687,27 @@ class ItemController extends Controller
                 ]);
         }
         return ['cd' => "1", 'msg' => $message,  'data' => $data];
+    }
+
+    function updateDescription2()
+    {
+        $base = json_decode(Storage::disk('public')->get('fg.json'), FALSE);
+
+        $uniqueFG = [];
+        foreach ($base as $r) {
+            if (!in_array($r->Material, $uniqueFG)) {
+                $uniqueFG[] = $r->Material;
+            }
+
+            DB::table('MITM_TBL')->where('MITM_ITMCD', $r->Material)
+                ->update(['MITM_ITMD2' => $r->Description]);
+        }
+
+        $dataBase = DB::table('MITM_TBL')->whereIn('MITM_ITMCD', $uniqueFG)->get([
+            DB::raw('RTRIM(MITM_ITMCD) ITMCD'),
+            DB::raw('RTRIM(MITM_ITMD2) ITMD2'),
+        ]);
+
+        return ['data' => $base, 'currentData' => $dataBase];
     }
 }
