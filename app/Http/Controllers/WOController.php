@@ -1938,23 +1938,57 @@ class WOController extends Controller
         return ['data' => $data];
     }
 
-    public function getKeikakuReport(Request $request)
+    function _getBaseKeikakuDataReport($params)
     {
         $dataOutput = DB::table('keikaku_outputs')
-            ->where('production_date', '>=', $request->dateFrom)
-            ->where('production_date', '<=', $request->dateTo)
+            ->where('production_date', '>=', $params->dateFrom)
+            ->where('production_date', '<=', $params->dateTo)
             ->whereNull('deleted_at')
             ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'running_at', 'seq_data')
             ->get(['wo_code', 'process_code', 'production_date', 'line_code', 'running_at', DB::raw('sum(ok_qty) ok_qty'), 'seq_data']);
 
         $data = DB::table('keikaku_data')
             ->whereNull('deleted_at')
-            ->where('keikaku_data.production_date', '>=', $request->dateFrom)
-            ->where('keikaku_data.production_date', '<=', $request->dateTo)
+            ->where('keikaku_data.production_date', '>=', $params->dateFrom)
+            ->where('keikaku_data.production_date', '<=', $params->dateTo)
             ->orderBy('keikaku_data.production_date')
             ->orderBy('id')
             ->get(['keikaku_data.*', DB::raw('0 ok_qty')]);
 
+        foreach ($data as &$r) {
+            $_morningOutput = 0;
+            $_nightOutput = 0;
+            foreach ($dataOutput as $o) {
+                if (
+                    $r->production_date == $o->production_date
+                    && $r->wo_full_code == $o->wo_code
+                    && $r->line_code == $o->line_code
+                    && $r->seq == $o->seq_data
+                ) {
+                    $_running_at = explode(' ', $o->running_at);
+                    if ($r->production_date == $_running_at[0]) {
+                        if ($_running_at[1] >= '19:00:00') {
+                            $_nightOutput += $o->ok_qty;
+                        } else {
+                            $_morningOutput += $o->ok_qty;
+                        }
+                    } else {
+                        if ($_running_at[1] < '07:00:00') {
+                            $_nightOutput += $o->ok_qty;
+                        }
+                    }
+                }
+            }
+            $r->morningOutput = $_morningOutput;
+            $r->nightOutput = $_nightOutput;
+        }
+        unset($r);
+        return  $data;
+    }
+
+    public function getKeikakuReport(Request $request)
+    {
+        $data = $this->_getBaseKeikakuDataReport($request);
         $spreadSheet = new Spreadsheet();
         $sheet = $spreadSheet->getActiveSheet();
         $sheet->setTitle('keikaku');
@@ -1988,30 +2022,6 @@ class WOController extends Controller
 
         $rowAt = 3;
         foreach ($data as $r) {
-            $_morningOutput = 0;
-            $_nightOutput = 0;
-            foreach ($dataOutput as $o) {
-                if (
-                    $r->production_date == $o->production_date
-                    && $r->wo_full_code == $o->wo_code
-                    && $r->line_code == $o->line_code
-                    && $r->seq == $o->seq_data
-                ) {
-                    $_running_at = explode(' ', $o->running_at);
-                    if ($r->production_date == $_running_at[0]) {
-                        if ($_running_at[1] >= '19:00:00') {
-                            $_nightOutput += $o->ok_qty;
-                        } else {
-                            $_morningOutput += $o->ok_qty;
-                        }
-                    } else {
-                        if ($_running_at[1] < '07:00:00') {
-                            $_nightOutput += $o->ok_qty;
-                        }
-                    }
-                }
-            }
-
             $sheet->setCellValue([1, $rowAt], $r->production_date);
             $sheet->setCellValue([2, $rowAt], $r->line_code);
             $sheet->setCellValue([3, $rowAt], $r->model_code);
@@ -2027,9 +2037,9 @@ class WOController extends Controller
             $sheet->setCellValue([13, $rowAt], $r->plan_qty);
             $sheet->setCellValue([14, $rowAt], $r->plan_morning_qty);
             $sheet->setCellValue([15, $rowAt], $r->plan_night_qty);
-            $sheet->setCellValue([16, $rowAt], $_morningOutput + $_nightOutput);
-            $sheet->setCellValue([17, $rowAt], $_morningOutput);
-            $sheet->setCellValue([18, $rowAt], $_nightOutput);
+            $sheet->setCellValue([16, $rowAt], $r->morningOutput + $r->nightOutput);
+            $sheet->setCellValue([17, $rowAt], $r->morningOutput);
+            $sheet->setCellValue([18, $rowAt], $r->nightOutput);
             $rowAt++;
         }
 
@@ -2099,5 +2109,99 @@ class WOController extends Controller
         return $affectedRows ? ['message' => 'Recorded successfully.'] : ['message' => 'Failed, please try again.'];
     }
 
-    function getProductionOutputReport(Request $request) {}
+    function getProductionOutputReport(Request $request)
+    {
+        $date1 = date_create($request->dateFrom);
+        $date2 = date_create($request->dateTo);
+        $dateDiff = date_diff($date1, $date2);
+        $dateDiffValue = $dateDiff->format('%a');
+
+        $data = $this->_getBaseKeikakuDataReport($request);
+        $spreadSheet = new Spreadsheet();
+        $sheet = $spreadSheet->getActiveSheet();
+        $sheet->setTitle('production_output');
+        $sheet->setCellValue([1, 1], 'Date');
+        $sheet->mergeCells('A1:A2', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue([2, 1], 'Mounting');
+        $sheet->mergeCells('B1:D1', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue([2, 2], 'M');
+        $sheet->setCellValue([3, 2], 'N');
+        $sheet->setCellValue([4, 2], 'Total');
+
+        $sheet->setCellValue([5, 1], 'Jam Kerja Biasa');
+        $sheet->mergeCells('E1:G1', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue([5, 2], 'M');
+        $sheet->setCellValue([6, 2], 'N');
+        $sheet->setCellValue([7, 2], 'Total');
+
+        $sheet->setCellValue([8, 1], 'Jam Kerja Aktual');
+        $sheet->mergeCells('H1:J1', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue([8, 2], 'M');
+        $sheet->setCellValue([9, 2], 'N');
+        $sheet->setCellValue([10, 2], 'Total');
+
+        $sheet->setCellValue([11, 1], 'Jam Kerja Kalkulasi');
+        $sheet->mergeCells('K1:M1', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue([11, 2], 'M');
+        $sheet->setCellValue([12, 2], 'N');
+        $sheet->setCellValue([13, 2], 'Total');
+
+        $sheet->setCellValue([14, 1], 'Eff');
+        $sheet->setCellValue([14, 2], 'Biasa');
+
+        $sheet->setCellValue([15, 1], 'Eff');
+        $sheet->setCellValue([15, 2], 'Aktual');
+
+        $sheet->setCellValue([16, 1], 'Input');
+        $sheet->mergeCells('P1:R1', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue([16, 2], 'M');
+        $sheet->setCellValue([17, 2], 'N');
+        $sheet->setCellValue([18, 2], 'Total');
+
+        $sheet->setCellValue([19, 1], 'Output');
+        $sheet->mergeCells('S1:U1', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue([19, 2], 'M');
+        $sheet->setCellValue([20, 2], 'N');
+        $sheet->setCellValue([21, 2], 'Total');
+        $nextDate = $request->dateFrom;
+        $rowAt = 3;
+        for ($d = 0; $d <= $dateDiffValue; $d++) {
+            $sheet->setCellValue([1, $rowAt], $nextDate);
+            $ttlOutputMorning = 0;
+            $ttlOutputNight = 0;
+            foreach ($data as $r) {
+                if ($r->production_date == $nextDate && ($r->morningOutput > 0 || $r->nightOutput > 0)) {
+                    $ttlOutputMorning += $r->morningOutput;
+                    $ttlOutputNight += $r->nightOutput;
+                }
+            }
+            $sheet->setCellValue([2, $rowAt], $ttlOutputMorning);
+            $sheet->setCellValue([3, $rowAt], $ttlOutputNight);
+
+            $nextDate = date_create($nextDate);
+            $day = date_format($nextDate, 'N');
+            if (in_array($day, [7, 6])) {
+                $sheet->getStyle('A' . $rowAt . ':Z' . $rowAt)->getFont()->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_RED);
+            }
+
+            date_add($nextDate, date_interval_create_from_date_string('1 days'));
+            $nextDate = date_format($nextDate, 'Y-m-d');
+
+            $rowAt++;
+        }
+
+        foreach (range('A', 'Z') as $v) {
+            $sheet->getColumnDimension($v)->setAutoSize(true);
+        }
+
+        $sheet->freezePane('A3');
+
+        $stringjudul = "Daily Output from " . $request->dateFrom . " to " . $request->dateTo;
+        $writer = IOFactory::createWriter($spreadSheet, 'Xlsx');
+        $filename = $stringjudul;
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
+        header('Cache-Control: max-age=0');
+        $writer->save('php://output');
+    }
 }

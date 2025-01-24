@@ -125,7 +125,7 @@ Route::prefix('report')->group(function () {
     Route::get('gate-out', [DeliveryController::class, 'reportGateOut']);
     Route::get('value-checking', [LabelController::class, 'reportValueChecking']);
     Route::get('keikaku', [WOController::class, 'getKeikakuReport']);
-    Route::get('production-output', [WOController::class, 'getKeikakuReport']);
+    Route::get('production-output', [WOController::class, 'getProductionOutputReport']);
 });
 
 # Terkait Bom Calculation
