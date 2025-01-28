@@ -1981,6 +1981,7 @@ class WOController extends Controller
             }
             $r->morningOutput = $_morningOutput;
             $r->nightOutput = $_nightOutput;
+            $r->baseMount = 0;
         }
         unset($r);
         return  $data;
@@ -2117,6 +2118,152 @@ class WOController extends Controller
         $dateDiffValue = $dateDiff->format('%a');
 
         $data = $this->_getBaseKeikakuDataReport($request);
+
+        $uniqueWO = [];
+        foreach ($data as $r) {
+            if ($r->morningOutput > 0 || $r->nightOutput > 0) {
+                if (!in_array($r->wo_full_code, $uniqueWO)) {
+                    $uniqueWO[] = $r->wo_full_code;
+                }
+            }
+        }
+
+        $dataWO = DB::table('XWO')->whereIn('PDPP_WONO', $uniqueWO)->get();
+        $dataMountArray = [];
+
+        foreach ($dataWO as $r) {
+            try {
+                $currentKeyActive = Redis::command('EXISTS', ['mount_' . $r->PDPP_MDLCD . '#' . $r->PDPP_BOMRV]);
+                if ($currentKeyActive) {
+                    $currentKeyActive = json_decode(Redis::command('GET', ['mount_' . $r->PDPP_MDLCD . '#' . $r->PDPP_BOMRV]));
+                    foreach ($currentKeyActive as $m) {
+                        $_isAdded = false;
+                        foreach ($dataMountArray as $n) {
+                            if ($n['ASSY_CODE'] == $m->MBLA_MDLCD && $n['BOM_REV'] == $m->MBLA_BOMRV && $n['LINENO'] == $m->MBLA_LINENO) {
+                                $_isAdded = true;
+                                break;
+                            }
+                        }
+                        if (!$_isAdded) {
+                            $dataMountArray[] = [
+                                'ASSY_CODE' => $m->MBLA_MDLCD,
+                                'BOM_REV' => $m->MBLA_BOMRV,
+                                'PROCD' => $m->MBLA_PROCD,
+                                'COUNTLOCATION' => $m->COUNTLOCATION,
+                                'LINENO' => $m->MBLA_LINENO,
+                                'SEQNO' => $m->MBO2_SEQNO
+                            ];
+                        }
+                    }
+                } else {
+                    $_subQuery = DB::table('VCIMS_MBLA_TBL')
+                        ->where('MBLA_MDLCD', $r->PDPP_MDLCD)
+                        ->where('MBLA_BOMRV', $r->PDPP_BOMRV)
+                        ->groupBy('MBLA_MDLCD', 'MBLA_BOMRV', 'MBLA_PROCD', 'MBLA_LINENO')
+                        ->select(
+                            DB::raw('RTRIM(MBLA_MDLCD) MBLA_MDLCD'),
+                            'MBLA_BOMRV',
+                            DB::raw('RTRIM(MBLA_PROCD) MBLA_PROCD'),
+                            DB::raw('COUNT(*) COUNTLOCATION'),
+                            DB::raw('RTRIM(MBLA_LINENO) MBLA_LINENO')
+                        );
+                    $dataMount = DB::query()->fromSub($_subQuery, 'V1')
+                        ->leftJoin('VCIMS_MBO2_TBL', function ($join) {
+                            $join->on('MBLA_MDLCD', '=', 'MBO2_MDLCD')
+                                ->on('MBLA_BOMRV', '=', 'MBO2_BOMRV')
+                                ->on('MBLA_PROCD', '=', 'MBO2_PROCD');
+                        })
+                        ->orderBy('MBO2_SEQNO')
+                        ->select('V1.*', 'MBO2_SEQNO')->get();
+
+                    foreach ($dataMount as $m) {
+                        $_isAdded = false;
+                        foreach ($dataMountArray as $n) {
+                            if ($n['ASSY_CODE'] == $m->MBLA_MDLCD && $n['BOM_REV'] == $m->MBLA_BOMRV && $n['LINENO'] == $m->MBLA_LINENO) {
+                                $_isAdded = true;
+                                break;
+                            }
+                        }
+                        if (!$_isAdded) {
+                            $dataMountArray[] = [
+                                'ASSY_CODE' => $m->MBLA_MDLCD,
+                                'BOM_REV' => $m->MBLA_BOMRV,
+                                'PROCD' => $m->MBLA_PROCD,
+                                'COUNTLOCATION' => $m->COUNTLOCATION,
+                                'LINENO' => $m->MBLA_LINENO,
+                                'SEQNO' => $m->MBO2_SEQNO
+                            ];
+                        }
+                    }
+                    Redis::command('SET', ['mount_' . $r->PDPP_MDLCD . '#' . $r->PDPP_BOMRV, json_encode($dataMount)]);
+                    Redis::command('EXPIRE', ['mount_' . $r->PDPP_MDLCD . '#' . $r->PDPP_BOMRV, 2505600]); // 29 days
+                }
+            } catch (Exception $e) {
+                $isFound = false;
+                foreach ($dataMountArray as $n) {
+                    if ($n['ASSY_CODE'] == $r->PDPP_MDLCD && $n['BOM_REV'] == $r->PDPP_BOMRV) {
+                        $isFound = true;
+                        break;
+                    }
+                }
+                if (!$isFound) {
+                    $_subQuery = DB::table('VCIMS_MBLA_TBL')
+                        ->where('MBLA_MDLCD', $r->PDPP_MDLCD)
+                        ->where('MBLA_BOMRV', $r->PDPP_BOMRV)
+                        ->groupBy('MBLA_MDLCD', 'MBLA_BOMRV', 'MBLA_PROCD', 'MBLA_LINENO')
+                        ->select(
+                            DB::raw('RTRIM(MBLA_MDLCD) MBLA_MDLCD'),
+                            'MBLA_BOMRV',
+                            DB::raw('RTRIM(MBLA_PROCD) MBLA_PROCD'),
+                            DB::raw('COUNT(*) COUNTLOCATION'),
+                            'MBLA_LINENO'
+                        );
+                    $dataMount = DB::query()->fromSub($_subQuery, 'V1')
+                        ->leftJoin('VCIMS_MBO2_TBL', function ($join) {
+                            $join->on('MBLA_MDLCD', '=', 'MBO2_MDLCD')
+                                ->on('MBLA_BOMRV', '=', 'MBO2_BOMRV')
+                                ->on('MBLA_PROCD', '=', 'MBO2_PROCD');
+                        })
+                        ->orderBy('MBO2_SEQNO')
+                        ->select('V1.*', 'MBO2_SEQNO')->get();
+                    foreach ($dataMount as $m) {
+                        $_isAdded = false;
+                        foreach ($dataMountArray as $n) {
+                            if ($n['ASSY_CODE'] == $m->MBLA_MDLCD && $n['BOM_REV'] == $m->MBLA_BOMRV && $n['LINENO'] == $m->MBLA_LINENO) {
+                                $_isAdded = true;
+                                break;
+                            }
+                        }
+                        if (!$_isAdded) {
+                            $dataMountArray[] = [
+                                'ASSY_CODE' => $m->MBLA_MDLCD,
+                                'BOM_REV' => $m->MBLA_BOMRV,
+                                'PROCD' => $m->MBLA_PROCD,
+                                'COUNTLOCATION' => $m->COUNTLOCATION,
+                                'LINENO' => $m->MBLA_LINENO,
+                                'SEQNO' => $m->MBO2_SEQNO
+                            ];
+                        }
+                    }
+                }
+            }
+        }
+
+        foreach ($dataMountArray as $r) {
+            foreach ($data as &$d) {
+                if ($r['ASSY_CODE'] == $d->item_code) {
+                    if (str_contains($r['LINENO'], $d->line_code)) {
+                        $d->baseMount = $r['COUNTLOCATION'];
+                    } else {
+                        if (str_contains($r['LINENO'], substr($d->line_code, -1))) {
+                            $d->baseMount = $r['COUNTLOCATION'];
+                        }
+                    }
+                }
+            }
+            unset($d);
+        }
+
         $spreadSheet = new Spreadsheet();
         $sheet = $spreadSheet->getActiveSheet();
         $sheet->setTitle('production_output');
@@ -2171,12 +2318,13 @@ class WOController extends Controller
             $ttlOutputNight = 0;
             foreach ($data as $r) {
                 if ($r->production_date == $nextDate && ($r->morningOutput > 0 || $r->nightOutput > 0)) {
-                    $ttlOutputMorning += $r->morningOutput;
-                    $ttlOutputNight += $r->nightOutput;
+                    $ttlOutputMorning += ($r->morningOutput * $r->baseMount);
+                    $ttlOutputNight += ($r->nightOutput * $r->baseMount);
                 }
             }
             $sheet->setCellValue([2, $rowAt], $ttlOutputMorning);
             $sheet->setCellValue([3, $rowAt], $ttlOutputNight);
+            $sheet->setCellValue([4, $rowAt], "=SUM(B$rowAt:C$rowAt)");
 
             $nextDate = date_create($nextDate);
             $day = date_format($nextDate, 'N');
@@ -2190,11 +2338,33 @@ class WOController extends Controller
             $rowAt++;
         }
 
+        $sheet->getStyle('B3:D' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
+
         foreach (range('A', 'Z') as $v) {
             $sheet->getColumnDimension($v)->setAutoSize(true);
         }
 
         $sheet->freezePane('A3');
+
+
+        $data = json_decode(json_encode($data), true);
+        $sheet = $spreadSheet->createSheet();
+        $sheet->setTitle('raw_data');
+        $sheet->fromArray(array_keys($data[0]), null, 'A1');
+        $sheet->fromArray($data, null, 'A2');
+        foreach (range('A', 'Z') as $v) {
+            $sheet->getColumnDimension($v)->setAutoSize(true);
+        }
+        $sheet->freezePane('A2');
+
+        $sheet = $spreadSheet->createSheet();
+        $sheet->setTitle('raw_data_mount');
+        $sheet->fromArray(array_keys($dataMountArray[0]), null, 'A1');
+        $sheet->fromArray($dataMountArray, null, 'A2');
+        foreach (range('A', 'Z') as $v) {
+            $sheet->getColumnDimension($v)->setAutoSize(true);
+        }
+        $sheet->freezePane('A2');
 
         $stringjudul = "Daily Output from " . $request->dateFrom . " to " . $request->dateTo;
         $writer = IOFactory::createWriter($spreadSheet, 'Xlsx');
