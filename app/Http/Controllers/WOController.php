@@ -1391,6 +1391,7 @@ class WOController extends Controller
         $tobeSaved = [];
 
         try {
+            DB::beginTransaction();
             foreach ($data['detail'] as $r) {
                 $tobeSaved[] = [
                     'shift_code' => $r['shift_code'],
@@ -1422,8 +1423,29 @@ class WOController extends Controller
                         ['deleted_at' => date('Y-m-d H:i:s'), 'deleted_by' => $data['user_id']]
                     );
             }
+            if (
+                DB::table('keikaku_calc_resumes')
+                ->where('line_code', $data['line_code'])
+                ->where('production_date', $data['production_date'])->count() > 0
+            ) {
+                DB::table('keikaku_calc_resumes')
+                    ->where('line_code', $data['line_code'])
+                    ->where('production_date', $data['production_date'])->update(
+                        ['deleted_at' => date('Y-m-d H:i:s'), 'deleted_by' => $data['user_id']]
+                    );
+            }
 
             DB::table('keikaku_calcs')->insert($tobeSaved);
+            DB::table('keikaku_calc_resumes')->insert([
+                'line_code' => $data['line_code'],
+                'production_date' => $data['production_date'],
+                'created_at' => date('Y-m-d H:i:s'),
+                'created_by' => $data['user_id'],
+                'total_plan_worktime_morning' => $data['totalWorkingTimeMorning'],
+                'total_plan_worktime_night' => $data['totalWorkingTimeNight'],
+            ]);
+
+            DB::commit();
             return ['message' => 'Saved successfully', 'data' => $tobeSaved];
         } catch (Exception $e) {
             DB::rollBack();
