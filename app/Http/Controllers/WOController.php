@@ -2120,11 +2120,16 @@ class WOController extends Controller
         $data = $this->_getBaseKeikakuDataReport($request);
 
         $uniqueWO = [];
+        $uniqueLine = [];
         foreach ($data as $r) {
             if ($r->morningOutput > 0 || $r->nightOutput > 0) {
                 if (!in_array($r->wo_full_code, $uniqueWO)) {
                     $uniqueWO[] = $r->wo_full_code;
                 }
+            }
+
+            if (!in_array($r->line_code, $uniqueLine)) {
+                $uniqueLine[] = $r->line_code;
             }
         }
 
@@ -2266,86 +2271,91 @@ class WOController extends Controller
 
         $spreadSheet = new Spreadsheet();
         $sheet = $spreadSheet->getActiveSheet();
-        $sheet->setTitle('production_output');
-        $sheet->setCellValue([1, 1], 'Date');
-        $sheet->mergeCells('A1:A2', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->setCellValue([2, 1], 'Mounting');
-        $sheet->mergeCells('B1:D1', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->setCellValue([2, 2], 'M');
-        $sheet->setCellValue([3, 2], 'N');
-        $sheet->setCellValue([4, 2], 'Total');
+        sort($uniqueLine);
+        foreach ($uniqueLine as $l) {
+            $sheet = $spreadSheet->createSheet();
+            $sheet->setTitle('production_output.' . $l);
+            $sheet->setCellValue([1, 1], 'Date');
+            $sheet->mergeCells('A1:A2', $sheet::MERGE_CELL_CONTENT_HIDE);
+            $sheet->setCellValue([2, 1], 'Mounting');
+            $sheet->mergeCells('B1:D1', $sheet::MERGE_CELL_CONTENT_HIDE);
+            $sheet->setCellValue([2, 2], 'M');
+            $sheet->setCellValue([3, 2], 'N');
+            $sheet->setCellValue([4, 2], 'Total');
 
-        $sheet->setCellValue([5, 1], 'Jam Kerja Biasa');
-        $sheet->mergeCells('E1:G1', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->setCellValue([5, 2], 'M');
-        $sheet->setCellValue([6, 2], 'N');
-        $sheet->setCellValue([7, 2], 'Total');
+            $sheet->setCellValue([5, 1], 'Jam Kerja Biasa');
+            $sheet->mergeCells('E1:G1', $sheet::MERGE_CELL_CONTENT_HIDE);
+            $sheet->setCellValue([5, 2], 'M');
+            $sheet->setCellValue([6, 2], 'N');
+            $sheet->setCellValue([7, 2], 'Total');
 
-        $sheet->setCellValue([8, 1], 'Jam Kerja Aktual');
-        $sheet->mergeCells('H1:J1', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->setCellValue([8, 2], 'M');
-        $sheet->setCellValue([9, 2], 'N');
-        $sheet->setCellValue([10, 2], 'Total');
+            $sheet->setCellValue([8, 1], 'Jam Kerja Aktual');
+            $sheet->mergeCells('H1:J1', $sheet::MERGE_CELL_CONTENT_HIDE);
+            $sheet->setCellValue([8, 2], 'M');
+            $sheet->setCellValue([9, 2], 'N');
+            $sheet->setCellValue([10, 2], 'Total');
 
-        $sheet->setCellValue([11, 1], 'Jam Kerja Kalkulasi');
-        $sheet->mergeCells('K1:M1', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->setCellValue([11, 2], 'M');
-        $sheet->setCellValue([12, 2], 'N');
-        $sheet->setCellValue([13, 2], 'Total');
+            $sheet->setCellValue([11, 1], 'Jam Kerja Kalkulasi');
+            $sheet->mergeCells('K1:M1', $sheet::MERGE_CELL_CONTENT_HIDE);
+            $sheet->setCellValue([11, 2], 'M');
+            $sheet->setCellValue([12, 2], 'N');
+            $sheet->setCellValue([13, 2], 'Total');
 
-        $sheet->setCellValue([14, 1], 'Eff');
-        $sheet->setCellValue([14, 2], 'Biasa');
+            $sheet->setCellValue([14, 1], 'Eff');
+            $sheet->setCellValue([14, 2], 'Biasa');
 
-        $sheet->setCellValue([15, 1], 'Eff');
-        $sheet->setCellValue([15, 2], 'Aktual');
+            $sheet->setCellValue([15, 1], 'Eff');
+            $sheet->setCellValue([15, 2], 'Aktual');
 
-        $sheet->setCellValue([16, 1], 'Input');
-        $sheet->mergeCells('P1:R1', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->setCellValue([16, 2], 'M');
-        $sheet->setCellValue([17, 2], 'N');
-        $sheet->setCellValue([18, 2], 'Total');
+            $sheet->setCellValue([16, 1], 'Input');
+            $sheet->mergeCells('P1:R1', $sheet::MERGE_CELL_CONTENT_HIDE);
+            $sheet->setCellValue([16, 2], 'M');
+            $sheet->setCellValue([17, 2], 'N');
+            $sheet->setCellValue([18, 2], 'Total');
 
-        $sheet->setCellValue([19, 1], 'Output');
-        $sheet->mergeCells('S1:U1', $sheet::MERGE_CELL_CONTENT_HIDE);
-        $sheet->setCellValue([19, 2], 'M');
-        $sheet->setCellValue([20, 2], 'N');
-        $sheet->setCellValue([21, 2], 'Total');
-        $nextDate = $request->dateFrom;
-        $rowAt = 3;
-        for ($d = 0; $d <= $dateDiffValue; $d++) {
-            $sheet->setCellValue([1, $rowAt], $nextDate);
-            $ttlOutputMorning = 0;
-            $ttlOutputNight = 0;
-            foreach ($data as $r) {
-                if ($r->production_date == $nextDate && ($r->morningOutput > 0 || $r->nightOutput > 0)) {
-                    $ttlOutputMorning += ($r->morningOutput * $r->baseMount);
-                    $ttlOutputNight += ($r->nightOutput * $r->baseMount);
+            $sheet->setCellValue([19, 1], 'Output');
+            $sheet->mergeCells('S1:U1', $sheet::MERGE_CELL_CONTENT_HIDE);
+            $sheet->setCellValue([19, 2], 'M');
+            $sheet->setCellValue([20, 2], 'N');
+            $sheet->setCellValue([21, 2], 'Total');
+            $nextDate = $request->dateFrom;
+            $rowAt = 3;
+            for ($d = 0; $d <= $dateDiffValue; $d++) {
+                $sheet->setCellValue([1, $rowAt], $nextDate);
+                $ttlOutputMorning = 0;
+                $ttlOutputNight = 0;
+                foreach ($data as $r) {
+                    if ($r->production_date == $nextDate && ($r->morningOutput > 0 || $r->nightOutput > 0) && $r->line_code == $l) {
+                        $ttlOutputMorning += ($r->morningOutput * $r->baseMount);
+                        $ttlOutputNight += ($r->nightOutput * $r->baseMount);
+                    }
                 }
+                $sheet->setCellValue([2, $rowAt], $ttlOutputMorning);
+                $sheet->setCellValue([3, $rowAt], $ttlOutputNight);
+                $sheet->setCellValue([4, $rowAt], "=SUM(B$rowAt:C$rowAt)");
+
+                $nextDate = date_create($nextDate);
+                $day = date_format($nextDate, 'N');
+                if (in_array($day, [7, 6])) {
+                    $sheet->getStyle('A' . $rowAt . ':Z' . $rowAt)->getFont()->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_RED);
+                }
+
+                date_add($nextDate, date_interval_create_from_date_string('1 days'));
+                $nextDate = date_format($nextDate, 'Y-m-d');
+
+                $rowAt++;
             }
-            $sheet->setCellValue([2, $rowAt], $ttlOutputMorning);
-            $sheet->setCellValue([3, $rowAt], $ttlOutputNight);
-            $sheet->setCellValue([4, $rowAt], "=SUM(B$rowAt:C$rowAt)");
+            $sheet->setCellValue([2, $rowAt], "=SUM(B3:B$rowAt)");
+            $sheet->setCellValue([3, $rowAt], "=SUM(C3:C$rowAt)");
+            $sheet->setCellValue([4, $rowAt], "=SUM(D3:D$rowAt)");
+            $sheet->getStyle('B3:D' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
 
-            $nextDate = date_create($nextDate);
-            $day = date_format($nextDate, 'N');
-            if (in_array($day, [7, 6])) {
-                $sheet->getStyle('A' . $rowAt . ':Z' . $rowAt)->getFont()->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_RED);
+            foreach (range('A', 'Z') as $v) {
+                $sheet->getColumnDimension($v)->setAutoSize(true);
             }
 
-            date_add($nextDate, date_interval_create_from_date_string('1 days'));
-            $nextDate = date_format($nextDate, 'Y-m-d');
-
-            $rowAt++;
+            $sheet->freezePane('A3');
         }
-
-        $sheet->getStyle('B3:D' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
-
-        foreach (range('A', 'Z') as $v) {
-            $sheet->getColumnDimension($v)->setAutoSize(true);
-        }
-
-        $sheet->freezePane('A3');
-
 
         $data = json_decode(json_encode($data), true);
         $sheet = $spreadSheet->createSheet();
@@ -2365,6 +2375,7 @@ class WOController extends Controller
             $sheet->getColumnDimension($v)->setAutoSize(true);
         }
         $sheet->freezePane('A2');
+
 
         $stringjudul = "Daily Output from " . $request->dateFrom . " to " . $request->dateTo;
         $writer = IOFactory::createWriter($spreadSheet, 'Xlsx');
