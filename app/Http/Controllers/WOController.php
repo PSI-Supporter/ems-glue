@@ -1969,13 +1969,23 @@ class WOController extends Controller
             ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'running_at', 'seq_data')
             ->get(['wo_code', 'process_code', 'production_date', 'line_code', 'running_at', DB::raw('sum(ok_qty) ok_qty'), 'seq_data']);
 
+        $subCalculationSummary = DB::table('keikaku_calc_resumes')
+            ->whereNull('deleted_at')
+            ->where('production_date', '>=', $params->dateFrom)
+            ->where('production_date', '<=', $params->dateTo)
+            ->select('production_date', 'line_code', 'total_plan_worktime_morning', 'total_plan_worktime_night');
+
         $data = DB::table('keikaku_data')
+            ->leftJoinSub($subCalculationSummary, 'calculation_summary', function ($join) {
+                $join->on('keikaku_data.production_date', '=', 'calculation_summary.production_date')
+                    ->on('keikaku_data.line_code', '=', 'calculation_summary.line_code');
+            })
             ->whereNull('deleted_at')
             ->where('keikaku_data.production_date', '>=', $params->dateFrom)
             ->where('keikaku_data.production_date', '<=', $params->dateTo)
             ->orderBy('keikaku_data.production_date')
             ->orderBy('id')
-            ->get(['keikaku_data.*', DB::raw('0 ok_qty')]);
+            ->get(['keikaku_data.*', DB::raw('0 ok_qty'), 'total_plan_worktime_morning', 'total_plan_worktime_night']);
 
         foreach ($data as &$r) {
             $_morningOutput = 0;
@@ -2346,15 +2356,22 @@ class WOController extends Controller
                 $sheet->setCellValue([1, $rowAt], $nextDate);
                 $ttlOutputMorning = 0;
                 $ttlOutputNight = 0;
+                $theMorningHour = 0;
+                $theNightHour = 0;
                 foreach ($data as $r) {
                     if ($r->production_date == $nextDate && ($r->morningOutput > 0 || $r->nightOutput > 0) && $r->line_code == $l) {
                         $ttlOutputMorning += ($r->morningOutput * $r->baseMount);
                         $ttlOutputNight += ($r->nightOutput * $r->baseMount);
+                        $theMorningHour = $r->total_plan_worktime_morning;
+                        $theNightHour = $r->total_plan_worktime_night;
                     }
                 }
                 $sheet->setCellValue([2, $rowAt], $ttlOutputMorning);
                 $sheet->setCellValue([3, $rowAt], $ttlOutputNight);
                 $sheet->setCellValue([4, $rowAt], "=SUM(B$rowAt:C$rowAt)");
+                $sheet->setCellValue([5, $rowAt], $theMorningHour);
+                $sheet->setCellValue([6, $rowAt], $theNightHour);
+                $sheet->setCellValue([7, $rowAt], "=SUM(E$rowAt:F$rowAt)");
 
                 $nextDate = date_create($nextDate);
                 $day = date_format($nextDate, 'N');
