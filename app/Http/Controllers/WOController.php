@@ -2384,9 +2384,11 @@ class WOController extends Controller
 
                 $rowAt++;
             }
-            $sheet->setCellValue([2, $rowAt], "=SUM(B3:B$rowAt)");
-            $sheet->setCellValue([3, $rowAt], "=SUM(C3:C$rowAt)");
-            $sheet->setCellValue([4, $rowAt], "=SUM(D3:D$rowAt)");
+            $maxDataRowsAt = $rowAt - 1;
+            $sheet->setCellValue([2, $rowAt], "=SUM(B3:B$maxDataRowsAt)");
+            $sheet->setCellValue([3, $rowAt], "=SUM(C3:C$maxDataRowsAt)");
+            $sheet->setCellValue([4, $rowAt], "=SUM(D3:D$maxDataRowsAt)");
+            $sheet->setCellValue([7, $rowAt], "=SUM(G3:G$maxDataRowsAt)");
             $sheet->getStyle('B3:D' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
 
             foreach (range('A', 'Z') as $v) {
