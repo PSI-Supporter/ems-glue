@@ -780,13 +780,27 @@ class WOController extends Controller
 
         $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc, $dataSensor, $dataModelChanges);
 
+        $morningEfficiency = 0;
+        $nightEfficiency = 0;
         $this->_updateDataSimulation($asProdPlan[1], $request->production_date);
+
+        foreach ($dataCalc as $r) {
+            if (substr($r->calculation_at, 11, 2) == '07' && $morningEfficiency == 0) {
+                $morningEfficiency = $r->efficiency;
+            }
+            if (substr($r->calculation_at, 11, 2) == '20' && $nightEfficiency == 0) {
+                $nightEfficiency = $r->efficiency;
+                break;
+            }
+        }
         return [
             'asProdplan' => $asProdPlan[1],
             'asMatrix' => $asProdPlan[0],
             'dataSensor' => $asProdPlan[2],
             'dataCalculation' => $asProdPlan[3],
             'dataChangesModel' => $asProdPlan[4],
+            'morningEfficiency' => $morningEfficiency,
+            'nightEfficiency' => $nightEfficiency,
         ];
     }
 
