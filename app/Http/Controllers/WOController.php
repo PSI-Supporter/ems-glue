@@ -793,6 +793,10 @@ class WOController extends Controller
                 break;
             }
         }
+
+        $theParam = ['dateFrom' => $request->production_date, 'dateTo' => $request->production_date];
+        $data_ = $this->_getBaseKeikakuDataReport($theParam);
+
         return [
             'asProdplan' => $asProdPlan[1],
             'asMatrix' => $asProdPlan[0],
@@ -1977,16 +1981,16 @@ class WOController extends Controller
     function _getBaseKeikakuDataReport($params)
     {
         $dataOutput = DB::table('keikaku_outputs')
-            ->where('production_date', '>=', $params->dateFrom)
-            ->where('production_date', '<=', $params->dateTo)
+            ->where('production_date', '>=', $params['dateFrom'])
+            ->where('production_date', '<=', $params['dateTo'])
             ->whereNull('deleted_at')
             ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'running_at', 'seq_data')
             ->get(['wo_code', 'process_code', 'production_date', 'line_code', 'running_at', DB::raw('sum(ok_qty) ok_qty'), 'seq_data']);
 
         $subCalculationSummary = DB::table('keikaku_calc_resumes')
             ->whereNull('deleted_at')
-            ->where('production_date', '>=', $params->dateFrom)
-            ->where('production_date', '<=', $params->dateTo)
+            ->where('production_date', '>=', $params['dateFrom'])
+            ->where('production_date', '<=', $params['dateTo'])
             ->select('production_date', 'line_code', 'total_plan_worktime_morning', 'total_plan_worktime_night');
 
         $data = DB::table('keikaku_data')
@@ -1995,8 +1999,8 @@ class WOController extends Controller
                     ->on('keikaku_data.line_code', '=', 'calculation_summary.line_code');
             })
             ->whereNull('deleted_at')
-            ->where('keikaku_data.production_date', '>=', $params->dateFrom)
-            ->where('keikaku_data.production_date', '<=', $params->dateTo)
+            ->where('keikaku_data.production_date', '>=', $params['dateFrom'])
+            ->where('keikaku_data.production_date', '<=', $params['dateTo'])
             ->orderBy('keikaku_data.production_date')
             ->orderBy('id')
             ->get(['keikaku_data.*', DB::raw('0 ok_qty'), 'total_plan_worktime_morning', 'total_plan_worktime_night']);
@@ -2030,140 +2034,7 @@ class WOController extends Controller
             $r->baseMount = 0;
         }
         unset($r);
-        return  $data;
-    }
 
-    public function getKeikakuReport(Request $request)
-    {
-        $data = $this->_getBaseKeikakuDataReport($request);
-        $spreadSheet = new Spreadsheet();
-        $sheet = $spreadSheet->getActiveSheet();
-        $sheet->setTitle('keikaku');
-        $sheet->setCellValue([1, 1], 'Production Date');
-        $sheet->setCellValue([2, 1], 'Line Code');
-        $sheet->setCellValue([3, 1], 'Model');
-        $sheet->setCellValue([4, 1], 'Spec');
-        $sheet->setCellValue([5, 1], 'Assy Code');
-        $sheet->setCellValue([6, 1], 'Job No');
-        $sheet->setCellValue([7, 1], 'Specs Side');
-        $sheet->setCellValue([8, 1], 'CT / Process');
-        $sheet->setCellValue([9, 1], 'Qty');
-        $sheet->setCellValue([9, 2], 'Lot Size');
-        $sheet->setCellValue([10, 1], 'Plan');
-        $sheet->setCellValue([10, 2], 'Total');
-        $sheet->setCellValue([11, 2], 'M');
-        $sheet->setCellValue([12, 2], 'N');
-        $sheet->mergeCells('J1:L1', $sheet::MERGE_CELL_CONTENT_HIDE);
-
-        $sheet->setCellValue([13, 1], 'Input');
-        $sheet->setCellValue([13, 2], 'Total');
-        $sheet->setCellValue([14, 2], 'M');
-        $sheet->setCellValue([15, 2], 'N');
-        $sheet->mergeCells('M1:O1', $sheet::MERGE_CELL_CONTENT_HIDE);
-
-        $sheet->setCellValue([16, 1], 'Output');
-        $sheet->setCellValue([16, 2], 'Total');
-        $sheet->setCellValue([17, 2], 'M');
-        $sheet->setCellValue([18, 2], 'N');
-        $sheet->mergeCells('P1:R1', $sheet::MERGE_CELL_CONTENT_HIDE);
-
-        $rowAt = 3;
-        foreach ($data as $r) {
-            $sheet->setCellValue([1, $rowAt], $r->production_date);
-            $sheet->setCellValue([2, $rowAt], $r->line_code);
-            $sheet->setCellValue([3, $rowAt], $r->model_code);
-            $sheet->setCellValue([4, $rowAt], $r->specs);
-            $sheet->setCellValue([5, $rowAt], $r->item_code);
-            $sheet->setCellValue([6, $rowAt], $r->wo_full_code);
-            $sheet->setCellValue([7, $rowAt], $r->specs_side);
-            $sheet->setCellValue([8, $rowAt], $r->cycle_time);
-            $sheet->setCellValue([9, $rowAt], $r->lot_size);
-            $sheet->setCellValue([10, $rowAt], $r->plan_qty);
-            $sheet->setCellValue([11, $rowAt], $r->plan_morning_qty);
-            $sheet->setCellValue([12, $rowAt], $r->plan_night_qty);
-            $sheet->setCellValue([13, $rowAt], $r->plan_qty);
-            $sheet->setCellValue([14, $rowAt], $r->plan_morning_qty);
-            $sheet->setCellValue([15, $rowAt], $r->plan_night_qty);
-            $sheet->setCellValue([16, $rowAt], $r->morningOutput + $r->nightOutput);
-            $sheet->setCellValue([17, $rowAt], $r->morningOutput);
-            $sheet->setCellValue([18, $rowAt], $r->nightOutput);
-            $rowAt++;
-        }
-
-        $sheet->getStyle('I1:R' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
-
-        foreach (range('A', 'Z') as $v) {
-            $sheet->getColumnDimension($v)->setAutoSize(true);
-        }
-
-        $sheet->freezePane('A3');
-
-        $stringjudul = "Keikaku from " . $request->dateFrom . " to " . $request->dateTo;
-        $writer = IOFactory::createWriter($spreadSheet, 'Xlsx');
-        $filename = $stringjudul;
-        header('Content-Type: application/vnd.ms-excel');
-        header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
-        header('Cache-Control: max-age=0');
-        $writer->save('php://output');
-    }
-
-    function saveKeikakuModelChanges(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'line' => 'required',
-            'job' => 'required',
-            'side' => 'required',
-        ], [
-            'line.required' => ':attribute is required',
-            'job.required' => ':attribute is required',
-            'side.required' => ':attribute is required',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json($validator->errors(), 406);
-        }
-
-        $running_at = $request->productionDate . ' ' . $request->runningAtTime . ':00';
-        $nextDate = date_create($request->productionDate);
-        date_add($nextDate, date_interval_create_from_date_string('1 days'));
-
-        if ($request->XCoordinate >= 26) {
-            $_date = date_create($request->productionDate);
-            date_add($_date, date_interval_create_from_date_string('1 days'));
-            $running_at = date_format($_date, 'Y-m-d') . ' ' . $request->runningAtTime . ':00';
-        }
-
-        DB::table('keikaku_model_changes')
-            ->where("running_at",  $running_at)
-            ->where('line_code', $request->line)
-            ->where('wo_code', $request->job)
-            ->where('process_code', $request->side)
-            ->where('seq_data', $request->seq_data)
-            ->update(['deleted_at' => date('Y-m-d H:i:s')]);
-
-        $affectedRows = DB::table('keikaku_model_changes')->insert([
-            'created_at' => date('Y-m-d H:i:s'),
-            'production_date' => $request->productionDate,
-            'running_at' => $running_at,
-            'wo_code' => $request->job,
-            'line_code' =>  $request->line,
-            'process_code' => $request->side,
-            'change_flag' => $request->change_flag,
-            'seq_data' => $request->seq_data,
-            'created_by' => $request->user_id,
-        ]);
-
-        return $affectedRows ? ['message' => 'Recorded successfully.'] : ['message' => 'Failed, please try again.'];
-    }
-
-    function getProductionOutputReport(Request $request)
-    {
-        $date1 = date_create($request->dateFrom);
-        $date2 = date_create($request->dateTo);
-        $dateDiff = date_diff($date1, $date2);
-        $dateDiffValue = $dateDiff->format('%a');
-
-        $data = $this->_getBaseKeikakuDataReport($request);
 
         $uniqueWO = [];
         $uniqueLine = [];
@@ -2315,9 +2186,156 @@ class WOController extends Controller
             unset($d);
         }
 
+        sort($uniqueLine);
+
+        return [$data, $dataMountArray, $uniqueLine];
+    }
+
+    public function getKeikakuReport(Request $request)
+    {
+        $theParam = [
+            'dateFrom' => $request->dateFrom,
+            'dateTo' => $request->dateTo,
+        ];
+        $data = $this->_getBaseKeikakuDataReport($theParam)[0];
         $spreadSheet = new Spreadsheet();
         $sheet = $spreadSheet->getActiveSheet();
-        sort($uniqueLine);
+        $sheet->setTitle('keikaku');
+        $sheet->setCellValue([1, 1], 'Production Date');
+        $sheet->setCellValue([2, 1], 'Line Code');
+        $sheet->setCellValue([3, 1], 'Model');
+        $sheet->setCellValue([4, 1], 'Spec');
+        $sheet->setCellValue([5, 1], 'Assy Code');
+        $sheet->setCellValue([6, 1], 'Job No');
+        $sheet->setCellValue([7, 1], 'Specs Side');
+        $sheet->setCellValue([8, 1], 'CT / Process');
+        $sheet->setCellValue([9, 1], 'Qty');
+        $sheet->setCellValue([9, 2], 'Lot Size');
+        $sheet->setCellValue([10, 1], 'Plan');
+        $sheet->setCellValue([10, 2], 'Total');
+        $sheet->setCellValue([11, 2], 'M');
+        $sheet->setCellValue([12, 2], 'N');
+        $sheet->mergeCells('J1:L1', $sheet::MERGE_CELL_CONTENT_HIDE);
+
+        $sheet->setCellValue([13, 1], 'Input');
+        $sheet->setCellValue([13, 2], 'Total');
+        $sheet->setCellValue([14, 2], 'M');
+        $sheet->setCellValue([15, 2], 'N');
+        $sheet->mergeCells('M1:O1', $sheet::MERGE_CELL_CONTENT_HIDE);
+
+        $sheet->setCellValue([16, 1], 'Output');
+        $sheet->setCellValue([16, 2], 'Total');
+        $sheet->setCellValue([17, 2], 'M');
+        $sheet->setCellValue([18, 2], 'N');
+        $sheet->mergeCells('P1:R1', $sheet::MERGE_CELL_CONTENT_HIDE);
+
+        $rowAt = 3;
+        foreach ($data as $r) {
+            $sheet->setCellValue([1, $rowAt], $r->production_date);
+            $sheet->setCellValue([2, $rowAt], $r->line_code);
+            $sheet->setCellValue([3, $rowAt], $r->model_code);
+            $sheet->setCellValue([4, $rowAt], $r->specs);
+            $sheet->setCellValue([5, $rowAt], $r->item_code);
+            $sheet->setCellValue([6, $rowAt], $r->wo_full_code);
+            $sheet->setCellValue([7, $rowAt], $r->specs_side);
+            $sheet->setCellValue([8, $rowAt], $r->cycle_time);
+            $sheet->setCellValue([9, $rowAt], $r->lot_size);
+            $sheet->setCellValue([10, $rowAt], $r->plan_qty);
+            $sheet->setCellValue([11, $rowAt], $r->plan_morning_qty);
+            $sheet->setCellValue([12, $rowAt], $r->plan_night_qty);
+            $sheet->setCellValue([13, $rowAt], $r->plan_qty);
+            $sheet->setCellValue([14, $rowAt], $r->plan_morning_qty);
+            $sheet->setCellValue([15, $rowAt], $r->plan_night_qty);
+            $sheet->setCellValue([16, $rowAt], $r->morningOutput + $r->nightOutput);
+            $sheet->setCellValue([17, $rowAt], $r->morningOutput);
+            $sheet->setCellValue([18, $rowAt], $r->nightOutput);
+            $rowAt++;
+        }
+
+        $sheet->getStyle('I1:R' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
+
+        foreach (range('A', 'Z') as $v) {
+            $sheet->getColumnDimension($v)->setAutoSize(true);
+        }
+
+        $sheet->freezePane('A3');
+
+        $stringjudul = "Keikaku from " . $request->dateFrom . " to " . $request->dateTo;
+        $writer = IOFactory::createWriter($spreadSheet, 'Xlsx');
+        $filename = $stringjudul;
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
+        header('Cache-Control: max-age=0');
+        $writer->save('php://output');
+    }
+
+    function saveKeikakuModelChanges(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'line' => 'required',
+            'job' => 'required',
+            'side' => 'required',
+        ], [
+            'line.required' => ':attribute is required',
+            'job.required' => ':attribute is required',
+            'side.required' => ':attribute is required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 406);
+        }
+
+        $running_at = $request->productionDate . ' ' . $request->runningAtTime . ':00';
+        $nextDate = date_create($request->productionDate);
+        date_add($nextDate, date_interval_create_from_date_string('1 days'));
+
+        if ($request->XCoordinate >= 26) {
+            $_date = date_create($request->productionDate);
+            date_add($_date, date_interval_create_from_date_string('1 days'));
+            $running_at = date_format($_date, 'Y-m-d') . ' ' . $request->runningAtTime . ':00';
+        }
+
+        DB::table('keikaku_model_changes')
+            ->where("running_at",  $running_at)
+            ->where('line_code', $request->line)
+            ->where('wo_code', $request->job)
+            ->where('process_code', $request->side)
+            ->where('seq_data', $request->seq_data)
+            ->update(['deleted_at' => date('Y-m-d H:i:s')]);
+
+        $affectedRows = DB::table('keikaku_model_changes')->insert([
+            'created_at' => date('Y-m-d H:i:s'),
+            'production_date' => $request->productionDate,
+            'running_at' => $running_at,
+            'wo_code' => $request->job,
+            'line_code' =>  $request->line,
+            'process_code' => $request->side,
+            'change_flag' => $request->change_flag,
+            'seq_data' => $request->seq_data,
+            'created_by' => $request->user_id,
+        ]);
+
+        return $affectedRows ? ['message' => 'Recorded successfully.'] : ['message' => 'Failed, please try again.'];
+    }
+
+    function getProductionOutputReport(Request $request)
+    {
+        $date1 = date_create($request->dateFrom);
+        $date2 = date_create($request->dateTo);
+        $dateDiff = date_diff($date1, $date2);
+        $dateDiffValue = $dateDiff->format('%a');
+        $theParam = [
+            'dateFrom' => $request->dateFrom,
+            'dateTo' => $request->dateTo,
+        ];
+        $data_ = $this->_getBaseKeikakuDataReport($theParam);
+        $data = $data_[0];
+        $data1 = $data_[1];
+        $uniqueLine = $data_[2];
+
+        $spreadSheet = new Spreadsheet();
+        $sheet = $spreadSheet->getActiveSheet();
+
         foreach ($uniqueLine as $l) {
             $sheet = $spreadSheet->createSheet();
             $sheet->setTitle('production_output.' . $l);
@@ -2425,8 +2443,8 @@ class WOController extends Controller
 
         $sheet = $spreadSheet->createSheet();
         $sheet->setTitle('raw_data_mount');
-        $sheet->fromArray(array_keys($dataMountArray[0]), null, 'A1');
-        $sheet->fromArray($dataMountArray, null, 'A2');
+        $sheet->fromArray(array_keys($data1[0]), null, 'A1');
+        $sheet->fromArray($data1, null, 'A2');
         foreach (range('A', 'Z') as $v) {
             $sheet->getColumnDimension($v)->setAutoSize(true);
         }
