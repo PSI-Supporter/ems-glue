@@ -809,7 +809,7 @@ class WOController extends Controller
             'dataChangesModel' => $asProdPlan[4],
             'morningEfficiency' => $morningEfficiency,
             'nightEfficiency' => $nightEfficiency,
-            'dataMount' => $data_
+            'dataMount' => $data_[0]
         ];
     }
 
