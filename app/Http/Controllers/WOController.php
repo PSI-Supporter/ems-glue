@@ -794,7 +794,11 @@ class WOController extends Controller
             }
         }
 
-        $theParam = ['dateFrom' => $request->production_date, 'dateTo' => $request->production_date];
+        $theParam = [
+            'dateFrom' => $request->production_date,
+            'dateTo' => $request->production_date,
+            'lineCode' => $request->line_code
+        ];
         $data_ = $this->_getBaseKeikakuDataReport($theParam);
 
         return [
@@ -805,6 +809,7 @@ class WOController extends Controller
             'dataChangesModel' => $asProdPlan[4],
             'morningEfficiency' => $morningEfficiency,
             'nightEfficiency' => $nightEfficiency,
+            'dataMount' => $data_
         ];
     }
 
@@ -1993,6 +1998,10 @@ class WOController extends Controller
             ->where('production_date', '<=', $params['dateTo'])
             ->select('production_date', 'line_code', 'total_plan_worktime_morning', 'total_plan_worktime_night');
 
+        $whereAdditional = [];
+        if (isset($params['lineCode'])) {
+            $whereAdditional[] = ['keikaku_data.line_code', $params['lineCode']];
+        }
         $data = DB::table('keikaku_data')
             ->leftJoinSub($subCalculationSummary, 'calculation_summary', function ($join) {
                 $join->on('keikaku_data.production_date', '=', 'calculation_summary.production_date')
@@ -2001,6 +2010,7 @@ class WOController extends Controller
             ->whereNull('deleted_at')
             ->where('keikaku_data.production_date', '>=', $params['dateFrom'])
             ->where('keikaku_data.production_date', '<=', $params['dateTo'])
+            ->where($whereAdditional)
             ->orderBy('keikaku_data.production_date')
             ->orderBy('id')
             ->get(['keikaku_data.*', DB::raw('0 ok_qty'), 'total_plan_worktime_morning', 'total_plan_worktime_night']);
