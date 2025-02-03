@@ -2412,6 +2412,7 @@ class WOController extends Controller
             $sheet->setCellValue([19, 2], 'M');
             $sheet->setCellValue([20, 2], 'N');
             $sheet->setCellValue([21, 2], 'Total');
+            $sheet->getStyle('A1:U2')->getFont()->setBold(true);
             $nextDate = $request->dateFrom;
             $rowAt = 3;
             for ($d = 0; $d <= $dateDiffValue; $d++) {
@@ -2497,7 +2498,8 @@ class WOController extends Controller
             $sheet->setCellValue([21, $rowAt], "=SUM(U3:U$maxDataRowsAt)");
             $sheet->getStyle('B3:D' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
             $sheet->getStyle('N3:O' . $rowAt)->getNumberFormat()->setFormatCode('0.00%');
-
+            $sheet->getStyle('P3:U' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
+            $sheet->getStyle('A' . $rowAt . ':U' . $rowAt)->getFont()->setBold(true);
 
             foreach (range('A', 'Z') as $v) {
                 $sheet->getColumnDimension($v)->setAutoSize(true);
