@@ -657,7 +657,7 @@ class WOController extends Controller
                 if ($_totalProductionHours == 0) {
                     $asMatrix[$i][$col] = 0;
                 } else {
-                    $asMatrix[$i][$col] = $this->_plotTime($asMatrix, $col, $i, $_totalProductionHours);
+                    $asMatrix[$i][$col] = $this->_plotTime($asMatrix, $col, $i, round($_totalProductionHours, 5));
                 }
             }
         }
@@ -715,11 +715,25 @@ class WOController extends Controller
                 $_plotedTime = $restEffectiveWorkTime;
             }
         } else {
+            // if($data[$parY][3]=='25-2A01-223492801') {
+            //     logger('mulai');
+            //     logger("if ($parProductionHours < $restEffectiveWorkTime) pada X=$parX");
+            //     logger("elseif (($parProductionHours - ".$this->_sumHorizontal($data, $parX, $parY).") < $restEffectiveWorkTime) pada X=$parX");
+            // }
             if ($parProductionHours < $restEffectiveWorkTime) {
+                // if($data[$parY][3]=='25-2A01-223492801') {
+                //     logger('KE BLOKA');                    
+                // }
                 $_plotedTime = $parProductionHours - $this->_sumHorizontal($data, $parX, $parY);
             } elseif (($parProductionHours - $this->_sumHorizontal($data, $parX, $parY)) < $restEffectiveWorkTime) {
+                // if($data[$parY][3]=='25-2A01-223492801') {
+                //     logger('KE BLOKB');                    
+                // }
                 $_plotedTime = $parProductionHours - $this->_sumHorizontal($data, $parX, $parY);
             } else {
+                // if($data[$parY][3]=='25-2A01-223492801') {
+                //     logger('KE BLOKC');                    
+                // }
                 $_plotedTime = $restEffectiveWorkTime;
             }
         }
@@ -734,7 +748,7 @@ class WOController extends Controller
             $_summarizedVertical += $data[$__r][$parX];
         }
 
-        return $_summarizedVertical;
+        return round($_summarizedVertical, 5);
     }
 
     private function _sumHorizontal($data, $parX, $parY)
