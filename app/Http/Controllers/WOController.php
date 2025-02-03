@@ -2357,6 +2357,11 @@ class WOController extends Controller
         $data = $data_[0];
         $data1 = $data_[1];
         $uniqueLine = $data_[2];
+        $productionDownTime = DB::table('production_downtime')
+            ->where('production_date', '>=', $request->dateFrom)
+            ->where('production_date', '<=', $request->dateTo)
+            ->whereNull('deleted_at')
+            ->get(['production_date', 'line_code', 'req_minutes', 'shift_code']);
 
         $spreadSheet = new Spreadsheet();
         $sheet = $spreadSheet->getActiveSheet();
@@ -2415,20 +2420,41 @@ class WOController extends Controller
                 $ttlOutputNight = 0;
                 $theMorningHour = 0;
                 $theNightHour = 0;
+                $ttlDowntimeMorningHour = 0;
+                $ttlDowntimeNightHour = 0;
+                $ttlMorningHourCalc = 0;
+                $ttlNightHourCalc = 0;
                 foreach ($data as $r) {
                     if ($r->production_date == $nextDate && ($r->morningOutput > 0 || $r->nightOutput > 0) && $r->line_code == $l) {
                         $ttlOutputMorning += ($r->morningOutput * $r->baseMount);
                         $ttlOutputNight += ($r->nightOutput * $r->baseMount);
                         $theMorningHour = $r->total_plan_worktime_morning;
                         $theNightHour = $r->total_plan_worktime_night;
+                        $ttlMorningHourCalc += $r->plan_morning_qty * $r->cycle_time / 3600;
+                        $ttlNightHourCalc += $r->plan_night_qty * $r->cycle_time / 3600;
                     }
                 }
+                foreach ($productionDownTime as $dt) {
+                    if ($dt->production_date == $nextDate && $dt->line_code == $l && $dt->shift_code == 'M') {
+                        $ttlDowntimeMorningHour += $dt->req_minutes / 60;
+                    }
+                    if ($dt->production_date == $nextDate && $dt->line_code == $l && $dt->shift_code == 'N') {
+                        $ttlDowntimeNightHour += $dt->req_minutes / 60;
+                    }
+                }
+
                 $sheet->setCellValue([2, $rowAt], $ttlOutputMorning);
                 $sheet->setCellValue([3, $rowAt], $ttlOutputNight);
                 $sheet->setCellValue([4, $rowAt], "=SUM(B$rowAt:C$rowAt)");
                 $sheet->setCellValue([5, $rowAt], $theMorningHour);
                 $sheet->setCellValue([6, $rowAt], $theNightHour);
                 $sheet->setCellValue([7, $rowAt], "=SUM(E$rowAt:F$rowAt)");
+                $sheet->setCellValue([8, $rowAt], round($theMorningHour - $ttlDowntimeMorningHour, 1));
+                $sheet->setCellValue([9, $rowAt], round($theNightHour - $ttlDowntimeNightHour, 1));
+                $sheet->setCellValue([10, $rowAt], "=SUM(H$rowAt:I$rowAt)");
+                $sheet->setCellValue([11, $rowAt], round($ttlMorningHourCalc, 1));
+                $sheet->setCellValue([12, $rowAt], round($ttlNightHourCalc, 1));
+                $sheet->setCellValue([13, $rowAt], "=SUM(K$rowAt:L$rowAt)");
 
                 $nextDate = date_create($nextDate);
                 $day = date_format($nextDate, 'N');
@@ -2447,6 +2473,8 @@ class WOController extends Controller
             $sheet->setCellValue([3, $rowAt], "=SUM(C3:C$maxDataRowsAt)");
             $sheet->setCellValue([4, $rowAt], "=SUM(D3:D$maxDataRowsAt)");
             $sheet->setCellValue([7, $rowAt], "=SUM(G3:G$maxDataRowsAt)");
+            $sheet->setCellValue([10, $rowAt], "=SUM(J3:J$maxDataRowsAt)");
+            $sheet->setCellValue([13, $rowAt], "=SUM(M3:M$maxDataRowsAt)");
             $sheet->getStyle('B3:D' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
 
             foreach (range('A', 'Z') as $v) {
