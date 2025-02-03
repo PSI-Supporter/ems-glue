@@ -2198,11 +2198,12 @@ class WOController extends Controller
         foreach ($dataMountArray as $r) {
             foreach ($data as &$d) {
                 if ($r['ASSY_CODE'] == $d->item_code) {
+                    $substractPCB = $r['SEQNO'] == 1 ? 1 : 0;
                     if (str_contains($r['LINENO'], $d->line_code)) {
-                        $d->baseMount = $r['COUNTLOCATION'];
+                        $d->baseMount = $r['COUNTLOCATION'] - $substractPCB;
                     } else {
                         if (str_contains($r['LINENO'], substr($d->line_code, -1))) {
-                            $d->baseMount = $r['COUNTLOCATION'];
+                            $d->baseMount = $r['COUNTLOCATION'] - $substractPCB;
                         }
                     }
                 }
