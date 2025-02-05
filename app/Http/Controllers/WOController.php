@@ -595,7 +595,7 @@ class WOController extends Controller
                 $d->production_worktime,
                 $d->wo_full_code,
                 $d->ct_hour,
-                $d->specs_side . "#" . $d->model_code . "#" . $d->wo_code . "#" . $d->lot_size . "#" . $d->plan_qty . "#" . $d->type . "#" . $d->specs . "#" . $d->seq
+                $d->specs_side . "#" . $d->model_code . "#" . $d->wo_code . "#" . $d->lot_size . "#" . $d->plan_qty . "#" . $d->type . "#" . $d->specs . "#" . $d->seq . "#" . $d->line_code
             ];
             $_asMatrix3 = [
                 $d->item_code,
@@ -715,25 +715,11 @@ class WOController extends Controller
                 $_plotedTime = $restEffectiveWorkTime;
             }
         } else {
-            // if($data[$parY][3]=='25-2A01-223492801') {
-            //     logger('mulai');
-            //     logger("if ($parProductionHours < $restEffectiveWorkTime) pada X=$parX");
-            //     logger("elseif (($parProductionHours - ".$this->_sumHorizontal($data, $parX, $parY).") < $restEffectiveWorkTime) pada X=$parX");
-            // }
             if ($parProductionHours < $restEffectiveWorkTime) {
-                // if($data[$parY][3]=='25-2A01-223492801') {
-                //     logger('KE BLOKA');                    
-                // }
                 $_plotedTime = $parProductionHours - $this->_sumHorizontal($data, $parX, $parY);
             } elseif (($parProductionHours - $this->_sumHorizontal($data, $parX, $parY)) < $restEffectiveWorkTime) {
-                // if($data[$parY][3]=='25-2A01-223492801') {
-                //     logger('KE BLOKB');                    
-                // }
                 $_plotedTime = $parProductionHours - $this->_sumHorizontal($data, $parX, $parY);
             } else {
-                // if($data[$parY][3]=='25-2A01-223492801') {
-                //     logger('KE BLOKC');                    
-                // }
                 $_plotedTime = $restEffectiveWorkTime;
             }
         }
@@ -2232,7 +2218,8 @@ class WOController extends Controller
         $sheet->setCellValue([4, 1], 'Spec');
         $sheet->setCellValue([5, 1], 'Assy Code');
         $sheet->setCellValue([6, 1], 'Job No');
-        $sheet->setCellValue([7, 1], 'Specs Side');
+        $sheet->setCellValue([7, 1], 'Specs');
+        $sheet->setCellValue([7, 2], 'Side');
         $sheet->setCellValue([8, 1], 'CT / Process');
         $sheet->setCellValue([9, 1], 'Qty');
         $sheet->setCellValue([9, 2], 'Lot Size');
@@ -2252,10 +2239,83 @@ class WOController extends Controller
         $sheet->setCellValue([16, 2], 'Total');
         $sheet->setCellValue([17, 2], 'M');
         $sheet->setCellValue([18, 2], 'N');
+        $sheet->setCellValue([19, 2], 'STATUS');
         $sheet->mergeCells('P1:R1', $sheet::MERGE_CELL_CONTENT_HIDE);
 
+        $simulationPlan = collect([]);
+        if ($request->dateFrom == $request->dateTo) {
+            $hour = 7;
+
+            for ($i = 1; $i <= 24; $i++) {
+                if ($hour == 24) {
+                    $hour = 0;
+                }
+                $sheet->setCellValue([19 + $i, 2], $hour . ' ~ ' . ($hour + 1));
+                $hour++;
+            }
+
+            $uniqueLine = [];
+            foreach ($data as $r) {
+                if (!in_array($r->line_code, $uniqueLine)) {
+                    $uniqueLine[] = $r->line_code;
+                }
+            }
+
+            foreach ($uniqueLine as $r) {
+                $dataCalc = DB::table('keikaku_calcs')->whereNull('deleted_at')->where('production_date', $request->dateFrom)
+                    ->where('line_code', $r)
+                    ->orderBy('calculation_at')
+                    ->get([
+                        'plan_worktime',
+                        'efficiency',
+                        'calculation_at',
+                        'flag_mot',
+                        DB::raw("plan_worktime*efficiency as effective_worktime"),
+                    ]);
+
+                if (!$dataCalc->isEmpty()) {
+                    $dataKeikakuData = DB::table('keikaku_data')
+                        ->whereNull('deleted_at')
+                        ->where('production_date', $request->dateFrom)
+                        ->where('line_code', $r)
+                        ->orderBy('id')
+                        ->get(['*', DB::raw("cycle_time/3600*plan_qty as production_worktime"), DB::raw("cycle_time/3600 ct_hour")]);
+
+                    $dataSensor = DB::table('keikaku_outputs')->whereNull('deleted_at')
+                        ->where('production_date', $request->dateFrom)
+                        ->where('line_code', $r)
+                        ->groupBy('wo_code', 'running_at', 'process_code', 'seq_data')
+                        ->get([DB::raw('sum(ok_qty) ok_qty'), 'wo_code', 'running_at', 'process_code', 'seq_data']);
+
+                    $dataModelChanges = DB::table('keikaku_model_changes')->whereNull('deleted_at')
+                        ->where('production_date', $request->dateFrom)
+                        ->where('line_code', $r)
+                        ->groupBy('wo_code', 'running_at', 'process_code', 'seq_data', 'change_flag')
+                        ->get([DB::raw('change_flag'), 'wo_code', 'running_at', 'process_code', 'seq_data']);
+
+                    $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc, $dataSensor, $dataModelChanges);
+
+                    $simulationPlan = $simulationPlan->merge($asProdPlan[1]);
+                }
+            }
+        }
+
+        $countSimulationPlan = count($simulationPlan);
+
         $rowAt = 3;
+        $previousSpec = '';
+        $previousAssyCode = '';
+        $previousSide = '';
+        $previousLine = '';
         foreach ($data as $r) {
+            $_label = '';
+            if (($r->morningOutput > 0 || $r->nightOutput > 0) && $r->line_code == $previousLine) {
+                if (substr($previousSpec, 0, 4) == substr($r->specs, 0, 4) && $previousSide == $r->specs_side) {
+                    $_label = $r->item_code == $previousAssyCode ? '' : 'CHANGE TYPE';
+                } else {
+                    $_label = "CHANGE MODEL";
+                }
+            }
             $sheet->setCellValue([1, $rowAt], $r->production_date);
             $sheet->setCellValue([2, $rowAt], $r->line_code);
             $sheet->setCellValue([3, $rowAt], $r->model_code);
@@ -2274,7 +2334,31 @@ class WOController extends Controller
             $sheet->setCellValue([16, $rowAt], $r->morningOutput + $r->nightOutput);
             $sheet->setCellValue([17, $rowAt], $r->morningOutput);
             $sheet->setCellValue([18, $rowAt], $r->nightOutput);
+            $sheet->setCellValue([19, $rowAt], $_label);
+            if ($request->dateFrom == $request->dateTo) {
+                for ($rs = 4; $rs < $countSimulationPlan; $rs++) {
+                    if ($simulationPlan[$rs][5]) {
+                        $rawInfo = explode('#', $simulationPlan[$rs][5]);
+                        $line = $rawInfo[8];
+                        $wo = $simulationPlan[$rs][3];
+                        $seq = $rawInfo[7];
+                        if ($line == $r->line_code) {
+                            if ($wo == $r->wo_full_code && $seq == $r->seq) {
+                                for ($c = 6; $c < 30; $c++) {
+                                    if ($simulationPlan[$rs][$c] > 0) {
+                                        $sheet->setCellValue([19 + ($c - 5), $rowAt], $simulationPlan[$rs][$c]);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             $rowAt++;
+            $previousSpec = $r->specs;
+            $previousAssyCode = $r->item_code;
+            $previousSide = $r->specs_side;
+            $previousLine = $r->line_code;
         }
 
         $sheet->getStyle('I1:R' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
