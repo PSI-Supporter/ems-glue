@@ -476,6 +476,13 @@ class ItemController extends Controller
         $message = '';
 
         $newUnique = [];
+        $data = [];
+        $itemMaster = DB::table('MITM_TBL')->where('MITM_ITMCD', $request->item_code)->get(['MITM_ITMCD', 'MITM_SPTNO']);
+
+        if ($itemMaster->isEmpty()) {
+            return ['cd' => '0', 'msg' => 'Item not found'];
+        }
+
         if ($request->uniqueBefore) {
             // is already splited or combined
             $rowsCount = DB::table('raw_material_labels')
@@ -487,12 +494,7 @@ class ItemController extends Controller
             if ($rowsCount > 0) {
                 return ['cd' => '0', 'msg' => 'Already splitted or combined'];
             }
-        }
 
-        $data = [];
-
-
-        if ($request->uniqueBefore) {
             $data = DB::table('raw_material_labels')
                 ->where('code', $request->uniqueBefore)
                 ->first();
