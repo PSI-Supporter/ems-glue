@@ -2246,7 +2246,7 @@ class WOController extends Controller
         if ($request->dateFrom == $request->dateTo) {
             $hour = 7;
 
-            for ($i = 1; $i <= 24; $i++) {
+            for ($i = 1; $i <= 36; $i++) {
                 if ($hour == 24) {
                     $hour = 0;
                 }
@@ -2344,7 +2344,7 @@ class WOController extends Controller
                         $seq = $rawInfo[7];
                         if ($line == $r->line_code) {
                             if ($wo == $r->wo_full_code && $seq == $r->seq) {
-                                for ($c = 6; $c < 30; $c++) {
+                                for ($c = 6; $c < 41; $c++) {
                                     if ($simulationPlan[$rs][$c] > 0) {
                                         $sheet->setCellValue([19 + ($c - 5), $rowAt], $simulationPlan[$rs][$c]);
                                     }
