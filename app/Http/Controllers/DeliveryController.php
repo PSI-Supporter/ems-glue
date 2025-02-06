@@ -756,7 +756,7 @@ class DeliveryController extends Controller
         if ($DeliveryCheck == 0 &&  !str_contains($doc, 'RTN') && !str_contains($doc, 'WS')) {
             if ($deliveryConsigment->DLV_CONSIGN == 'IEI' && $deliveryConsigment->DLV_CUSTCD == 'IEP001U') {
             } else {
-                if (str_contains($doc, 'TS','WS')) {
+                if (str_contains($doc, 'TS') || str_contains($doc, 'WS')) {
                 } else {
                     return response()->json(['message' => 'Delivery Checking Operation is required'], 501);
                 }
