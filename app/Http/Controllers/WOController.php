@@ -559,7 +559,7 @@ class WOController extends Controller
                         $_shouldChangeModel = false;
                     } else {
                         $_shouldChangeModel = true;
-                        $_usedTime = 0.08;
+                        $_usedTime = 0.25;
                     }
                 } else {
                     $_usedTime = 0.25;
@@ -708,6 +708,7 @@ class WOController extends Controller
     {
         $_plotedTime = 0;
         $restEffectiveWorkTime = $data[1][$parX] - $this->_sumVertical($data, $parX, $parY);
+
         if ($parX === $this->keikakuColumnIndexStart) {
             if ($parProductionHours < $restEffectiveWorkTime) {
                 $_plotedTime = $parProductionHours;
