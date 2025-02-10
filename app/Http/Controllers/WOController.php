@@ -274,11 +274,23 @@ class WOController extends Controller
         }
     }
 
+    function checkUserAccess($data)
+    {
+        $status = true;
+        $statusUser = DB::table('MSTEMP_TBL')->where('MSTEMP_ID', $data['user_id'])->first('MSTEMP_GRP');
+        if (in_array($statusUser->MSTEMP_GRP, ['PCC', 'PCO'])) {
+            $status = false;
+        }
+
+        return $status;
+    }
+
     function saveDowntime(Request $request)
     {
         $data = $request->data;
         $tobeSaved = [];
         $message = '';
+
         try {
 
             $productionData = DB::table('production_output')
@@ -1233,6 +1245,10 @@ class WOController extends Controller
 
         $data = $request->json()->all();
 
+        if (!$this->checkUserAccess(['user_id' => $data['user_id']])) {
+            return response()->json(['message' => 'You have read-only access'], 403);
+        }
+
         $tobeSaved = [];
         $message = '';
 
@@ -1429,9 +1445,15 @@ class WOController extends Controller
             return response()->json($validator->errors()->all(), 406);
         }
         $data = $request->json()->all();
+
+        if (!$this->checkUserAccess(['user_id' => $data['user_id']])) {
+            return response()->json(['message' => 'You have read-only access'], 403);
+        }
+
         $tobeSaved = [];
 
         try {
+
             DB::beginTransaction();
             foreach ($data['detail'] as $r) {
                 $tobeSaved[] = [
@@ -1865,6 +1887,10 @@ class WOController extends Controller
 
         if ($validator->fails()) {
             return response()->json($validator->errors(), 406);
+        }
+
+        if (!$this->checkUserAccess(['user_id' => $request->user_id])) {
+            return response()->json(['message' => 'You have read-only access'], 403);
         }
 
         $running_at = $request->productionDate . ' ' . $request->runningAtTime . ':00';
