@@ -1261,13 +1261,20 @@ class WOController extends Controller
             $InputWO = [];
             $InputWO1 = [];
             $InputWO2 = [];
+            $WOOnly = [];
+            $AssyCodeOnly = [];
+            $WOOnly1 = [];
+            $AssyCodeOnly1 = [];
             $seq = 1;
             foreach ($data['detail'] as $r) {
                 $_wo = date('y') . '-' . $r['wo_code'] . '-' . trim($r['item_code']);
+                $_wo_only = date('y') . '-' . $r['wo_code'];
                 if (!in_array($_wo, $UniqueWO)) {
                     $UniqueWO[] = $_wo;
+                    $WOOnly[] = $_wo_only;
+                    $AssyCodeOnly[] = trim($r['item_code']);
                 }
-                $InputWO[] = ['WO' => $_wo, 'FLAG' => 0, 'BWO' => $_wo];
+                $InputWO[] = ['WO' => $_wo, 'FLAG' => 0, 'BWO' => $_wo, 'WO_ONLY' => $_wo_only, 'ASSY_CODE' => trim($r['item_code'])];
 
                 $tobeSaved[] = [
                     'created_at' => date('Y-m-d H:i:s'),
@@ -1291,10 +1298,13 @@ class WOController extends Controller
             }
 
             # check UniqueWO on database
-            $DBWO0 = DB::table('XWO')->select('PDPP_WONO')->whereIn('PDPP_WONO', $UniqueWO)->get();
+            $DBWO0 = DB::table('XWO')->select('PDPP_WONO', 'PDPP_MDLCD')
+                ->whereIn('PDPP_MDLCD', $AssyCodeOnly)
+                ->whereIn(DB::raw('SUBSTRING(PDPP_WONO,1,7)'), $WOOnly)
+                ->get();
             foreach ($DBWO0 as $d) {
                 foreach ($InputWO as &$i) {
-                    if ($d->PDPP_WONO === $i['WO'] && $i['FLAG'] == 0) {
+                    if (str_contains($d->PDPP_WONO, $i['WO_ONLY']) && $d->PDPP_MDLCD == $i['ASSY_CODE'] && $i['FLAG'] == 0) {
                         $i['FLAG'] = 1;
                     }
                 }
@@ -1313,15 +1323,21 @@ class WOController extends Controller
                     $i['WO'] = $prefixNextYear . substr($i['WO'], 2, strlen($i['WO']));
                     $UniqueWO1[] = $i['WO'];
                     $InputWO1[] = ['WO' => $i['WO'], 'FLAG' => 0, 'BWO' => $_bWO];
+
+                    $WOOnly1[] = $_wo = $prefixNextYear  . substr($i['WO_ONLY'], 2, strlen($i['WO_ONLY']));
+                    $AssyCodeOnly1[] = $i['ASSY_CODE'];
                 }
             }
             unset($i);
 
             if ($additionalFilter1Applied) {
-                $DBWO1 = DB::table('XWO')->select('PDPP_WONO')->whereIn('PDPP_WONO', $UniqueWO1)->get();
+                $DBWO1 = DB::table('XWO')->select('PDPP_WONO', 'PDPP_MDLCD')
+                    ->whereIn('PDPP_MDLCD', $AssyCodeOnly1)
+                    ->whereIn(DB::raw('SUBSTRING(PDPP_WONO,1,7)'), $WOOnly1)
+                    ->get();
                 foreach ($DBWO1 as $d) {
                     foreach ($InputWO1 as &$i) {
-                        if ($d->PDPP_WONO === $i['WO'] && $i['FLAG'] == 0) {
+                        if (str_contains($d->PDPP_WONO, $i['WO_ONLY']) && $d->PDPP_MDLCD == $i['ASSY_CODE'] && $i['FLAG'] == 0) {
                             $i['FLAG'] = 1;
                             break;
                         }
@@ -1354,7 +1370,8 @@ class WOController extends Controller
                     foreach ($InputWO2 as &$i) {
                         if ($i['FLAG'] === 0) {
                             return response()->json([
-                                'message' => $i['WO'] . ' is not registered'
+                                'message' => $i['WO'] . ' is not registered',
+                                'DBWO0' => $DBWO0
                             ], 406);
                         }
                     }
