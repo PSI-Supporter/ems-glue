@@ -2493,58 +2493,58 @@ class WOController extends Controller
 
         $spreadSheet = new Spreadsheet();
         $sheet = $spreadSheet->getActiveSheet();
+        $sheet->setCellValue([1, 1], 'Line');
+        $sheet->mergeCells('A1:A2', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue([2, 1], 'Date');
+        $sheet->mergeCells('B1:B2', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue([3, 1], 'Mounting');
+        $sheet->mergeCells('C1:E1', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue([3, 2], 'M');
+        $sheet->setCellValue([4, 2], 'N');
+        $sheet->setCellValue([5, 2], 'Total');
 
+        $sheet->setCellValue([6, 1], 'Jam Kerja Biasa');
+        $sheet->mergeCells('F1:H1', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue([6, 2], 'M');
+        $sheet->setCellValue([7, 2], 'N');
+        $sheet->setCellValue([8, 2], 'Total');
+
+        $sheet->setCellValue([9, 1], 'Jam Kerja Aktual');
+        $sheet->mergeCells('I1:K1', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue([9, 2], 'M');
+        $sheet->setCellValue([10, 2], 'N');
+        $sheet->setCellValue([11, 2], 'Total');
+
+        $sheet->setCellValue([12, 1], 'Jam Kerja Kalkulasi');
+        $sheet->mergeCells('L1:N1', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue([12, 2], 'M');
+        $sheet->setCellValue([13, 2], 'N');
+        $sheet->setCellValue([14, 2], 'Total');
+
+        $sheet->setCellValue([15, 1], 'Eff');
+        $sheet->setCellValue([15, 2], 'Biasa');
+
+        $sheet->setCellValue([16, 1], 'Eff');
+        $sheet->setCellValue([16, 2], 'Aktual');
+
+        $sheet->setCellValue([17, 1], 'Input');
+        $sheet->mergeCells('Q1:S1', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue([17, 2], 'M');
+        $sheet->setCellValue([18, 2], 'N');
+        $sheet->setCellValue([19, 2], 'Total');
+
+        $sheet->setCellValue([20, 1], 'Output');
+        $sheet->mergeCells('T1:V1', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue([20, 2], 'M');
+        $sheet->setCellValue([21, 2], 'N');
+        $sheet->setCellValue([22, 2], 'Total');
+        $sheet->getStyle('A1:V2')->getFont()->setBold(true);
+        $rowAt = 3;
+        $nextDate = $request->dateFrom;
         foreach ($uniqueLine as $l) {
-            $sheet = $spreadSheet->createSheet();
-            $sheet->setTitle('production_output.' . $l);
-            $sheet->setCellValue([1, 1], 'Date');
-            $sheet->mergeCells('A1:A2', $sheet::MERGE_CELL_CONTENT_HIDE);
-            $sheet->setCellValue([2, 1], 'Mounting');
-            $sheet->mergeCells('B1:D1', $sheet::MERGE_CELL_CONTENT_HIDE);
-            $sheet->setCellValue([2, 2], 'M');
-            $sheet->setCellValue([3, 2], 'N');
-            $sheet->setCellValue([4, 2], 'Total');
-
-            $sheet->setCellValue([5, 1], 'Jam Kerja Biasa');
-            $sheet->mergeCells('E1:G1', $sheet::MERGE_CELL_CONTENT_HIDE);
-            $sheet->setCellValue([5, 2], 'M');
-            $sheet->setCellValue([6, 2], 'N');
-            $sheet->setCellValue([7, 2], 'Total');
-
-            $sheet->setCellValue([8, 1], 'Jam Kerja Aktual');
-            $sheet->mergeCells('H1:J1', $sheet::MERGE_CELL_CONTENT_HIDE);
-            $sheet->setCellValue([8, 2], 'M');
-            $sheet->setCellValue([9, 2], 'N');
-            $sheet->setCellValue([10, 2], 'Total');
-
-            $sheet->setCellValue([11, 1], 'Jam Kerja Kalkulasi');
-            $sheet->mergeCells('K1:M1', $sheet::MERGE_CELL_CONTENT_HIDE);
-            $sheet->setCellValue([11, 2], 'M');
-            $sheet->setCellValue([12, 2], 'N');
-            $sheet->setCellValue([13, 2], 'Total');
-
-            $sheet->setCellValue([14, 1], 'Eff');
-            $sheet->setCellValue([14, 2], 'Biasa');
-
-            $sheet->setCellValue([15, 1], 'Eff');
-            $sheet->setCellValue([15, 2], 'Aktual');
-
-            $sheet->setCellValue([16, 1], 'Input');
-            $sheet->mergeCells('P1:R1', $sheet::MERGE_CELL_CONTENT_HIDE);
-            $sheet->setCellValue([16, 2], 'M');
-            $sheet->setCellValue([17, 2], 'N');
-            $sheet->setCellValue([18, 2], 'Total');
-
-            $sheet->setCellValue([19, 1], 'Output');
-            $sheet->mergeCells('S1:U1', $sheet::MERGE_CELL_CONTENT_HIDE);
-            $sheet->setCellValue([19, 2], 'M');
-            $sheet->setCellValue([20, 2], 'N');
-            $sheet->setCellValue([21, 2], 'Total');
-            $sheet->getStyle('A1:U2')->getFont()->setBold(true);
-            $nextDate = $request->dateFrom;
-            $rowAt = 3;
             for ($d = 0; $d <= $dateDiffValue; $d++) {
-                $sheet->setCellValue([1, $rowAt], $nextDate);
+                $sheet->setCellValue([1, $rowAt], $l);
+                $sheet->setCellValue([2, $rowAt], $nextDate);
                 $ttlOutputMorning = 0;
                 $ttlOutputNight = 0;
                 $theMorningHour = 0;
@@ -2580,26 +2580,26 @@ class WOController extends Controller
                     }
                 }
 
-                $sheet->setCellValue([2, $rowAt], $ttlOutputMorning);
-                $sheet->setCellValue([3, $rowAt], $ttlOutputNight);
-                $sheet->setCellValue([4, $rowAt], "=SUM(B$rowAt:C$rowAt)");
-                $sheet->setCellValue([5, $rowAt], $theMorningHour);
-                $sheet->setCellValue([6, $rowAt], $theNightHour);
-                $sheet->setCellValue([7, $rowAt], "=SUM(E$rowAt:F$rowAt)");
-                $sheet->setCellValue([8, $rowAt], round($theMorningHour - $ttlDowntimeMorningHour, 1));
-                $sheet->setCellValue([9, $rowAt], round($theNightHour - $ttlDowntimeNightHour, 1));
-                $sheet->setCellValue([10, $rowAt], "=SUM(H$rowAt:I$rowAt)");
-                $sheet->setCellValue([11, $rowAt], round($ttlMorningHourCalc, 1));
-                $sheet->setCellValue([12, $rowAt], round($ttlNightHourCalc, 1));
-                $sheet->setCellValue([13, $rowAt], "=SUM(K$rowAt:L$rowAt)");
-                $sheet->setCellValue([14, $rowAt], "=IFERROR(M$rowAt/G$rowAt,0)");
-                $sheet->setCellValue([15, $rowAt], "=IFERROR(M$rowAt/J$rowAt,0)");
-                $sheet->setCellValue([16, $rowAt], $ttlQtyPlanMorning);
-                $sheet->setCellValue([17, $rowAt], $ttlQtyPlanNight);
-                $sheet->setCellValue([18, $rowAt], "=SUM(P$rowAt:Q$rowAt)");
-                $sheet->setCellValue([19, $rowAt], $ttlQtyActualMorning);
-                $sheet->setCellValue([20, $rowAt], $ttlQtyActualNight);
-                $sheet->setCellValue([21, $rowAt], "=SUM(S$rowAt:T$rowAt)");
+                $sheet->setCellValue([3, $rowAt], $ttlOutputMorning);
+                $sheet->setCellValue([4, $rowAt], $ttlOutputNight);
+                $sheet->setCellValue([5, $rowAt], "=SUM(B$rowAt:C$rowAt)");
+                $sheet->setCellValue([6, $rowAt], $theMorningHour);
+                $sheet->setCellValue([7, $rowAt], $theNightHour);
+                $sheet->setCellValue([8, $rowAt], "=SUM(E$rowAt:F$rowAt)");
+                $sheet->setCellValue([9, $rowAt], round($theMorningHour - $ttlDowntimeMorningHour, 1));
+                $sheet->setCellValue([10, $rowAt], round($theNightHour - $ttlDowntimeNightHour, 1));
+                $sheet->setCellValue([11, $rowAt], "=SUM(H$rowAt:I$rowAt)");
+                $sheet->setCellValue([12, $rowAt], round($ttlMorningHourCalc, 1));
+                $sheet->setCellValue([13, $rowAt], round($ttlNightHourCalc, 1));
+                $sheet->setCellValue([14, $rowAt], "=SUM(K$rowAt:L$rowAt)");
+                $sheet->setCellValue([15, $rowAt], "=IFERROR(M$rowAt/G$rowAt,0)");
+                $sheet->setCellValue([16, $rowAt], "=IFERROR(M$rowAt/J$rowAt,0)");
+                $sheet->setCellValue([17, $rowAt], $ttlQtyPlanMorning);
+                $sheet->setCellValue([18, $rowAt], $ttlQtyPlanNight);
+                $sheet->setCellValue([19, $rowAt], "=SUM(P$rowAt:Q$rowAt)");
+                $sheet->setCellValue([20, $rowAt], $ttlQtyActualMorning);
+                $sheet->setCellValue([21, $rowAt], $ttlQtyActualNight);
+                $sheet->setCellValue([22, $rowAt], "=SUM(S$rowAt:T$rowAt)");
 
                 $nextDate = date_create($nextDate);
                 $day = date_format($nextDate, 'N');
@@ -2612,28 +2612,6 @@ class WOController extends Controller
 
                 $rowAt++;
             }
-            $maxDataRowsAt = $rowAt - 1;
-            $sheet->setCellValue([1, $rowAt], "TOTAL");
-            $sheet->setCellValue([2, $rowAt], "=SUM(B3:B$maxDataRowsAt)");
-            $sheet->setCellValue([3, $rowAt], "=SUM(C3:C$maxDataRowsAt)");
-            $sheet->setCellValue([4, $rowAt], "=SUM(D3:D$maxDataRowsAt)");
-            $sheet->setCellValue([7, $rowAt], "=SUM(G3:G$maxDataRowsAt)");
-            $sheet->setCellValue([10, $rowAt], "=SUM(J3:J$maxDataRowsAt)");
-            $sheet->setCellValue([13, $rowAt], "=SUM(M3:M$maxDataRowsAt)");
-            $sheet->setCellValue([14, $rowAt], "=IFERROR(M$rowAt/G$rowAt,0)");
-            $sheet->setCellValue([15, $rowAt], "=IFERROR(M$rowAt/J$rowAt,0)");
-            $sheet->setCellValue([18, $rowAt], "=SUM(R3:R$maxDataRowsAt)");
-            $sheet->setCellValue([21, $rowAt], "=SUM(U3:U$maxDataRowsAt)");
-            $sheet->getStyle('B3:D' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
-            $sheet->getStyle('N3:O' . $rowAt)->getNumberFormat()->setFormatCode('0.00%');
-            $sheet->getStyle('P3:U' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
-            $sheet->getStyle('A' . $rowAt . ':U' . $rowAt)->getFont()->setBold(true);
-
-            foreach (range('A', 'Z') as $v) {
-                $sheet->getColumnDimension($v)->setAutoSize(true);
-            }
-
-            $sheet->freezePane('A3');
         }
 
         $data = json_decode(json_encode($data), true);
