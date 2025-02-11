@@ -2582,24 +2582,24 @@ class WOController extends Controller
 
                 $sheet->setCellValue([3, $rowAt], $ttlOutputMorning);
                 $sheet->setCellValue([4, $rowAt], $ttlOutputNight);
-                $sheet->setCellValue([5, $rowAt], "=SUM(B$rowAt:C$rowAt)");
+                $sheet->setCellValue([5, $rowAt], "=SUM(C$rowAt:D$rowAt)");
                 $sheet->setCellValue([6, $rowAt], $theMorningHour);
                 $sheet->setCellValue([7, $rowAt], $theNightHour);
-                $sheet->setCellValue([8, $rowAt], "=SUM(E$rowAt:F$rowAt)");
+                $sheet->setCellValue([8, $rowAt], "=SUM(F$rowAt:G$rowAt)");
                 $sheet->setCellValue([9, $rowAt], round($theMorningHour - $ttlDowntimeMorningHour, 1));
                 $sheet->setCellValue([10, $rowAt], round($theNightHour - $ttlDowntimeNightHour, 1));
-                $sheet->setCellValue([11, $rowAt], "=SUM(H$rowAt:I$rowAt)");
+                $sheet->setCellValue([11, $rowAt], "=SUM(I$rowAt:J$rowAt)");
                 $sheet->setCellValue([12, $rowAt], round($ttlMorningHourCalc, 1));
                 $sheet->setCellValue([13, $rowAt], round($ttlNightHourCalc, 1));
-                $sheet->setCellValue([14, $rowAt], "=SUM(K$rowAt:L$rowAt)");
-                $sheet->setCellValue([15, $rowAt], "=IFERROR(M$rowAt/G$rowAt,0)");
-                $sheet->setCellValue([16, $rowAt], "=IFERROR(M$rowAt/J$rowAt,0)");
+                $sheet->setCellValue([14, $rowAt], "=SUM(L$rowAt:M$rowAt)");
+                $sheet->setCellValue([15, $rowAt], "=IFERROR(N$rowAt/H$rowAt,0)");
+                $sheet->setCellValue([16, $rowAt], "=IFERROR(N$rowAt/K$rowAt,0)");
                 $sheet->setCellValue([17, $rowAt], $ttlQtyPlanMorning);
                 $sheet->setCellValue([18, $rowAt], $ttlQtyPlanNight);
-                $sheet->setCellValue([19, $rowAt], "=SUM(P$rowAt:Q$rowAt)");
+                $sheet->setCellValue([19, $rowAt], "=SUM(Q$rowAt:R$rowAt)");
                 $sheet->setCellValue([20, $rowAt], $ttlQtyActualMorning);
                 $sheet->setCellValue([21, $rowAt], $ttlQtyActualNight);
-                $sheet->setCellValue([22, $rowAt], "=SUM(S$rowAt:T$rowAt)");
+                $sheet->setCellValue([22, $rowAt], "=SUM(T$rowAt:U$rowAt)");
 
                 $nextDate = date_create($nextDate);
                 $day = date_format($nextDate, 'N');
@@ -2613,6 +2613,9 @@ class WOController extends Controller
                 $rowAt++;
             }
         }
+        $sheet->getStyle('C3:E' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->getStyle('O3:P' . $rowAt)->getNumberFormat()->setFormatCode('0.00%');
+        $sheet->getStyle('Q3:V' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
 
         $data = json_decode(json_encode($data), true);
         $sheet = $spreadSheet->createSheet();
