@@ -2493,6 +2493,7 @@ class WOController extends Controller
 
         $spreadSheet = new Spreadsheet();
         $sheet = $spreadSheet->getActiveSheet();
+        $sheet->freezePane('A3');
         $sheet->setCellValue([1, 1], 'Line');
         $sheet->mergeCells('A1:A2', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->setCellValue([2, 1], 'Date');
