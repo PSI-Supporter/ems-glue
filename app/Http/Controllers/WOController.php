@@ -1287,7 +1287,7 @@ class WOController extends Controller
                 $_wo_only = date('y') . '-' . $r['wo_code'];
                 if (!in_array($_wo, $UniqueWO)) {
                     $UniqueWO[] = $_wo;
-                    $WOOnly[] = $_wo_only;
+                    $WOOnly[] = substr($_wo_only, 0, 7);
                     $AssyCodeOnly[] = trim($r['item_code']);
                 }
                 $InputWO[] = ['WO' => $_wo, 'FLAG' => 0, 'BWO' => $_wo, 'WO_ONLY' => $_wo_only, 'ASSY_CODE' => trim($r['item_code'])];
@@ -1340,7 +1340,7 @@ class WOController extends Controller
                     $UniqueWO1[] = $i['WO'];
                     $InputWO1[] = ['WO' => $i['WO'], 'FLAG' => 0, 'BWO' => $_bWO];
 
-                    $WOOnly1[] = $_wo = $prefixNextYear  . substr($i['WO_ONLY'], 2, strlen($i['WO_ONLY']));
+                    $WOOnly1[] = $prefixNextYear  . substr($i['WO_ONLY'], 2, strlen($i['WO_ONLY']));
                     $AssyCodeOnly1[] = $i['ASSY_CODE'];
                 }
             }
