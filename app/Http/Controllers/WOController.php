@@ -2541,8 +2541,8 @@ class WOController extends Controller
         $sheet->setCellValue([22, 2], 'Total');
         $sheet->getStyle('A1:V2')->getFont()->setBold(true);
         $rowAt = 3;
-        $nextDate = $request->dateFrom;
         foreach ($uniqueLine as $l) {
+            $nextDate = $request->dateFrom;
             for ($d = 0; $d <= $dateDiffValue; $d++) {
                 $sheet->setCellValue([1, $rowAt], $l);
                 $sheet->setCellValue([2, $rowAt], $nextDate);
