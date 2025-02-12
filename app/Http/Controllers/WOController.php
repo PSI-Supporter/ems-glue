@@ -2649,14 +2649,39 @@ class WOController extends Controller
 
     function getWOHistory(Request $request)
     {
-        $data = DB::table('keikaku_data')
+        $dataOutput = DB::table('keikaku_outputs')
+            ->where('wo_code', 'like', '%' . $request->doc . '%')
+            ->whereNull('deleted_at')
+            ->where('created_by', '!=', 'sensor')
+            ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'seq_data')
+            ->select('wo_code', 'process_code', 'production_date', 'line_code', DB::raw('sum(ok_qty) ok_qty'), 'seq_data');
+
+        $dataBasic = DB::table('keikaku_data')
             ->whereNull('deleted_at')
             ->where('wo_full_code', 'like', '%' . $request->doc . '%')
-            ->groupBy('production_date', 'line_code', 'wo_full_code', 'plan_qty')
-            ->orderBy('production_date')
-            ->orderBy('line_code')
-            ->get(['production_date', 'line_code', 'wo_full_code', 'plan_qty']);
+            ->groupBy('production_date', 'line_code', 'wo_full_code', 'plan_qty', 'specs_side', 'seq')
+            ->select('production_date', 'line_code', 'wo_full_code', 'plan_qty', 'specs_side', 'seq');
 
+        $data = DB::query()->fromSub($dataBasic, 'V1')
+            ->leftJoinSub($dataOutput, 'V2', function ($join) {
+                $join->on('V1.production_date', '=', 'V2.production_date')
+                    ->on('V1.line_code', '=', 'V2.line_code')
+                    ->on('V1.wo_full_code', '=', 'V2.wo_code')
+                    ->on('V1.specs_side', '=', 'V2.process_code')
+                    ->on('V1.seq', '=', 'V2.seq_data')
+                ;
+            })
+            ->groupBy('V1.production_date', 'V1.line_code', 'wo_full_code', 'plan_qty', 'specs_side')
+            ->orderBy('V1.production_date')
+            ->orderBy('V1.line_code')
+            ->get([
+                'V1.production_date',
+                'V1.line_code',
+                'wo_full_code',
+                DB::raw("SUM(plan_qty) plan_qty"),
+                DB::raw("ISNULL(SUM(ok_qty),0) ok_qty"),
+                'specs_side',
+            ]);
         return ['data' => $data];
     }
 }
