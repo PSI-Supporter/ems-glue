@@ -2618,6 +2618,42 @@ class WOController extends Controller
         $sheet->getStyle('O3:P' . $rowAt)->getNumberFormat()->setFormatCode('0.00%');
         $sheet->getStyle('Q3:V' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
 
+        // downtime sheet
+        $sheet = $spreadSheet->createSheet();
+        $sheet->setTitle('down_time');
+        $sheet->freezePane('A2');
+
+        $dataDownTime = DB::table('production_downtime')
+            ->leftJoin('downtime_category', 'downtime_code', '=', 'downtime_category.id')
+            ->whereNull('production_downtime.deleted_at')
+            ->whereDate('running_at', '>=', $request->dateFrom)
+            ->whereDate('running_at', '<=', $request->dateTo)
+            ->where('req_minutes', '>', 0)
+            ->orderBy('line_code')
+            ->orderBy('running_at')
+            ->get(['line_code', 'running_at', 'req_minutes', 'description', 'remark']);
+
+        $sheet->setCellValue([1, 1], 'Line');
+        $sheet->setCellValue([2, 1], 'Downtime At');
+        $sheet->setCellValue([3, 1], 'Downtime Minutes');
+        $sheet->setCellValue([4, 1], 'Category');
+        $sheet->setCellValue([5, 1], 'Remark');
+        $sheet->getStyle('A1:E1')->getFont()->setBold(true);
+
+        $rowAt = 2;
+        foreach ($dataDownTime as $r) {
+            $sheet->setCellValue([1, $rowAt], $r->line_code);
+            $sheet->setCellValue([2, $rowAt], $r->running_at);
+            $sheet->setCellValue([3, $rowAt], $r->req_minutes);
+            $sheet->setCellValue([4, $rowAt], $r->description);
+            $sheet->setCellValue([5, $rowAt], $r->remark);
+            $rowAt++;
+        }
+        foreach (range('A', 'Z') as $v) {
+            $sheet->getColumnDimension($v)->setAutoSize(true);
+        }
+
+        // raw data sheet
         $data = json_decode(json_encode($data), true);
         $sheet = $spreadSheet->createSheet();
         $sheet->setTitle('raw_data');
@@ -2628,6 +2664,7 @@ class WOController extends Controller
         }
         $sheet->freezePane('A2');
 
+        // raw data mount sheet
         $sheet = $spreadSheet->createSheet();
         $sheet->setTitle('raw_data_mount');
         $sheet->fromArray(array_keys($data1[0]), null, 'A1');
@@ -2636,6 +2673,8 @@ class WOController extends Controller
             $sheet->getColumnDimension($v)->setAutoSize(true);
         }
         $sheet->freezePane('A2');
+
+
 
 
         $stringjudul = "Daily Output from " . $request->dateFrom . " to " . $request->dateTo;
