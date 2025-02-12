@@ -2365,6 +2365,7 @@ class WOController extends Controller
             $sheet->setCellValue([3, $rowAt], $r->model_code);
             $sheet->setCellValue([4, $rowAt], $r->specs);
             $sheet->setCellValue([5, $rowAt], $r->item_code);
+            $sheet->getStyle([5, $rowAt])->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT);
             $sheet->setCellValue([6, $rowAt], $r->wo_full_code);
             $sheet->setCellValue([7, $rowAt], $r->specs_side);
             $sheet->setCellValue([8, $rowAt], $r->cycle_time);
