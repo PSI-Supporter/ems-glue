@@ -2646,4 +2646,17 @@ class WOController extends Controller
         header('Cache-Control: max-age=0');
         $writer->save('php://output');
     }
+
+    function getWOHistory(Request $request)
+    {
+        $data = DB::table('keikaku_data')
+            ->whereNull('deleted_at')
+            ->where('wo_full_code', 'like', '%' . $request->doc . '%')
+            ->groupBy('production_date', 'line_code', 'wo_full_code', 'plan_qty')
+            ->orderBy('production_date')
+            ->orderBy('line_code')
+            ->get(['production_date', 'line_code', 'wo_full_code', 'plan_qty']);
+
+        return ['data' => $data];
+    }
 }
