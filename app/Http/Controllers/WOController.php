@@ -278,7 +278,7 @@ class WOController extends Controller
     {
         $status = true;
         $statusUser = DB::table('MSTEMP_TBL')->where('MSTEMP_ID', $data['user_id'])->first('MSTEMP_GRP');
-        if (in_array($statusUser->MSTEMP_GRP, ['PCC', 'PCO'])) {
+        if (in_array($statusUser->MSTEMP_GRP, ['PCC', 'PCO', 'QA', 'QACT'])) {
             $status = false;
         }
 
