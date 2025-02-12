@@ -2699,7 +2699,7 @@ class WOController extends Controller
             ->whereNull('deleted_at')
             ->where('wo_full_code', 'like', '%' . $request->doc . '%')
             ->groupBy('production_date', 'line_code', 'wo_full_code', 'plan_qty', 'specs_side', 'seq')
-            ->select('production_date', 'line_code', 'wo_full_code', 'plan_qty', 'specs_side', 'seq');
+            ->select('production_date', 'line_code', 'wo_full_code', 'plan_qty', 'specs_side', 'seq', DB::raw("MAX(lot_size) lot_size"));
 
         $data = DB::query()->fromSub($dataBasic, 'V1')
             ->leftJoinSub($dataOutput, 'V2', function ($join) {
@@ -2710,7 +2710,7 @@ class WOController extends Controller
                     ->on('V1.seq', '=', 'V2.seq_data')
                 ;
             })
-            ->groupBy('V1.production_date', 'V1.line_code', 'wo_full_code', 'plan_qty', 'specs_side')
+            ->groupBy('V1.production_date', 'V1.line_code', 'wo_full_code', 'plan_qty', 'specs_side', 'lot_size')
             ->orderBy('V1.production_date')
             ->orderBy('V1.line_code')
             ->get([
@@ -2720,6 +2720,7 @@ class WOController extends Controller
                 DB::raw("SUM(plan_qty) plan_qty"),
                 DB::raw("ISNULL(SUM(ok_qty),0) ok_qty"),
                 'specs_side',
+                'lot_size'
             ]);
         return ['data' => $data];
     }
