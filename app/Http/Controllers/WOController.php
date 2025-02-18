@@ -1891,10 +1891,6 @@ class WOController extends Controller
             return response()->json($validator->errors(), 406);
         }
 
-        if (!$this->checkUserAccess(['user_id' => $request->user_id])) {
-            return response()->json(['message' => 'You have read-only access'], 403);
-        }
-
         $running_at = $request->productionDate . ' ' . $request->runningAtTime . ':00';
         $nextDate = date_create($request->productionDate);
         date_add($nextDate, date_interval_create_from_date_string('1 days'));
