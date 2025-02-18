@@ -2629,7 +2629,7 @@ class WOController extends Controller
             ->whereNull('production_downtime.deleted_at')
             ->whereDate('running_at', '>=', $request->dateFrom)
             ->whereDate('running_at', '<=', $request->dateTo)
-            ->where('req_minutes', '>', 0)
+            ->whereNotNull('req_minutes')
             ->orderBy('line_code')
             ->orderBy('running_at')
             ->get(['line_code', 'running_at', 'req_minutes', 'description', 'remark']);
