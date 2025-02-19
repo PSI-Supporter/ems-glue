@@ -2368,10 +2368,10 @@ class WOController extends Controller
             $sheet->setCellValue([7, $rowAt], $r->specs_side);
             $sheet->setCellValue([8, $rowAt], $r->cycle_time);
             $sheet->setCellValue([9, $rowAt], $r->lot_size);
-            $sheet->setCellValue([10, $rowAt], $r->plan_qty);
+            $sheet->setCellValue([10, $rowAt], $r->plan_morning_qty > 0  || $r->plan_night_qty > 0 ? $r->plan_qty : 0);
             $sheet->setCellValue([11, $rowAt], $r->plan_morning_qty);
             $sheet->setCellValue([12, $rowAt], $r->plan_night_qty);
-            $sheet->setCellValue([13, $rowAt], $r->plan_qty);
+            $sheet->setCellValue([13, $rowAt], $r->plan_morning_qty > 0  || $r->plan_night_qty > 0 ? $r->plan_qty : 0);
             $sheet->setCellValue([14, $rowAt], $r->plan_morning_qty);
             $sheet->setCellValue([15, $rowAt], $r->plan_night_qty);
             $sheet->setCellValue([16, $rowAt], $r->morningOutput + $r->nightOutput);
