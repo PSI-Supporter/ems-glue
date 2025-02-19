@@ -781,6 +781,10 @@ class WOController extends Controller
                 DB::raw("plan_worktime*efficiency as effective_worktime"),
             ]);
 
+        if ($dataCalc->isEmpty()) {
+            return response()->json(['message' => 'Calculation sheet data is required'], 400);
+        }
+
         $dataSensor = DB::table('keikaku_outputs')->whereNull('deleted_at')
             ->where('production_date', $request->production_date)
             ->where('line_code', $request->line_code)
