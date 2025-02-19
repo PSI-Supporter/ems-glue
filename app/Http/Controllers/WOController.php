@@ -1344,7 +1344,7 @@ class WOController extends Controller
                     $_bWO = $i['WO'];
                     $i['WO'] = $prefixNextYear . substr($i['WO'], 2, strlen($i['WO']));
                     $UniqueWO1[] = $i['WO'];
-                    $InputWO1[] = ['WO' => $i['WO'], 'FLAG' => 0, 'BWO' => $_bWO];
+                    $InputWO1[] = ['WO' => $i['WO'], 'FLAG' => 0, 'BWO' => $_bWO, 'ASSY_CODE' => $i['ASSY_CODE']];
 
                     $WOOnly1[] = $prefixNextYear  . substr($i['WO_ONLY'], 2, strlen($i['WO_ONLY']));
                     $AssyCodeOnly1[] = $i['ASSY_CODE'];
@@ -1359,7 +1359,15 @@ class WOController extends Controller
                     ->get();
                 foreach ($DBWO1 as $d) {
                     foreach ($InputWO1 as &$i) {
-                        if (str_contains($d->PDPP_WONO, $i['WO_ONLY']) && $d->PDPP_MDLCD == $i['ASSY_CODE'] && $i['FLAG'] == 0) {
+                        if (str_contains($d->PDPP_WONO, $i['WO']) && $d->PDPP_MDLCD == $i['ASSY_CODE'] && $i['FLAG'] == 0) {
+                            foreach ($tobeSaved as &$r) {
+                                $_tempWO = substr($i['WO'], 2, strlen($i['WO'])) . '-' . $i['ASSY_CODE'];
+                                if (str_contains($r['wo_full_code'], $_tempWO)) {
+                                    $r['wo_full_code'] = '??' . $_tempWO;
+                                }
+                            }
+                            unset($r);
+
                             $i['FLAG'] = 1;
                             break;
                         }
@@ -1391,10 +1399,13 @@ class WOController extends Controller
 
                     foreach ($InputWO2 as &$i) {
                         if ($i['FLAG'] === 0) {
-                            return response()->json([
-                                'message' => $i['WO'] . ' is not registered',
-                                'DBWO0' => $DBWO0
-                            ], 406);
+                            foreach ($tobeSaved as &$r) {
+                                $_tempWO = substr($i['WO'], 2, strlen($i['WO']));
+                                if (str_contains($r['wo_full_code'], $_tempWO)) {
+                                    $r['wo_full_code'] = '??' . $_tempWO;
+                                }
+                            }
+                            unset($r);
                         }
                     }
                     unset($i);
