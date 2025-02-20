@@ -2242,10 +2242,10 @@ class WOController extends Controller
             foreach ($data as &$d) {
                 if ($r['ASSY_CODE'] == $d->item_code) {
                     $substractPCB = $r['SEQNO'] == 1 ? 1 : 0;
-                    if (str_contains($r['LINENO'], $d->line_code)) {
+                    if (str_contains($r['LINENO'], $d->line_code) && str_contains($r['PROCD'], $d->specs_side)) {
                         $d->baseMount = $r['COUNTLOCATION'] - $substractPCB;
                     } else {
-                        if (str_contains($r['LINENO'], substr($d->line_code, -1))) {
+                        if (str_contains($r['LINENO'], substr($d->line_code, -1)) && str_contains($r['PROCD'], $d->specs_side)) {
                             $d->baseMount = $r['COUNTLOCATION'] - $substractPCB;
                         }
                     }
