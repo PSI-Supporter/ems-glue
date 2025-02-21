@@ -2249,6 +2249,8 @@ class WOController extends Controller
                             $d->baseMount = $r['COUNTLOCATION'] - $substractPCB;
                         } elseif (str_contains($r['PROCD'], $d->specs_side)) {
                             $d->baseMount = $r['COUNTLOCATION'] - $substractPCB;
+                        } elseif (str_contains($r['LINENO'], $d->line_code)) {
+                            $d->baseMount = $r['COUNTLOCATION'] - $substractPCB;
                         }
                     }
                 }
