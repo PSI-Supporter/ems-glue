@@ -712,4 +712,41 @@ class ItemController extends Controller
 
         return ['data' => $base, 'currentData' => $dataBase];
     }
+
+    function uploadComposite()
+    {
+        $base = json_decode(Storage::disk('public')->get('composite_item.json'), FALSE);
+
+        $uniqueFG = [];
+        foreach ($base as $r) {
+            $uniqueFG[] = [
+                'created_at' => date('Y-m-d H:i:s'),
+                'item_code_main' => $r->ITEM_MAIN,
+                'item_code_sub' => $r->ITEM_MAIN_SUB,
+                'created_by' => '1210034'
+            ];
+        }
+
+        DB::table('composite_items')->insert($uniqueFG);
+
+
+        return ['data' => $uniqueFG];
+    }
+
+    function updateLocationXray()
+    {
+        $diffItem = DB::query()->fromRaw("(select RTRIM(MITM_ITMCD) MITM_ITMCD,MAX(ITMLOC_LOC) ITMLOC_LOC,RTRIM(MITM_SPTNO) MITM_SPTNO,rack_code from MITM_TBL LEFT JOIN openquery(SRVXRAY, 'select * from items')
+                        ON item_code=MITM_ITMCD
+                        left join (select ITMLOC_ITM,max(ITMLOC_LOC) ITMLOC_LOC from ITMLOC_TBL WHERE ITMLOC_USRID!='ane' group by ITMLOC_ITM) VZ on MITM_ITMCD=ITMLOC_ITM
+                        INNER JOIN MSTLOC_TBL ON ITMLOC_LOC=MSTLOC_CD
+                        WHERE ITMLOC_LOC!=rack_code and MITM_MODEL='0'
+                        AND ITMLOC_LOC IS NOT NULL
+                        GROUP BY MITM_ITMCD,MITM_SPTNO,rack_code) v1")->get();
+        $affectedRows = 0;
+        foreach ($diffItem as $r) {
+            $affectedRows += DB::connection('mysql_xray')->table('items')->where('item_code', $r->MITM_ITMCD)
+                ->update(['rack_code' => $r->ITMLOC_LOC]);
+        }
+        return ['data' => $diffItem, 'affectedRows' => $affectedRows];
+    }
 }

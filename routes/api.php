@@ -88,6 +88,8 @@ Route::prefix('item')->group(function () {
     Route::get('downloadsa', [ItemController::class, 'downloadsa']);
     Route::get('xray', [ItemController::class, 'toXRAYItem']);
     Route::post('split', [ItemController::class, 'splitC3']);
+    Route::get('upload-composite', [ItemController::class, 'uploadComposite']);
+    Route::get('xray-sync-rack', [ItemController::class, 'updateLocationXray']);
 });
 
 #Untuk Inventory
