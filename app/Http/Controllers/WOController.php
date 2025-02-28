@@ -1427,6 +1427,48 @@ class WOController extends Controller
 
             DB::table('keikaku_data')->insert($tobeSaved);
 
+
+            // save calculation if not exist
+            if (
+                DB::table('keikaku_calc_resumes')
+                ->where('line_code', $data['line_code'])
+                ->where('production_date', $data['production_date'])->count() == 0
+                && DB::table('keikaku_calcs')
+                ->where('line_code', $data['line_code'])
+                ->where('production_date', $data['production_date'])->count()  == 0
+            ) {
+                $tobeSaved = [];
+                foreach ($data['detail_calc'] as $r) {
+                    $tobeSaved[] = [
+                        'shift_code' => $r['shift_code'],
+                        'production_date' => $data['production_date'],
+                        'calculation_at' => $r['calculation_at'],
+                        'line_code' => $data['line_code'],
+                        'worktype1' => (float) $r['worktype1'],
+                        'worktype2' => (float) $r['worktype2'],
+                        'worktype3' => (float) $r['worktype3'],
+                        'worktype4' => (float) $r['worktype4'],
+                        'worktype5' => (float) $r['worktype5'],
+                        'worktype6' => (float) $r['worktype6'],
+                        'plan_worktime' => (float) $r['plan_worktime'],
+                        'flag_mot' => $r['flag_mot'],
+                        'efficiency' => (float) $r['efficiency'],
+                        'created_at' => date('Y-m-d H:i:s'),
+                        'created_by' => $data['user_id'],
+                    ];
+                }
+
+                DB::table('keikaku_calcs')->insert($tobeSaved);
+                DB::table('keikaku_calc_resumes')->insert([
+                    'line_code' => $data['line_code'],
+                    'production_date' => $data['production_date'],
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'created_by' => $data['user_id'],
+                    'total_plan_worktime_morning' => $data['totalWorkingTimeMorning'],
+                    'total_plan_worktime_night' => $data['totalWorkingTimeNight'],
+                ]);
+            }
+
             DB::commit();
             return ['message' => 'Saved successfully', $data];
         } catch (Exception $e) {
