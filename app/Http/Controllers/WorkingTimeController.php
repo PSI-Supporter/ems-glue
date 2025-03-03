@@ -100,4 +100,19 @@ class WorkingTimeController extends Controller
             ->get();
         return ['data' => $data];
     }
+
+    function activateTemplate(Request $request)
+    {
+        $affectedRows = DB::table('keikaku_calc_templates')
+            ->whereNull('deleted_at')
+            ->where('name', base64_decode($request->name))
+            ->update(['status' => 1, 'updated_at' => date('Y-m-d H:i:s'), 'updated_by' => $request->user_id]);
+
+        $affectedRows = DB::table('keikaku_calc_templates')
+            ->whereNull('deleted_at')
+            ->where('name', '!=', base64_decode($request->name))
+            ->update(['status' => 0, 'updated_at' => date('Y-m-d H:i:s'), 'updated_by' => $request->user_id]);
+
+        return ['message' => 'Activated successfully'];
+    }
 }

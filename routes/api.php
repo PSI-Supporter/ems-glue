@@ -248,6 +248,7 @@ Route::prefix('keikaku')->group(function () {
     Route::post('working-time', [WorkingTimeController::class, 'saveCalculation']);
     Route::get('working-time-name', [WorkingTimeController::class, 'getName']);
     Route::get('working-time', [WorkingTimeController::class, 'getTemplate']);
+    Route::put('working-time/{name}', [WorkingTimeController::class, 'activateTemplate']);
 });
 
 Route::prefix('transaction')->group(function () {
