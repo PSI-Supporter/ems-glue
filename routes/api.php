@@ -90,6 +90,7 @@ Route::prefix('item')->group(function () {
     Route::post('split', [ItemController::class, 'splitC3']);
     Route::get('upload-composite', [ItemController::class, 'uploadComposite']);
     Route::get('xray-sync-rack', [ItemController::class, 'updateLocationXray']);
+    Route::get('category', [ItemController::class, 'getCategories']);
 });
 
 #Untuk Inventory

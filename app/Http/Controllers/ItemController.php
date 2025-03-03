@@ -749,4 +749,13 @@ class ItemController extends Controller
         }
         return ['data' => $diffItem, 'affectedRows' => $affectedRows];
     }
+
+    function getCategories()
+    {
+        $data = DB::table('MITM_TBL')->where(DB::raw("ISNULL(MITM_NCAT,'')"), '!=', '')
+            ->groupBy(['MITM_NCAT'])
+            ->orderBy('MITM_NCAT')
+            ->get(DB::raw('RTRIM(MITM_NCAT) MITM_NCAT'));
+        return ['data' => $data];
+    }
 }
