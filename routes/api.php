@@ -20,6 +20,7 @@ use App\Http\Controllers\SupplyController;
 use App\Http\Controllers\TransferLocationController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WOController;
+use App\Http\Controllers\WorkingTimeController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -244,6 +245,7 @@ Route::prefix('keikaku')->group(function () {
     Route::get('downtime', [WOController::class, 'getKeikakuDownTime']);
     Route::post('model-changes', [WOController::class, 'saveKeikakuModelChanges']);
     Route::get('wo-run', [WOController::class, 'getWOHistory']);
+    Route::post('working-time', [WorkingTimeController::class, 'saveCalculation']);
 });
 
 Route::prefix('transaction')->group(function () {
