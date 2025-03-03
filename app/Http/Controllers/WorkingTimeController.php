@@ -82,4 +82,22 @@ class WorkingTimeController extends Controller
             return response()->json(['message' => $e->getMessage()], 400);
         }
     }
+
+    function getName()
+    {
+        $data = DB::table('keikaku_calc_templates')
+            ->select('name', DB::raw("MAX(status) status"))
+            ->groupBy('name')
+            ->get();
+        return ['data' => $data];
+    }
+
+    function getTemplate(Request $request)
+    {
+        $data = DB::table('keikaku_calc_templates')
+            ->where('name', $request->name)
+            ->whereNull('deleted_at')
+            ->get();
+        return ['data' => $data];
+    }
 }
