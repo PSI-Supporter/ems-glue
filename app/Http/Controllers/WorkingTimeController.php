@@ -87,6 +87,7 @@ class WorkingTimeController extends Controller
     {
         $data = DB::table('keikaku_calc_templates')
             ->select('name', DB::raw("MAX(status) status"))
+            ->whereNull('deleted_at')
             ->groupBy('name')
             ->get();
         return ['data' => $data];
