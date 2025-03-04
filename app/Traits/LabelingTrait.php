@@ -3,6 +3,7 @@
 namespace App\Traits;
 
 use App\Models\RawMaterialLabel;
+use Illuminate\Support\Facades\DB;
 
 trait LabelingTrait
 {
@@ -12,10 +13,11 @@ trait LabelingTrait
         sleep(0.9);
         $LabelDate = date('Y-m-d');
         $LabelTime = date('H:i:s');
-        $LabelCreator = '1'; # from SMT
+        $LabelCreator = '3'; # from SMT
         $LabelMachineName = substr('00' . $data['machineName'], -2);
 
         $Labels = RawMaterialLabel::where('created_at', $LabelDate . ' ' . $LabelTime)
+            ->where(DB::raw("SUBSTRING(code,7,1)"), $LabelCreator)
             ->count();
 
         $orderChar = [
