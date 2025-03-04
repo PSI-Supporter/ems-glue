@@ -1583,7 +1583,17 @@ class WOController extends Controller
             ->where('line_code', $request->line_code)
             ->orderBy('id')
             ->get();
-        return ['data' => $data];
+
+        $dateO = date_create($request->production_date);
+        $category = date_format($dateO, 'w') == '5' ? 'f' : 'nf'; // friday or non friday
+        $dataDefault = DB::table('keikaku_calc_templates')
+            ->whereNull('deleted_at')
+            ->where('status', '1')
+            ->where('category', $category)
+            ->orderBy('id')
+            ->get();
+
+        return ['data' => $data, 'dataDefault' => $dataDefault];
     }
 
     function getKeikakuData(Request $request)
@@ -1608,14 +1618,14 @@ class WOController extends Controller
         date_add($nextDate, date_interval_create_from_date_string('1 days'));
         $maxCalculationDate = date_format($nextDate, 'Y-m-d') . ' 07:00:00';
 
-        $dataOutput = DB::table('keikaku_outputs')->where('production_date', $request->production_date)
+        $dataOutput = $request->line_code == '-' ? [] : DB::table('keikaku_outputs')->where('production_date', $request->production_date)
             ->where('line_code', $request->line_code)
             ->where('running_at', '<', $maxCalculationDate)
             ->whereNull('deleted_at')
             ->groupBy('wo_code', 'process_code', 'seq_data')
             ->select('wo_code', 'process_code', 'seq_data', DB::raw('sum(ok_qty) ok_qty'));
 
-        $data = DB::table('keikaku_data')
+        $data = $request->line_code == '-' ? [] : DB::table('keikaku_data')
             ->leftJoin('XWO', 'wo_full_code', '=', 'PDPP_WONO')
             ->leftJoinSub($dataOutput, 'output', function ($join) {
                 $join->on('keikaku_data.wo_full_code', '=', 'output.wo_code')
@@ -1628,7 +1638,7 @@ class WOController extends Controller
             ->orderBy('id')
             ->get(['keikaku_data.*', 'PDPP_BOMRV', DB::raw('ISNULL(ok_qty,0) ok_qty')]);
 
-        $keikakuDataStyle = DB::table('keikaku_styles')->whereNull('deleted_at')
+        $keikakuDataStyle = $request->line_code == '-' ? [] : DB::table('keikaku_styles')->whereNull('deleted_at')
             ->where('production_date', $request->production_date)
             ->where('line_code', $request->line_code)
             ->first();
