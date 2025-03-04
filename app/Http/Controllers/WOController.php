@@ -1315,12 +1315,13 @@ class WOController extends Controller
                     'specs_side' => $r['specs_side'],
                     'packaging' => $r['packaging'],
                     'cycle_time' => (float) $r['cycle_time'],
+                    'bom_rev' => null
                 ];
                 $seq++;
             }
 
             # check UniqueWO on database
-            $DBWO0 = DB::table('XWO')->select('PDPP_WONO', 'PDPP_MDLCD')
+            $DBWO0 = DB::table('XWO')->select('PDPP_WONO', 'PDPP_MDLCD', 'PDPP_BOMRV')
                 ->whereIn('PDPP_MDLCD', $AssyCodeOnly)
                 ->whereIn(DB::raw('SUBSTRING(PDPP_WONO,1,7)'), $WOOnly)
                 ->get();
@@ -1328,6 +1329,12 @@ class WOController extends Controller
                 foreach ($InputWO as &$i) {
                     if (str_contains($d->PDPP_WONO, $i['WO_ONLY']) && $d->PDPP_MDLCD == $i['ASSY_CODE'] && $i['FLAG'] == 0) {
                         $i['FLAG'] = 1;
+                        foreach ($tobeSaved as &$s) {
+                            if ($s['wo_full_code'] == $d->PDPP_WONO) {
+                                $s['bom_rev'] = $d->PDPP_BOMRV;
+                            }
+                        }
+                        unset($s);
                     }
                 }
                 unset($i);
