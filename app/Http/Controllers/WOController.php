@@ -2516,6 +2516,46 @@ class WOController extends Controller
 
         $sheet->freezePane('A3');
 
+
+        $sheet = $spreadSheet->createSheet();
+        $sheet->setTitle('data');
+        $sheet->freezePane('A2');
+        $sheet->setCellValue([1, 1], 'Production Date');
+        $sheet->setCellValue([2, 1], 'Line Code');
+        $sheet->setCellValue([3, 1], 'Seq');
+        $sheet->setCellValue([4, 1], 'Model');
+        $sheet->setCellValue([5, 1], 'Job');
+        $sheet->setCellValue([6, 1], 'Lot');
+        $sheet->setCellValue([7, 1], 'Production');
+        $sheet->setCellValue([8, 1], 'Type');
+        $sheet->setCellValue([9, 1], 'Spec');
+        $sheet->setCellValue([10, 1], 'Assy Code');
+        $sheet->setCellValue([11, 1], 'Remark');
+        $sheet->setCellValue([12, 1], 'Specs Side');
+        $sheet->setCellValue([13, 1], 'CT');
+        $sheet->setCellValue([14, 1], 'Production Result');
+        $sheet->setCellValue([15, 1], 'Difference');
+
+        $rowAt = 2;
+        foreach ($data as $r) {
+            $sheet->setCellValue([1, $rowAt], $r->production_date);
+            $sheet->setCellValue([2, $rowAt], $r->line_code);
+            $sheet->setCellValue([3, $rowAt], $r->seq);
+            $sheet->setCellValue([4, $rowAt], $r->model_code);
+            $sheet->setCellValue([5, $rowAt], $r->wo_full_code);
+            $sheet->setCellValue([6, $rowAt], $r->lot_size);
+            $sheet->setCellValue([7, $rowAt], $r->plan_qty);
+            $sheet->setCellValue([8, $rowAt], $r->type);
+            $sheet->setCellValue([9, $rowAt], $r->specs);
+            $sheet->setCellValue([10, $rowAt], $r->item_code);
+            $sheet->setCellValue([11, $rowAt], $r->packaging);
+            $sheet->setCellValue([12, $rowAt], $r->specs_side);
+            $sheet->setCellValue([13, $rowAt], $r->cycle_time);
+            $sheet->setCellValue([14, $rowAt], $r->morningOutput + $r->nightOutput);
+            $sheet->setCellValue([15, $rowAt], "=IF(N$rowAt =0,0, N$rowAt-G$rowAt)");
+            $rowAt++;
+        }
+
         $stringjudul = "Keikaku from " . $request->dateFrom . " to " . $request->dateTo;
         $writer = IOFactory::createWriter($spreadSheet, 'Xlsx');
         $filename = $stringjudul;
