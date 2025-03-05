@@ -14,7 +14,7 @@ return new class extends Migration
     public function up()
     {
         Schema::table('keikaku_data', function (Blueprint $table) {
-            $table->float('bom_rev', 7, 2)->nullable();
+            $table->decimal('bom_rev', 4, 2)->nullable();
         });
     }
 
