@@ -1419,6 +1419,16 @@ class WOController extends Controller
                 }
             }
 
+            // when bom rev still null then get from CIMS
+            foreach ($tobeSaved as &$s) {
+                if (!$s['bom_rev']) {
+                    $s['bom_rev'] = DB::table('VCIMS_MBLA_TBL')
+                        ->where('MBLA_MDLCD', $s['item_code'])
+                        ->select(DB::raw('MAX(MBLA_BOMRV) MBLA_BOMRV'))->value('MBLA_BOMRV');
+                }
+            }
+            unset($s);
+
             if (
                 DB::table('keikaku_data')
                 ->where('line_code', $data['line_code'])
