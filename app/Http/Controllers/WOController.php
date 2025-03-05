@@ -2541,7 +2541,7 @@ class WOController extends Controller
             $sheet->setCellValue([2, $rowAt], $r->line_code);
             $sheet->setCellValue([3, $rowAt], $r->seq);
             $sheet->setCellValue([4, $rowAt], $r->model_code);
-            $sheet->setCellValue([5, $rowAt], $r->wo_full_code);
+            $sheet->setCellValue([5, $rowAt], $r->wo_code);
             $sheet->setCellValue([6, $rowAt], $r->lot_size);
             $sheet->setCellValue([7, $rowAt], $r->plan_qty);
             $sheet->setCellValue([8, $rowAt], $r->type);
