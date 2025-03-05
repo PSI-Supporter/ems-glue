@@ -2141,6 +2141,7 @@ class WOController extends Controller
             ->orderBy('id')
             ->get(['keikaku_data.*', DB::raw('0 ok_qty'), 'total_plan_worktime_morning', 'total_plan_worktime_night']);
 
+        $dataAssyVer = [];
         foreach ($data as &$r) {
             $_morningOutput = 0;
             $_nightOutput = 0;
@@ -2168,6 +2169,22 @@ class WOController extends Controller
             $r->morningOutput = $_morningOutput;
             $r->nightOutput = $_nightOutput;
             $r->baseMount = 0;
+
+            // resume for next loop to get base mountings
+            $isFound = false;
+            foreach ($dataAssyVer as $n) {
+                if ($n['ASSY_CODE'] == $r->item_code && $n['BOM_REV'] == $r->bom_rev) {
+                    $isFound = true;
+                    break;
+                }
+            }
+
+            if (!$isFound) {
+                $dataAssyVer[] = [
+                    'ASSY_CODE' => $r->item_code,
+                    'BOM_REV' => $r->bom_rev
+                ];
+            }
         }
         unset($r);
 
@@ -2186,14 +2203,13 @@ class WOController extends Controller
             }
         }
 
-        $dataWO = DB::table('XWO')->whereIn('PDPP_WONO', $uniqueWO)->get();
         $dataMountArray = [];
 
-        foreach ($dataWO as $r) {
+        foreach ($dataAssyVer as $r) {
             try {
-                $currentKeyActive = Redis::command('EXISTS', ['mount_' . $r->PDPP_MDLCD . '#' . $r->PDPP_BOMRV]);
+                $currentKeyActive = Redis::command('EXISTS', ['mount_' . $r['ASSY_CODE'] . '#' . $r['BOM_REV']]);
                 if ($currentKeyActive) {
-                    $currentKeyActive = json_decode(Redis::command('GET', ['mount_' . $r->PDPP_MDLCD . '#' . $r->PDPP_BOMRV]));
+                    $currentKeyActive = json_decode(Redis::command('GET', ['mount_' . $r['ASSY_CODE'] . '#' . $r['BOM_REV']]));
                     foreach ($currentKeyActive as $m) {
                         $_isAdded = false;
                         foreach ($dataMountArray as $n) {
@@ -2215,8 +2231,8 @@ class WOController extends Controller
                     }
                 } else {
                     $_subQuery = DB::table('VCIMS_MBLA_TBL')
-                        ->where('MBLA_MDLCD', $r->PDPP_MDLCD)
-                        ->where('MBLA_BOMRV', $r->PDPP_BOMRV)
+                        ->where('MBLA_MDLCD', $r['ASSY_CODE'])
+                        ->where('MBLA_BOMRV', $r['BOM_REV'])
                         ->groupBy('MBLA_MDLCD', 'MBLA_BOMRV', 'MBLA_PROCD', 'MBLA_LINENO')
                         ->select(
                             DB::raw('RTRIM(MBLA_MDLCD) MBLA_MDLCD'),
@@ -2253,21 +2269,21 @@ class WOController extends Controller
                             ];
                         }
                     }
-                    Redis::command('SET', ['mount_' . $r->PDPP_MDLCD . '#' . $r->PDPP_BOMRV, json_encode($dataMount)]);
-                    Redis::command('EXPIRE', ['mount_' . $r->PDPP_MDLCD . '#' . $r->PDPP_BOMRV, 2505600]); // 29 days
+                    Redis::command('SET', ['mount_' . $r['ASSY_CODE'] . '#' . $r['BOM_REV'], json_encode($dataMount)]);
+                    Redis::command('EXPIRE', ['mount_' . $r['ASSY_CODE'] . '#' . $r['BOM_REV'], 2505600]); // 29 days
                 }
             } catch (Exception $e) {
                 $isFound = false;
                 foreach ($dataMountArray as $n) {
-                    if ($n['ASSY_CODE'] == $r->PDPP_MDLCD && $n['BOM_REV'] == $r->PDPP_BOMRV) {
+                    if ($n['ASSY_CODE'] == $r['ASSY_CODE'] && $n['BOM_REV'] == $r['BOM_REV']) {
                         $isFound = true;
                         break;
                     }
                 }
                 if (!$isFound) {
                     $_subQuery = DB::table('VCIMS_MBLA_TBL')
-                        ->where('MBLA_MDLCD', $r->PDPP_MDLCD)
-                        ->where('MBLA_BOMRV', $r->PDPP_BOMRV)
+                        ->where('MBLA_MDLCD', $r['ASSY_CODE'])
+                        ->where('MBLA_BOMRV', $r['BOM_REV'])
                         ->groupBy('MBLA_MDLCD', 'MBLA_BOMRV', 'MBLA_PROCD', 'MBLA_LINENO')
                         ->select(
                             DB::raw('RTRIM(MBLA_MDLCD) MBLA_MDLCD'),
