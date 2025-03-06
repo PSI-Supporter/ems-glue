@@ -1663,8 +1663,9 @@ class WOController extends Controller
         $previousdataOutput = $request->line_code == '-' ? [] : DB::table('keikaku_outputs')
             ->where('production_date', '<', $request->production_date)
             ->whereNull('deleted_at')
-            ->groupBy('production_date', 'wo_code', 'process_code', 'seq_data')
+            ->groupBy('production_date', 'wo_code', 'process_code', 'seq_data', 'line_code')
             ->select(
+                'line_code',
                 'production_date',
                 'wo_code',
                 'process_code',
@@ -1682,13 +1683,21 @@ class WOController extends Controller
                 $join->on('keikaku_data.wo_full_code', '=', 'output.wo_code')
                     ->on('keikaku_data.specs_side', '=', 'output.process_code')
                     ->on('keikaku_data.production_date', '=', 'output.production_date')
+                    ->on('keikaku_data.line_code', '=', 'output.line_code')
                     ->on('keikaku_data.seq', '=', 'output.seq_data');
             })
             ->whereNull('deleted_at')
             ->whereIn('keikaku_data.wo_full_code', $data->unique('wo_full_code')->pluck('wo_full_code')->toArray())
             ->where('keikaku_data.production_date', '<', $request->production_date)
-            ->groupBy('line_code', 'keikaku_data.wo_code', 'item_code', 'specs_side')
-            ->get(['line_code', 'keikaku_data.wo_code', 'item_code', 'specs_side', DB::raw('sum(plan_qty) plan_qty'), DB::raw('SUM(ISNULL(ok_qty,0)) previous_ok_qty')]);
+            ->groupBy('keikaku_data.line_code', 'keikaku_data.wo_code', 'item_code', 'specs_side')
+            ->get([
+                'keikaku_data.line_code',
+                'keikaku_data.wo_code',
+                'item_code',
+                'specs_side',
+                DB::raw('sum(plan_qty) plan_qty'),
+                DB::raw('SUM(ISNULL(ok_qty,0)) previous_ok_qty'),
+            ]);
 
         foreach ($data as &$d) {
             $d->previousRun = 0;
@@ -1702,7 +1711,8 @@ class WOController extends Controller
         }
         unset($d);
 
-        $dataLength = empty($data) ? [] : $data->count();
+        $dataLength = empty($data) ? 0 : $data->count();
+
         for ($r = 1; $r < $dataLength; $r++) {
             if ($data[$r]->previousRun == 0) {
                 for ($r0 = $r - 1; $r0 >= 1; $r0--) {
