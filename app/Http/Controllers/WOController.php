@@ -1660,11 +1660,66 @@ class WOController extends Controller
             ->first();
         $keikakuDataStyleO = $keikakuDataStyle ? json_decode($keikakuDataStyle->styles) : [];
 
+        $previousdataOutput = $request->line_code == '-' ? [] : DB::table('keikaku_outputs')
+            ->where('production_date', '<', $request->production_date)
+            ->whereNull('deleted_at')
+            ->groupBy('production_date', 'wo_code', 'process_code', 'seq_data')
+            ->select(
+                'production_date',
+                'wo_code',
+                'process_code',
+                'seq_data',
+                DB::raw("sum(case
+                    when production_date = convert(date, running_at) then ok_qty
+                    else case
+                    when convert(char(5), running_at, 108) < '07:00' then ok_qty
+                    end
+                end) ok_qty")
+            );
+
+        $previousData =  $request->line_code == '-' ? [] : DB::table('keikaku_data')
+            ->leftJoinSub($previousdataOutput, 'output', function ($join) {
+                $join->on('keikaku_data.wo_full_code', '=', 'output.wo_code')
+                    ->on('keikaku_data.specs_side', '=', 'output.process_code')
+                    ->on('keikaku_data.production_date', '=', 'output.production_date')
+                    ->on('keikaku_data.seq', '=', 'output.seq_data');
+            })
+            ->whereNull('deleted_at')
+            ->whereIn('keikaku_data.wo_full_code', $data->unique('wo_full_code')->pluck('wo_full_code')->toArray())
+            ->where('keikaku_data.production_date', '<', $request->production_date)
+            ->groupBy('line_code', 'keikaku_data.wo_code', 'item_code', 'specs_side')
+            ->get(['line_code', 'keikaku_data.wo_code', 'item_code', 'specs_side', DB::raw('sum(plan_qty) plan_qty'), DB::raw('SUM(ISNULL(ok_qty,0)) previous_ok_qty')]);
+
+        foreach ($data as &$d) {
+            $d->previousRun = 0;
+            foreach ($previousData as &$p) {
+                if ($d->line_code == $p->line_code && $d->wo_code == $p->wo_code && $d->item_code == $p->item_code && $d->specs_side == $p->specs_side && $p->previous_ok_qty > 0) {
+                    $d->previousRun += $p->previous_ok_qty;
+                    $p->previous_ok_qty = 0;
+                }
+            }
+            unset($p);
+        }
+        unset($d);
+
+        $dataLength = empty($data) ? [] : $data->count();
+        for ($r = 1; $r < $dataLength; $r++) {
+            if ($data[$r]->previousRun == 0) {
+                for ($r0 = $r - 1; $r0 >= 1; $r0--) {
+                    if ($data[$r]->wo_full_code == $data[$r0]->wo_full_code && $data[$r]->specs_side == $data[$r0]->specs_side) {
+                        $data[$r]->previousRun = $data[$r0]->previousRun + $data[$r0]->plan_qty;
+                        break;
+                    }
+                }
+            }
+        }
+
+
         return [
             'data' => $data,
             'currentActiveUser' => DB::table('MSTEMP_TBL')->where('MSTEMP_ID', $currentActiveUser)
                 ->first(['MSTEMP_ID', 'MSTEMP_FNM', 'MSTEMP_LNM']),
-            'dataStyle' => $keikakuDataStyleO
+            'dataStyle' => $keikakuDataStyleO,
         ];
     }
 
