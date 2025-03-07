@@ -2277,7 +2277,10 @@ class WOController extends Controller
                     foreach ($currentKeyActive as $m) {
                         $_isAdded = false;
                         foreach ($dataMountArray as $n) {
-                            if ($n['ASSY_CODE'] == $m->MBLA_MDLCD && $n['BOM_REV'] == $m->MBLA_BOMRV && $n['LINENO'] == $m->MBLA_LINENO) {
+                            if (
+                                $n['ASSY_CODE'] == $m->MBLA_MDLCD && $n['BOM_REV'] == $m->MBLA_BOMRV && $n['LINENO'] == $m->MBLA_LINENO
+                                && $n['PROCD'] == $m->MBLA_PROCD
+                            ) {
                                 $_isAdded = true;
                                 break;
                             }
@@ -2317,7 +2320,10 @@ class WOController extends Controller
                     foreach ($dataMount as $m) {
                         $_isAdded = false;
                         foreach ($dataMountArray as $n) {
-                            if ($n['ASSY_CODE'] == $m->MBLA_MDLCD && $n['BOM_REV'] == $m->MBLA_BOMRV && $n['LINENO'] == $m->MBLA_LINENO) {
+                            if (
+                                $n['ASSY_CODE'] == $m->MBLA_MDLCD && $n['BOM_REV'] == $m->MBLA_BOMRV && $n['LINENO'] == $m->MBLA_LINENO
+                                && $n['PROCD'] == $m->MBLA_PROCD
+                            ) {
                                 $_isAdded = true;
                                 break;
                             }
@@ -2367,7 +2373,10 @@ class WOController extends Controller
                     foreach ($dataMount as $m) {
                         $_isAdded = false;
                         foreach ($dataMountArray as $n) {
-                            if ($n['ASSY_CODE'] == $m->MBLA_MDLCD && $n['BOM_REV'] == $m->MBLA_BOMRV && $n['LINENO'] == $m->MBLA_LINENO) {
+                            if (
+                                $n['ASSY_CODE'] == $m->MBLA_MDLCD && $n['BOM_REV'] == $m->MBLA_BOMRV && $n['LINENO'] == $m->MBLA_LINENO
+                                && $n['PROCD'] == $m->MBLA_PROCD
+                            ) {
                                 $_isAdded = true;
                                 break;
                             }
