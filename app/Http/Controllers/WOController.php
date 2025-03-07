@@ -1715,7 +1715,7 @@ class WOController extends Controller
 
         for ($r = 1; $r < $dataLength; $r++) {
             if ($data[$r]->previousRun == 0) {
-                for ($r0 = $r - 1; $r0 >= 1; $r0--) {
+                for ($r0 = $r - 1; $r0 >= 0; $r0--) {
                     if ($data[$r]->wo_full_code == $data[$r0]->wo_full_code && $data[$r]->specs_side == $data[$r0]->specs_side) {
                         $data[$r]->previousRun = $data[$r0]->previousRun + $data[$r0]->plan_qty;
                         break;
