@@ -2396,25 +2396,46 @@ class WOController extends Controller
             }
         }
 
-        foreach ($dataMountArray as $r) {
-            foreach ($data as &$d) {
+        // plotting 1
+        foreach ($data as &$d) {
+            foreach ($dataMountArray as $r) {
                 if ($r['ASSY_CODE'] == $d->item_code) {
                     $substractPCB = $r['SEQNO'] == 1 ? 1 : 0;
                     if (str_contains($r['LINENO'], $d->line_code) && str_contains($r['PROCD'], $d->specs_side)) {
                         $d->baseMount = $r['COUNTLOCATION'] - $substractPCB;
-                    } else {
-                        if (str_contains($r['LINENO'], substr($d->line_code, -1)) && str_contains($r['PROCD'], $d->specs_side)) {
+                        break;
+                    }
+                }
+            }
+        }
+        unset($d);
+
+        // plotting 2
+        foreach ($data as &$d) {
+            if ($d->baseMount == 0) {
+                foreach ($dataMountArray as $r) {
+                    if ($r['ASSY_CODE'] == $d->item_code) {
+                        $substractPCB = $r['SEQNO'] == 1 ? 1 : 0;
+                        if (str_contains($r['LINENO'], $d->line_code) && str_contains($r['PROCD'], $d->specs_side)) {
                             $d->baseMount = $r['COUNTLOCATION'] - $substractPCB;
-                        } elseif (str_contains($r['PROCD'], $d->specs_side)) {
-                            $d->baseMount = $r['COUNTLOCATION'] - $substractPCB;
-                        } elseif (str_contains($r['LINENO'], $d->line_code)) {
-                            $d->baseMount = $r['COUNTLOCATION'] - $substractPCB;
+                            break;
+                        } else {
+                            if (str_contains($r['LINENO'], substr($d->line_code, -1)) && str_contains($r['PROCD'], $d->specs_side)) {
+                                $d->baseMount = $r['COUNTLOCATION'] - $substractPCB;
+                                break;
+                            } elseif (str_contains($r['PROCD'], $d->specs_side)) {
+                                $d->baseMount = $r['COUNTLOCATION'] - $substractPCB;
+                                break;
+                            } elseif (str_contains($r['LINENO'], $d->line_code)) {
+                                $d->baseMount = $r['COUNTLOCATION'] - $substractPCB;
+                                break;
+                            }
                         }
                     }
                 }
             }
-            unset($d);
         }
+        unset($d);
 
         sort($uniqueLine);
 
