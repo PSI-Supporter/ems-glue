@@ -2894,12 +2894,70 @@ class WOController extends Controller
         $data = json_decode(json_encode($data), true);
         $sheet = $spreadSheet->createSheet();
         $sheet->setTitle('raw_data');
-        $sheet->fromArray(array_keys($data[0]), null, 'A1');
-        $sheet->fromArray($data, null, 'A2');
+        $sheet->setCellValue([1, 1], 'id');
+        $sheet->setCellValue([2, 1], 'created_at');
+        $sheet->setCellValue([3, 1], 'line_code');
+        $sheet->setCellValue([4, 1], 'production_date');
+        $sheet->setCellValue([5, 1], 'seq');
+        $sheet->setCellValue([6, 1], 'model_code');
+        $sheet->setCellValue([7, 1], 'wo_code');
+        $sheet->setCellValue([8, 1], 'wo_full_code');
+        $sheet->setCellValue([9, 1], 'item_code');
+        $sheet->setCellValue([10, 1], 'lot_size');
+        $sheet->setCellValue([11, 1], 'plan_qty');
+        $sheet->setCellValue([12, 1], 'actual_qty');
+        $sheet->setCellValue([13, 1], 'type');
+        $sheet->setCellValue([14, 1], 'specs');
+        $sheet->setCellValue([15, 1], 'specs_side');
+        $sheet->setCellValue([16, 1], 'cycle_time');
+        $sheet->setCellValue([17, 1], 'packaging');
+        $sheet->setCellValue([18, 1], 'created_by');
+        $sheet->setCellValue([19, 1], 'plan_morning_qty');
+        $sheet->setCellValue([20, 1], 'plan_night_qty');
+        $sheet->setCellValue([21, 1], 'bom_rev');
+        $sheet->setCellValue([22, 1], 'ok_qty');
+        $sheet->setCellValue([23, 1], 'total_plan_worktime_morning');
+        $sheet->setCellValue([24, 1], 'total_plan_worktime_night');
+        $sheet->setCellValue([25, 1], 'morningOutput');
+        $sheet->setCellValue([26, 1], 'nightOutput');
+        $sheet->setCellValue([27, 1], 'baseMount');
+        $rowAt = 2;
+        foreach ($data as $r) {
+            $sheet->setCellValue([1, $rowAt], $r['id']);
+            $sheet->setCellValue([2, $rowAt], $r['created_at']);
+            $sheet->setCellValue([3, $rowAt], $r['line_code']);
+            $sheet->setCellValue([4, $rowAt], $r['production_date']);
+            $sheet->setCellValue([5, $rowAt], $r['seq']);
+            $sheet->setCellValue([6, $rowAt], $r['model_code']);
+            $sheet->setCellValueExplicit([7, $rowAt], $r['wo_code'],  \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $sheet->setCellValue([8, $rowAt], $r['wo_full_code']);
+            $sheet->setCellValue([9, $rowAt], $r['item_code']);
+            $sheet->setCellValue([10, $rowAt], $r['lot_size']);
+            $sheet->setCellValue([11, $rowAt], $r['plan_qty']);
+            $sheet->setCellValue([12, $rowAt], $r['actual_qty']);
+            $sheet->setCellValue([13, $rowAt], $r['type']);
+            $sheet->setCellValue([14, $rowAt], $r['specs']);
+            $sheet->setCellValue([15, $rowAt], $r['specs_side']);
+            $sheet->setCellValue([16, $rowAt], $r['cycle_time']);
+            $sheet->setCellValue([17, $rowAt], $r['packaging']);
+            $sheet->setCellValue([18, $rowAt], $r['created_by']);
+            $sheet->setCellValue([19, $rowAt], $r['plan_morning_qty']);
+            $sheet->setCellValue([20, $rowAt], $r['plan_night_qty']);
+            $sheet->setCellValue([21, $rowAt], $r['bom_rev']);
+            $sheet->setCellValue([22, $rowAt], $r['ok_qty']);
+            $sheet->setCellValue([23, $rowAt], $r['total_plan_worktime_morning']);
+            $sheet->setCellValue([24, $rowAt], $r['total_plan_worktime_night']);
+            $sheet->setCellValue([25, $rowAt], $r['morningOutput']);
+            $sheet->setCellValue([26, $rowAt], $r['nightOutput']);
+            $sheet->setCellValue([27, $rowAt], $r['baseMount']);
+
+            $rowAt++;
+        }
+
+        $sheet->freezePane('A2');
         foreach (range('A', 'Z') as $v) {
             $sheet->getColumnDimension($v)->setAutoSize(true);
         }
-        $sheet->freezePane('A2');
 
         // raw data mount sheet
         $sheet = $spreadSheet->createSheet();
@@ -2910,9 +2968,6 @@ class WOController extends Controller
             $sheet->getColumnDimension($v)->setAutoSize(true);
         }
         $sheet->freezePane('A2');
-
-
-
 
         $stringjudul = "Daily Output from " . $request->dateFrom . " to " . $request->dateTo;
         $writer = IOFactory::createWriter($spreadSheet, 'Xlsx');
