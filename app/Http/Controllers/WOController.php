@@ -528,7 +528,7 @@ class WOController extends Controller
             ]);
 
 
-        $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc, [], [], []);
+        $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc, [], [], [], []);
 
         return [
             'data' => $data->get(),
@@ -538,7 +538,7 @@ class WOController extends Controller
         ];
     }
 
-    private function plotProdPlan($dataKeikakuData, $dataCalc, $dataOutputSensor, $dataModelChangesActual, $dataInputHW)
+    private function plotProdPlan($dataKeikakuData, $dataCalc, $dataOutputSensor, $dataModelChangesActual, $dataInputHW, $dataOutputHW)
     {
         $tempModel = '';
         $tempType = '';
@@ -563,7 +563,7 @@ class WOController extends Controller
             $_asMatrixHeader3
         ];
 
-        $asMatrixSensor = $asModelChangesActual = $asMatrixInputHW = [];
+        $asMatrixSensor = $asModelChangesActual = $asMatrixInputHW = $asMatrixOutputHW =  [];
         foreach ($dataKeikakuData as $d) {
             $_shouldChangeModel = false;
             $_usedTime = 0;
@@ -628,7 +628,7 @@ class WOController extends Controller
                 $d->ct_hour
             ];
 
-            $_asMatrixInputHW = [
+            $_asMatrixInputHW = $_asMatrixOutputHW = [
                 $d->item_code,
                 $d->seq,
                 $d->production_worktime,
@@ -678,12 +678,26 @@ class WOController extends Controller
                     }
                 }
                 unset($o);
+
+                $_asMatrixOutputHW[] = 0;
+                $lastActualColumn = count($_asMatrixOutputHW) - 1;
+                foreach ($dataOutputHW as &$o) {
+                    if ($o->wo_code == $d->wo_full_code && $o->process_code == $d->specs_side && $o->ok_qty > 0 && $o->seq_data == $d->seq) {
+                        if (substr($c->calculation_at, 0, 13) == substr($o->running_at, 0, 13)) {
+                            $_asMatrixOutputHW[$lastActualColumn] += $o->ok_qty;
+                            $_asMatrixOutputHW[4] = $o->process_code;
+                            $o->ok_qty = 0;
+                        }
+                    }
+                }
+                unset($o);
             }
             $asMatrix[] = $_asMatrix1;
             $asMatrix[] = $_asMatrix2;
             $asMatrixSensor[] = $_asMatrix3;
             $asModelChangesActual[] = $_asMatrixModelChanges;
             $asMatrixInputHW[] = $_asMatrixInputHW;
+            $asMatrixOutputHW[] = $_asMatrixOutputHW;
         }
 
         // bismillah proses kalkulasi waktu
@@ -738,7 +752,7 @@ class WOController extends Controller
             }
         }
 
-        return [$asMatrix, $asProdPlanX, $asMatrixSensor,  $_asMatrixHeader4, $asModelChangesActual, $asMatrixInputHW];
+        return [$asMatrix, $asProdPlanX, $asMatrixSensor,  $_asMatrixHeader4, $asModelChangesActual, $asMatrixInputHW, $asMatrixOutputHW];
     }
 
     private function _plotTime($data, $parX, $parY, $parProductionHours)
@@ -828,7 +842,13 @@ class WOController extends Controller
             ->groupBy('wo_code', 'running_at', 'process_code', 'seq_data')
             ->get([DB::raw('sum(ok_qty) ok_qty'), 'wo_code', 'running_at', 'process_code', 'seq_data']) : [];
 
-        $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc, $dataSensor, $dataModelChanges, $inputHW);
+        $outputHW = $this->isHWContext(['line' => $request->line_code]) ? DB::table('keikaku_output2s')->whereNull('deleted_at')
+            ->where('production_date', $request->production_date)
+            ->where('line_code', $request->line_code)
+            ->groupBy('wo_code', 'running_at', 'process_code', 'seq_data')
+            ->get([DB::raw('sum(ok_qty) ok_qty'), 'wo_code', 'running_at', 'process_code', 'seq_data']) : [];
+
+        $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc, $dataSensor, $dataModelChanges, $inputHW, $outputHW);
 
         $morningEfficiency = 0;
         $nightEfficiency = 0;
@@ -861,6 +881,7 @@ class WOController extends Controller
             'nightEfficiency' => $nightEfficiency,
             'dataMount' => $data_[0],
             'dataInputHW' => $asProdPlan[5],
+            'dataOutputHW' => $asProdPlan[6],
         ];
     }
 
@@ -2565,7 +2586,7 @@ class WOController extends Controller
                         ->groupBy('wo_code', 'running_at', 'process_code', 'seq_data', 'change_flag')
                         ->get([DB::raw('change_flag'), 'wo_code', 'running_at', 'process_code', 'seq_data']);
 
-                    $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc, $dataSensor, $dataModelChanges, []);
+                    $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc, $dataSensor, $dataModelChanges, [], []);
 
                     $simulationPlan = $simulationPlan->merge($asProdPlan[1]);
                 }
