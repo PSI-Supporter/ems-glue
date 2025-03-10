@@ -814,13 +814,19 @@ class WOController extends Controller
             ->groupBy('wo_code', 'running_at', 'process_code', 'seq_data')
             ->get([DB::raw('sum(ok_qty) ok_qty'), 'wo_code', 'running_at', 'process_code', 'seq_data']);
 
+
+
         $dataModelChanges = DB::table('keikaku_model_changes')->whereNull('deleted_at')
             ->where('production_date', $request->production_date)
             ->where('line_code', $request->line_code)
             ->groupBy('wo_code', 'running_at', 'process_code', 'seq_data', 'change_flag')
             ->get([DB::raw('change_flag'), 'wo_code', 'running_at', 'process_code', 'seq_data']);
 
-        $inputHW = $this->isHWContext(['line' => $request->line_code]) ? [] : [];
+        $inputHW = $this->isHWContext(['line' => $request->line_code]) ? DB::table('keikaku_input2s')->whereNull('deleted_at')
+            ->where('production_date', $request->production_date)
+            ->where('line_code', $request->line_code)
+            ->groupBy('wo_code', 'running_at', 'process_code', 'seq_data')
+            ->get([DB::raw('sum(ok_qty) ok_qty'), 'wo_code', 'running_at', 'process_code', 'seq_data']) : [];
 
         $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc, $dataSensor, $dataModelChanges, $inputHW);
 
@@ -837,8 +843,6 @@ class WOController extends Controller
                 break;
             }
         }
-
-
 
         $theParam = [
             'dateFrom' => $request->production_date,
@@ -3048,5 +3052,84 @@ class WOController extends Controller
     private function isHWContext($data)
     {
         return (substr($data['line'], -1) == '3' && !str_contains($data['line'], 'AT')) || $data['line'] == 'PS2' ? true : false;
+    }
+
+    function saveKeikakuInputHW(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'line' => 'required',
+            'job' => 'required',
+            'side' => 'required',
+            'quantity' => 'required',
+        ], [
+            'line.required' => ':attribute is required',
+            'job.required' => ':attribute is required',
+            'side.required' => ':attribute is required',
+            'quantity.required' => ':attribute is required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 406);
+        }
+
+        $running_at = $request->productionDate . ' ' . $request->runningAtTime . ':00';
+        $nextDate = date_create($request->productionDate);
+        date_add($nextDate, date_interval_create_from_date_string('1 days'));
+
+        if ($request->XCoordinate >= 26) {
+            $_date = date_create($request->productionDate);
+            date_add($_date, date_interval_create_from_date_string('1 days'));
+            $running_at = date_format($_date, 'Y-m-d') . ' ' . $request->runningAtTime . ':00';
+        }
+
+        $productionPlan = DB::table('keikaku_data')
+            ->where('production_date', $request->productionDate)
+            ->where('line_code', $request->line)
+            ->where('wo_full_code', $request->job)
+            ->where('specs_side', $request->side)
+            ->where('seq', $request->seq_data)
+            ->whereNull('deleted_at')
+            ->first();
+
+        $currentOutput = DB::table('keikaku_input2s')
+            ->whereDate('production_date', $request->productionDate)
+            ->where("running_at", "!=", $running_at)
+            ->where('line_code', $request->line)
+            ->where('wo_code', $request->job)
+            ->where('process_code', $request->side)
+            ->where('seq_data', $request->seq_data)
+            ->whereNull('deleted_at')
+            ->select(DB::raw('isnull(sum(ok_qty),0) ok_qty'))
+            ->first();
+
+        if ($currentOutput->ok_qty + $request->quantity > $productionPlan->plan_qty) {
+            return response()->json(
+                ['message' => 'Prodplan=' . $productionPlan->plan_qty . ', output=' .
+                    $currentOutput->ok_qty . '+' . $request->quantity],
+                406
+            );
+        }
+
+        DB::table('keikaku_input2s')
+            ->where("running_at",  $running_at)
+            ->where('line_code', $request->line)
+            ->where('wo_code', $request->job)
+            ->where('process_code', $request->side)
+            ->where('seq_data', $request->seq_data)
+            ->update(['deleted_at' => date('Y-m-d H:i:s')]);
+
+        $affectedRows = DB::table('keikaku_input2s')->insert([
+            'created_at' => date('Y-m-d H:i:s'),
+            'production_date' => $request->productionDate,
+            'running_at' => $running_at,
+            'wo_code' => $request->job,
+            'line_code' =>  $request->line,
+            'process_code' => $request->side,
+            'ok_qty' => $request->quantity,
+            'seq_data' => $request->seq_data,
+            'created_by' => $request->user_id,
+        ]);
+
+        return $affectedRows ? ['message' => 'Recorded successfully'] : ['message' => 'Failed, please try again'];
     }
 }

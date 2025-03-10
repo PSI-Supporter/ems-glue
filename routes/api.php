@@ -249,6 +249,7 @@ Route::prefix('keikaku')->group(function () {
     Route::get('working-time-name', [WorkingTimeController::class, 'getName']);
     Route::get('working-time', [WorkingTimeController::class, 'getTemplate']);
     Route::put('working-time/{name}', [WorkingTimeController::class, 'activateTemplate']);
+    Route::post('input-hw', [WOController::class, 'saveKeikakuInputHW']);
 });
 
 Route::prefix('transaction')->group(function () {
