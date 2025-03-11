@@ -2470,12 +2470,14 @@ class WOController extends Controller
 
         // plotting 1
         foreach ($data as &$d) {
-            foreach ($dataMountArray as $r) {
-                if ($r['ASSY_CODE'] == $d->item_code) {
-                    $substractPCB = $r['SEQNO'] == 1 ? 1 : 0;
-                    if (str_contains($r['LINENO'], $d->line_code) && str_contains($r['PROCD'], $d->specs_side)) {
-                        $d->baseMount = $r['COUNTLOCATION'] - $substractPCB;
-                        break;
+            if ($d->baseMount == 0) {
+                foreach ($dataMountArray as $r) {
+                    if ($r['ASSY_CODE'] == $d->item_code) {
+                        $substractPCB = $r['SEQNO'] == 1 ? 1 : 0;
+                        if (str_contains($r['LINENO'], $d->line_code) && str_contains($r['PROCD'], $d->specs_side)) {
+                            $d->baseMount = $r['COUNTLOCATION'] - $substractPCB;
+                            break;
+                        }
                     }
                 }
             }
