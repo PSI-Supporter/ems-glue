@@ -2449,6 +2449,25 @@ class WOController extends Controller
             }
         }
 
+        // plotting 0
+        foreach ($data as &$d) {
+            foreach ($dataMountArray as $r) {
+                if ($r['ASSY_CODE'] == $d->item_code) {
+                    if ($d->specs_side == 'A') {
+                        if ($r['SEQNO'] == 1) {
+                            $d->baseMount = $r['COUNTLOCATION'] - 1;
+                            break;
+                        }
+                    } else {
+                        if ($r['SEQNO'] == 2) {
+                            $d->baseMount = $r['COUNTLOCATION'];
+                        }
+                    }
+                }
+            }
+        }
+        unset($d);
+
         // plotting 1
         foreach ($data as &$d) {
             foreach ($dataMountArray as $r) {
