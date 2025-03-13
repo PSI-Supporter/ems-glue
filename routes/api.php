@@ -251,6 +251,7 @@ Route::prefix('keikaku')->group(function () {
     Route::put('working-time/{name}', [WorkingTimeController::class, 'activateTemplate']);
     Route::post('input-hw', [WOController::class, 'saveKeikakuInputHW']);
     Route::post('output-hw', [WOController::class, 'saveKeikakuOutputHW']);
+    Route::post('input2-hw', [WOController::class, 'saveKeikakuInput2HW']);
 });
 
 Route::prefix('transaction')->group(function () {

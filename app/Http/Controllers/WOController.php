@@ -528,7 +528,7 @@ class WOController extends Controller
             ]);
 
 
-        $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc, [], [], [], []);
+        $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc, [], [], [], [], []);
 
         return [
             'data' => $data->get(),
@@ -538,7 +538,7 @@ class WOController extends Controller
         ];
     }
 
-    private function plotProdPlan($dataKeikakuData, $dataCalc, $dataOutputSensor, $dataModelChangesActual, $dataInputHW, $dataOutputHW)
+    private function plotProdPlan($dataKeikakuData, $dataCalc, $dataOutputSensor, $dataModelChangesActual, $dataInputHW, $dataOutputHW, $dataInput2HW)
     {
         $tempModel = '';
         $tempType = '';
@@ -563,7 +563,7 @@ class WOController extends Controller
             $_asMatrixHeader3
         ];
 
-        $asMatrixSensor = $asModelChangesActual = $asMatrixInputHW = $asMatrixOutputHW =  [];
+        $asMatrixSensor = $asModelChangesActual = $asMatrixInputHW = $asMatrixOutputHW = $asMatrixInput2HW = [];
         foreach ($dataKeikakuData as $d) {
             $_shouldChangeModel = false;
             $_usedTime = 0;
@@ -628,7 +628,7 @@ class WOController extends Controller
                 $d->ct_hour
             ];
 
-            $_asMatrixInputHW = $_asMatrixOutputHW = [
+            $_asMatrixInputHW = $_asMatrixOutputHW = $_asMatrixInput2HW = [
                 $d->item_code,
                 $d->seq,
                 $d->production_worktime,
@@ -679,6 +679,19 @@ class WOController extends Controller
                 }
                 unset($o);
 
+                $_asMatrixInput2HW[] = 0;
+                $lastActualColumn = count($_asMatrixInput2HW) - 1;
+                foreach ($dataInput2HW as &$o) {
+                    if ($o->wo_code == $d->wo_full_code && $o->process_code == $d->specs_side && $o->ok_qty > 0 && $o->seq_data == $d->seq) {
+                        if (substr($c->calculation_at, 0, 13) == substr($o->running_at, 0, 13)) {
+                            $_asMatrixInput2HW[$lastActualColumn] += $o->ok_qty;
+                            $_asMatrixInput2HW[4] = $o->process_code;
+                            $o->ok_qty = 0;
+                        }
+                    }
+                }
+                unset($o);
+
                 $_asMatrixOutputHW[] = 0;
                 $lastActualColumn = count($_asMatrixOutputHW) - 1;
                 foreach ($dataOutputHW as &$o) {
@@ -698,6 +711,7 @@ class WOController extends Controller
             $asModelChangesActual[] = $_asMatrixModelChanges;
             $asMatrixInputHW[] = $_asMatrixInputHW;
             $asMatrixOutputHW[] = $_asMatrixOutputHW;
+            $asMatrixInput2HW[] = $_asMatrixInput2HW;
         }
 
         // bismillah proses kalkulasi waktu
@@ -752,7 +766,7 @@ class WOController extends Controller
             }
         }
 
-        return [$asMatrix, $asProdPlanX, $asMatrixSensor,  $_asMatrixHeader4, $asModelChangesActual, $asMatrixInputHW, $asMatrixOutputHW];
+        return [$asMatrix, $asProdPlanX, $asMatrixSensor,  $_asMatrixHeader4, $asModelChangesActual, $asMatrixInputHW, $asMatrixOutputHW, $asMatrixInput2HW];
     }
 
     private function _plotTime($data, $parX, $parY, $parProductionHours)
@@ -848,7 +862,13 @@ class WOController extends Controller
             ->groupBy('wo_code', 'running_at', 'process_code', 'seq_data')
             ->get([DB::raw('sum(ok_qty) ok_qty'), 'wo_code', 'running_at', 'process_code', 'seq_data']) : [];
 
-        $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc, $dataSensor, $dataModelChanges, $inputHW, $outputHW);
+        $input2HW = $this->isHWContext(['line' => $request->line_code]) ? DB::table('keikaku_input3s')->whereNull('deleted_at')
+            ->where('production_date', $request->production_date)
+            ->where('line_code', $request->line_code)
+            ->groupBy('wo_code', 'running_at', 'process_code', 'seq_data')
+            ->get([DB::raw('sum(ok_qty) ok_qty'), 'wo_code', 'running_at', 'process_code', 'seq_data']) : [];
+
+        $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc, $dataSensor, $dataModelChanges, $inputHW, $outputHW, $input2HW);
 
         $morningEfficiency = 0;
         $nightEfficiency = 0;
@@ -882,6 +902,7 @@ class WOController extends Controller
             'dataMount' => $data_[0],
             'dataInputHW' => $asProdPlan[5],
             'dataOutputHW' => $asProdPlan[6],
+            'dataInput2HW' => $asProdPlan[7],
         ];
     }
 
@@ -2607,7 +2628,7 @@ class WOController extends Controller
                         ->groupBy('wo_code', 'running_at', 'process_code', 'seq_data', 'change_flag')
                         ->get([DB::raw('change_flag'), 'wo_code', 'running_at', 'process_code', 'seq_data']);
 
-                    $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc, $dataSensor, $dataModelChanges, [], []);
+                    $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc, $dataSensor, $dataModelChanges, [], [], []);
 
                     $simulationPlan = $simulationPlan->merge($asProdPlan[1]);
                 }
@@ -3240,6 +3261,85 @@ class WOController extends Controller
             ->update(['deleted_at' => date('Y-m-d H:i:s')]);
 
         $affectedRows = DB::table('keikaku_output2s')->insert([
+            'created_at' => date('Y-m-d H:i:s'),
+            'production_date' => $request->productionDate,
+            'running_at' => $running_at,
+            'wo_code' => $request->job,
+            'line_code' =>  $request->line,
+            'process_code' => $request->side,
+            'ok_qty' => $request->quantity,
+            'seq_data' => $request->seq_data,
+            'created_by' => $request->user_id,
+        ]);
+
+        return $affectedRows ? ['message' => 'Recorded successfully'] : ['message' => 'Failed, please try again'];
+    }
+
+    function saveKeikakuInput2HW(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'line' => 'required',
+            'job' => 'required',
+            'side' => 'required',
+            'quantity' => 'required',
+        ], [
+            'line.required' => ':attribute is required',
+            'job.required' => ':attribute is required',
+            'side.required' => ':attribute is required',
+            'quantity.required' => ':attribute is required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 406);
+        }
+
+        $running_at = $request->productionDate . ' ' . $request->runningAtTime . ':00';
+        $nextDate = date_create($request->productionDate);
+        date_add($nextDate, date_interval_create_from_date_string('1 days'));
+
+        if ($request->XCoordinate >= 26) {
+            $_date = date_create($request->productionDate);
+            date_add($_date, date_interval_create_from_date_string('1 days'));
+            $running_at = date_format($_date, 'Y-m-d') . ' ' . $request->runningAtTime . ':00';
+        }
+
+        $productionPlan = DB::table('keikaku_data')
+            ->where('production_date', $request->productionDate)
+            ->where('line_code', $request->line)
+            ->where('wo_full_code', $request->job)
+            ->where('specs_side', $request->side)
+            ->where('seq', $request->seq_data)
+            ->whereNull('deleted_at')
+            ->first();
+
+        $currentOutput = DB::table('keikaku_input3s')
+            ->whereDate('production_date', $request->productionDate)
+            ->where("running_at", "!=", $running_at)
+            ->where('line_code', $request->line)
+            ->where('wo_code', $request->job)
+            ->where('process_code', $request->side)
+            ->where('seq_data', $request->seq_data)
+            ->whereNull('deleted_at')
+            ->select(DB::raw('isnull(sum(ok_qty),0) ok_qty'))
+            ->first();
+
+        if ($currentOutput->ok_qty + $request->quantity > $productionPlan->plan_qty) {
+            return response()->json(
+                ['message' => 'Prodplan=' . $productionPlan->plan_qty . ', output=' .
+                    $currentOutput->ok_qty . '+' . $request->quantity],
+                406
+            );
+        }
+
+        DB::table('keikaku_input3s')
+            ->where("running_at",  $running_at)
+            ->where('line_code', $request->line)
+            ->where('wo_code', $request->job)
+            ->where('process_code', $request->side)
+            ->where('seq_data', $request->seq_data)
+            ->update(['deleted_at' => date('Y-m-d H:i:s')]);
+
+        $affectedRows = DB::table('keikaku_input3s')->insert([
             'created_at' => date('Y-m-d H:i:s'),
             'production_date' => $request->productionDate,
             'running_at' => $running_at,
