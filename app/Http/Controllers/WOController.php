@@ -1325,7 +1325,7 @@ class WOController extends Controller
 
         $data = $request->json()->all();
 
-        if (!$this->checkUserAccess(['user_id' => $data['user_id']])) {
+        if (!$this->checkUserAccess(['user_id' => $data['user_id']]) && !$this->isHWContext(['line' => $data['line_code']])) {
             return response()->json(['message' => 'You have read-only access'], 403);
         }
 
