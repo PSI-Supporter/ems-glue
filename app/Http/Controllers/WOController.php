@@ -1709,12 +1709,22 @@ class WOController extends Controller
         date_add($nextDate, date_interval_create_from_date_string('1 days'));
         $maxCalculationDate = date_format($nextDate, 'Y-m-d') . ' 07:00:00';
 
-        $dataOutput = $request->line_code == '-' ? [] : DB::table('keikaku_outputs')->where('production_date', $request->production_date)
-            ->where('line_code', $request->line_code)
-            ->where('running_at', '<', $maxCalculationDate)
-            ->whereNull('deleted_at')
-            ->groupBy('wo_code', 'process_code', 'seq_data')
-            ->select('wo_code', 'process_code', 'seq_data', DB::raw('sum(ok_qty) ok_qty'));
+        $dataOutput = NULL;
+        if ($this->isHWContext(['line' => $request->line_code])) {
+            $dataOutput = $request->line_code == '-' ? [] : DB::table('keikaku_input3s')->where('production_date', $request->production_date)
+                ->where('line_code', $request->line_code)
+                ->where('running_at', '<', $maxCalculationDate)
+                ->whereNull('deleted_at')
+                ->groupBy('wo_code', 'process_code', 'seq_data')
+                ->select('wo_code', 'process_code', 'seq_data', DB::raw('sum(ok_qty) ok_qty'));
+        } else {
+            $dataOutput = $request->line_code == '-' ? [] : DB::table('keikaku_outputs')->where('production_date', $request->production_date)
+                ->where('line_code', $request->line_code)
+                ->where('running_at', '<', $maxCalculationDate)
+                ->whereNull('deleted_at')
+                ->groupBy('wo_code', 'process_code', 'seq_data')
+                ->select('wo_code', 'process_code', 'seq_data', DB::raw('sum(ok_qty) ok_qty'));
+        }
 
         $data = $request->line_code == '-' ? [] : DB::table('keikaku_data')
             ->leftJoinSub($dataOutput, 'output', function ($join) {
