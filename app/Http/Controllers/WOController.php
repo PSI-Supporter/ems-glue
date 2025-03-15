@@ -3375,12 +3375,10 @@ class WOController extends Controller
         $validator = Validator::make($request->all(), [
             'line' => 'required',
             'cell_code' => 'required',
-            'comment' => 'required',
             'productionDate' => 'required|date',
         ], [
             'line.required' => ':attribute is required',
             'cell_code.required' => ':attribute is required',
-            'comment.required' => ':attribute is required',
             'productionDate.required' => ':attribute is required',
             'productionDate.date' => ':attribute should be date',
         ]);
@@ -3402,7 +3400,7 @@ class WOController extends Controller
                 'production_date' => $request->productionDate,
                 'cell_code' => $request->cell_code,
                 'line_code' =>  $request->line,
-                'comment' =>  $request->comment,
+                'comment' =>  $request->comment ?? '',
                 'created_by' => $request->user_id,
             ]);
 
