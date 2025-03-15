@@ -3096,7 +3096,12 @@ class WOController extends Controller
             ->whereNull('deleted_at')
             ->where('created_by', '!=', 'sensor')
             ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'seq_data')
-            ->select('wo_code', 'process_code', 'production_date', 'line_code', DB::raw('sum(ok_qty) ok_qty'), 'seq_data');
+            ->select('wo_code', 'process_code', 'production_date', 'line_code', DB::raw("sum(case
+                    when production_date = convert(date, running_at) then ok_qty
+                    else case
+                    when convert(char(5), running_at, 108) < '07:00' then ok_qty
+                    end
+                end) ok_qty"), 'seq_data');
 
         $dataBasic = DB::table('keikaku_data')
             ->whereNull('deleted_at')
