@@ -891,6 +891,11 @@ class WOController extends Controller
         ];
         $data_ = $this->_getBaseKeikakuDataReport($theParam);
 
+        $dataComments = DB::table('keikaku_comment_prodplans')->whereNull('deleted_at')
+            ->where('production_date', $request->production_date)
+            ->where('line_code', $request->line_code)
+            ->get(['cell_code', 'comment']);
+
         return [
             'asProdplan' => $asProdPlan[1],
             'asMatrix' => $asProdPlan[0],
@@ -903,6 +908,7 @@ class WOController extends Controller
             'dataInputHW' => $asProdPlan[5],
             'dataOutputHW' => $asProdPlan[6],
             'dataInput2HW' => $asProdPlan[7],
+            'dataComment' => $dataComments,
         ];
     }
 
@@ -3362,5 +3368,50 @@ class WOController extends Controller
         ]);
 
         return $affectedRows ? ['message' => 'Recorded successfully'] : ['message' => 'Failed, please try again'];
+    }
+
+    function keikakuSaveComment(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'line' => 'required',
+            'cell_code' => 'required',
+            'comment' => 'required',
+            'productionDate' => 'required|date',
+        ], [
+            'line.required' => ':attribute is required',
+            'cell_code.required' => ':attribute is required',
+            'comment.required' => ':attribute is required',
+            'productionDate.required' => ':attribute is required',
+            'productionDate.date' => ':attribute should be date',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 406);
+        }
+
+        try {
+            DB::beginTransaction();
+            DB::table('keikaku_comment_prodplans')
+                ->where('line_code', $request->line)
+                ->where('cell_code', $request->cell_code)
+                ->where('production_date', $request->productionDate)
+                ->update(['deleted_at' => date('Y-m-d H:i:s')]);
+
+            $affectedRows = DB::table('keikaku_comment_prodplans')->insert([
+                'created_at' => date('Y-m-d H:i:s'),
+                'production_date' => $request->productionDate,
+                'cell_code' => $request->cell_code,
+                'line_code' =>  $request->line,
+                'comment' =>  $request->comment,
+                'created_by' => $request->user_id,
+            ]);
+
+            DB::commit();
+            return $affectedRows ? ['message' => 'Recorded successfully'] : ['message' => 'Failed, please try again'];
+        } catch (Exception $e) {
+            $message = $e->getMessage();
+            DB::rollBack();
+            return response()->json(['message' => $message], 400);
+        }
     }
 }
