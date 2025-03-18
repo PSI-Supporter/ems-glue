@@ -19,7 +19,7 @@ return new class extends Migration
             $table->dateTime('deleted_at')->nullable();
             $table->date('production_date');      
             $table->string('line_code', 15);
-            $table->string('cell_code', 4);
+            $table->string('cell_code', 15);
             $table->string('comment', 55);
             $table->string('created_by', 9);
             $table->string('updated_by', 9)->nullable();
