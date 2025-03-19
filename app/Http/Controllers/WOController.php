@@ -2272,6 +2272,74 @@ class WOController extends Controller
             ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'running_at', 'seq_data')
             ->get(['wo_code', 'process_code', 'production_date', 'line_code', 'running_at', DB::raw('sum(ok_qty) ok_qty'), 'seq_data']);
 
+        $dataInput1HW = DB::table('keikaku_input2s')
+            ->where('production_date', '>=', $params['dateFrom'])
+            ->where('production_date', '<=', $params['dateTo'])
+            ->whereNull('deleted_at')
+            ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'seq_data')
+            ->select([
+                'wo_code',
+                'process_code',
+                'production_date',
+                'line_code',
+                DB::raw("sum(case
+                        when production_date = convert(date, running_at) AND convert(char(5), running_at, 108) < '19:00' then ok_qty     
+                    END) output_hw_in1_m_qty"),
+                DB::raw("sum(case
+                        when production_date = convert(date, running_at) AND convert(char(5), running_at, 108) >= '19:00' then ok_qty     
+                    end) 
+                    +
+                    SUM(CASE 
+                    WHEN production_date != convert(date, running_at) AND convert(char(5), running_at, 108) < '07:00' THEN ok_qty
+                    END) output_hw_in1_n_qty"),
+                'seq_data'
+            ]);
+        $dataInput2HW = DB::table('keikaku_input3s')
+            ->where('production_date', '>=', $params['dateFrom'])
+            ->where('production_date', '<=', $params['dateTo'])
+            ->whereNull('deleted_at')
+            ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'seq_data')
+            ->select([
+                'wo_code',
+                'process_code',
+                'production_date',
+                'line_code',
+                DB::raw("sum(case
+                        when production_date = convert(date, running_at) AND convert(char(5), running_at, 108) < '19:00' then ok_qty     
+                    END) output_hw_in2_m_qty"),
+                DB::raw("sum(case
+                        when production_date = convert(date, running_at) AND convert(char(5), running_at, 108) >= '19:00' then ok_qty     
+                    end) 
+                    +
+                    SUM(CASE 
+                    WHEN production_date != convert(date, running_at) AND convert(char(5), running_at, 108) < '07:00' THEN ok_qty
+                    END) output_hw_in2_n_qty"),
+                'seq_data'
+            ]);
+
+        $dataOutputHW = DB::table('keikaku_output2s')
+            ->where('production_date', '>=', $params['dateFrom'])
+            ->where('production_date', '<=', $params['dateTo'])
+            ->whereNull('deleted_at')
+            ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'seq_data')
+            ->select([
+                'wo_code',
+                'process_code',
+                'production_date',
+                'line_code',
+                DB::raw("sum(case
+                        when production_date = convert(date, running_at) AND convert(char(5), running_at, 108) < '19:00' then ok_qty     
+                    END) output_hw_m_qty"),
+                DB::raw("sum(case
+                        when production_date = convert(date, running_at) AND convert(char(5), running_at, 108) >= '19:00' then ok_qty     
+                    end) 
+                    +
+                    SUM(CASE 
+                    WHEN production_date != convert(date, running_at) AND convert(char(5), running_at, 108) < '07:00' THEN ok_qty
+                    END) output_hw_n_qty"),
+                'seq_data'
+            ]);
+
         $subCalculationSummary = DB::table('keikaku_calc_resumes')
             ->whereNull('deleted_at')
             ->where('production_date', '>=', $params['dateFrom'])
@@ -2287,13 +2355,45 @@ class WOController extends Controller
                 $join->on('keikaku_data.production_date', '=', 'calculation_summary.production_date')
                     ->on('keikaku_data.line_code', '=', 'calculation_summary.line_code');
             })
+            ->leftJoinSub($dataOutputHW, 'output_hw', function ($join) {
+                $join->on('keikaku_data.wo_full_code', '=', 'output_hw.wo_code')
+                    ->on('keikaku_data.specs_side', '=', 'output_hw.process_code')
+                    ->on('keikaku_data.production_date', '=', 'output_hw.production_date')
+                    ->on('keikaku_data.line_code', '=', 'output_hw.line_code')
+                    ->on('keikaku_data.seq', '=', 'output_hw.seq_data');
+            })
+            ->leftJoinSub($dataInput1HW, 'input1_hw', function ($join) {
+                $join->on('keikaku_data.wo_full_code', '=', 'input1_hw.wo_code')
+                    ->on('keikaku_data.specs_side', '=', 'input1_hw.process_code')
+                    ->on('keikaku_data.production_date', '=', 'input1_hw.production_date')
+                    ->on('keikaku_data.line_code', '=', 'input1_hw.line_code')
+                    ->on('keikaku_data.seq', '=', 'input1_hw.seq_data');
+            })
+            ->leftJoinSub($dataInput2HW, 'input2_hw', function ($join) {
+                $join->on('keikaku_data.wo_full_code', '=', 'input2_hw.wo_code')
+                    ->on('keikaku_data.specs_side', '=', 'input2_hw.process_code')
+                    ->on('keikaku_data.production_date', '=', 'input2_hw.production_date')
+                    ->on('keikaku_data.line_code', '=', 'input2_hw.line_code')
+                    ->on('keikaku_data.seq', '=', 'input2_hw.seq_data');
+            })
             ->whereNull('deleted_at')
             ->where('keikaku_data.production_date', '>=', $params['dateFrom'])
             ->where('keikaku_data.production_date', '<=', $params['dateTo'])
             ->where($whereAdditional)
             ->orderBy('keikaku_data.production_date')
             ->orderBy('id')
-            ->get(['keikaku_data.*', DB::raw('0 ok_qty'), 'total_plan_worktime_morning', 'total_plan_worktime_night']);
+            ->get([
+                'keikaku_data.*',
+                DB::raw('0 ok_qty'),
+                'total_plan_worktime_morning',
+                'total_plan_worktime_night',
+                DB::raw('ISNULL(output_hw_in1_m_qty,0) output_hw_in1_m_qty'),
+                DB::raw('ISNULL(output_hw_in1_n_qty,0) output_hw_in1_n_qty'),
+                DB::raw('ISNULL(output_hw_in2_m_qty,0) output_hw_in2_m_qty'),
+                DB::raw('ISNULL(output_hw_in2_n_qty,0) output_hw_in2_n_qty'),
+                DB::raw('ISNULL(output_hw_m_qty,0) output_hw_m_qty'),
+                DB::raw('ISNULL(output_hw_n_qty,0) output_hw_n_qty'),
+            ]);
 
         $dataAssyVer = [];
         foreach ($data as &$r) {
@@ -2659,58 +2759,60 @@ class WOController extends Controller
         $previousSide = '';
         $previousLine = '';
         foreach ($data as $r) {
-            $_label = '';
-            if (($r->morningOutput > 0 || $r->nightOutput > 0) && $r->line_code == $previousLine) {
-                if (substr($previousSpec, 0, 4) == substr($r->specs, 0, 4) && $previousSide == $r->specs_side) {
-                    $_label = $r->item_code == $previousAssyCode ? '' : 'CHANGE TYPE';
-                } else {
-                    $_label = "CHANGE MODEL";
+            if (!$this->isHWContext(['line' => $r->line_code])) {
+                $_label = '';
+                if (($r->morningOutput > 0 || $r->nightOutput > 0) && $r->line_code == $previousLine) {
+                    if (substr($previousSpec, 0, 4) == substr($r->specs, 0, 4) && $previousSide == $r->specs_side) {
+                        $_label = $r->item_code == $previousAssyCode ? '' : 'CHANGE TYPE';
+                    } else {
+                        $_label = "CHANGE MODEL";
+                    }
                 }
-            }
-            $sheet->setCellValue([1, $rowAt], $r->production_date);
-            $sheet->setCellValue([2, $rowAt], $r->line_code);
-            $sheet->setCellValue([3, $rowAt], $r->model_code);
-            $sheet->setCellValue([4, $rowAt], $r->specs);
-            $sheet->setCellValue([5, $rowAt], $r->item_code);
-            $sheet->getStyle([5, $rowAt])->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT);
-            $sheet->setCellValue([6, $rowAt], $r->wo_full_code);
-            $sheet->setCellValue([7, $rowAt], $r->specs_side);
-            $sheet->setCellValue([8, $rowAt], $r->cycle_time);
-            $sheet->setCellValue([9, $rowAt], $r->lot_size);
-            $sheet->setCellValue([10, $rowAt], $r->plan_morning_qty + $r->plan_night_qty);
-            $sheet->setCellValue([11, $rowAt], $r->plan_morning_qty);
-            $sheet->setCellValue([12, $rowAt], $r->plan_night_qty);
-            $sheet->setCellValue([13, $rowAt], $r->plan_morning_qty + $r->plan_night_qty);
-            $sheet->setCellValue([14, $rowAt], $r->plan_morning_qty);
-            $sheet->setCellValue([15, $rowAt], $r->plan_night_qty);
-            $sheet->setCellValue([16, $rowAt], $r->morningOutput + $r->nightOutput);
-            $sheet->setCellValue([17, $rowAt], $r->morningOutput);
-            $sheet->setCellValue([18, $rowAt], $r->nightOutput);
-            $sheet->setCellValue([19, $rowAt], $_label);
-            if ($request->dateFrom == $request->dateTo) {
-                for ($rs = 4; $rs < $countSimulationPlan; $rs++) {
-                    if ($simulationPlan[$rs][5]) {
-                        $rawInfo = explode('#', $simulationPlan[$rs][5]);
-                        $line = $rawInfo[8];
-                        $wo = $simulationPlan[$rs][3];
-                        $seq = $rawInfo[7];
-                        if ($line == $r->line_code) {
-                            if ($wo == $r->wo_full_code && $seq == $r->seq) {
-                                for ($c = 6; $c < 41; $c++) {
-                                    if ($simulationPlan[$rs][$c] > 0) {
-                                        $sheet->setCellValue([19 + ($c - 5), $rowAt], $simulationPlan[$rs][$c]);
+                $sheet->setCellValue([1, $rowAt], $r->production_date);
+                $sheet->setCellValue([2, $rowAt], $r->line_code);
+                $sheet->setCellValue([3, $rowAt], $r->model_code);
+                $sheet->setCellValue([4, $rowAt], $r->specs);
+                $sheet->setCellValue([5, $rowAt], $r->item_code);
+                $sheet->getStyle([5, $rowAt])->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT);
+                $sheet->setCellValue([6, $rowAt], $r->wo_full_code);
+                $sheet->setCellValue([7, $rowAt], $r->specs_side);
+                $sheet->setCellValue([8, $rowAt], $r->cycle_time);
+                $sheet->setCellValue([9, $rowAt], $r->lot_size);
+                $sheet->setCellValue([10, $rowAt], $r->plan_morning_qty + $r->plan_night_qty);
+                $sheet->setCellValue([11, $rowAt], $r->plan_morning_qty);
+                $sheet->setCellValue([12, $rowAt], $r->plan_night_qty);
+                $sheet->setCellValue([13, $rowAt], $r->plan_morning_qty + $r->plan_night_qty);
+                $sheet->setCellValue([14, $rowAt], $r->plan_morning_qty);
+                $sheet->setCellValue([15, $rowAt], $r->plan_night_qty);
+                $sheet->setCellValue([16, $rowAt], $r->morningOutput + $r->nightOutput);
+                $sheet->setCellValue([17, $rowAt], $r->morningOutput);
+                $sheet->setCellValue([18, $rowAt], $r->nightOutput);
+                $sheet->setCellValue([19, $rowAt], $_label);
+                if ($request->dateFrom == $request->dateTo) {
+                    for ($rs = 4; $rs < $countSimulationPlan; $rs++) {
+                        if ($simulationPlan[$rs][5]) {
+                            $rawInfo = explode('#', $simulationPlan[$rs][5]);
+                            $line = $rawInfo[8];
+                            $wo = $simulationPlan[$rs][3];
+                            $seq = $rawInfo[7];
+                            if ($line == $r->line_code) {
+                                if ($wo == $r->wo_full_code && $seq == $r->seq) {
+                                    for ($c = 6; $c < 41; $c++) {
+                                        if ($simulationPlan[$rs][$c] > 0) {
+                                            $sheet->setCellValue([19 + ($c - 5), $rowAt], $simulationPlan[$rs][$c]);
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                 }
+                $rowAt++;
+                $previousSpec = $r->specs;
+                $previousAssyCode = $r->item_code;
+                $previousSide = $r->specs_side;
+                $previousLine = $r->line_code;
             }
-            $rowAt++;
-            $previousSpec = $r->specs;
-            $previousAssyCode = $r->item_code;
-            $previousSide = $r->specs_side;
-            $previousLine = $r->line_code;
         }
 
         $sheet->getStyle('I1:R' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
@@ -2721,6 +2823,118 @@ class WOController extends Controller
 
         $sheet->freezePane('A3');
 
+
+        $sheet = $spreadSheet->createSheet();
+        $sheet->setTitle('keikaku_hw');
+        $sheet->setCellValue([1, 1], 'Production Date');
+        $sheet->setCellValue([2, 1], 'Line Code');
+        $sheet->setCellValue([3, 1], 'Model');
+        $sheet->setCellValue([4, 1], 'Spec');
+        $sheet->setCellValue([5, 1], 'Assy Code');
+        $sheet->setCellValue([6, 1], 'Job No');
+        $sheet->setCellValue([7, 1], 'Specs');
+        $sheet->setCellValue([7, 2], 'Side');
+        $sheet->setCellValue([8, 1], 'CT / Process');
+        $sheet->setCellValue([9, 1], 'Qty');
+        $sheet->setCellValue([9, 2], 'Lot Size');
+        $sheet->setCellValue([10, 1], 'Plan');
+        $sheet->setCellValue([10, 2], 'Total');
+        $sheet->setCellValue([11, 2], 'M');
+        $sheet->setCellValue([12, 2], 'N');
+        $sheet->mergeCells('J1:L1', $sheet::MERGE_CELL_CONTENT_HIDE);
+
+        $sheet->setCellValue([13, 1], 'Input 1');
+        $sheet->setCellValue([13, 2], 'Total');
+        $sheet->setCellValue([14, 2], 'M');
+        $sheet->setCellValue([15, 2], 'N');
+        $sheet->mergeCells('M1:O1', $sheet::MERGE_CELL_CONTENT_HIDE);
+
+        $sheet->setCellValue([16, 1], 'Input 2');
+        $sheet->setCellValue([16, 2], 'Total');
+        $sheet->setCellValue([17, 2], 'M');
+        $sheet->setCellValue([18, 2], 'N');
+        $sheet->mergeCells('P1:R1', $sheet::MERGE_CELL_CONTENT_HIDE);
+
+        $sheet->setCellValue([19, 1], 'Output');
+        $sheet->setCellValue([19, 2], 'Total');
+        $sheet->setCellValue([20, 2], 'M');
+        $sheet->setCellValue([21, 2], 'N');
+        $sheet->mergeCells('S1:U1', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->setCellValue([22, 2], 'Status');
+
+        $sheet->freezePane('A3');
+
+        $rowAt = 3;
+        $previousSpec = '';
+        $previousAssyCode = '';
+        $previousSide = '';
+        $previousLine = '';
+        foreach ($data as $r) {
+            if ($this->isHWContext(['line' => $r->line_code])) {
+                $_label = '';
+                if (($r->output_hw_in2_m_qty > 0 || $r->output_hw_in2_n_qty > 0) && $r->line_code == $previousLine) {
+                    if (substr($previousSpec, 0, 4) == substr($r->specs, 0, 4) && $previousSide == $r->specs_side) {
+                        $_label = $r->item_code == $previousAssyCode ? '' : 'CHANGE TYPE';
+                    } else {
+                        $_label = "CHANGE MODEL";
+                    }
+                }
+                $sheet->setCellValue([1, $rowAt], $r->production_date);
+                $sheet->setCellValue([2, $rowAt], $r->line_code);
+                $sheet->setCellValue([3, $rowAt], $r->model_code);
+                $sheet->setCellValue([4, $rowAt], $r->specs);
+                $sheet->setCellValue([5, $rowAt], $r->item_code);
+                $sheet->getStyle([5, $rowAt])->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT);
+                $sheet->setCellValue([6, $rowAt], $r->wo_full_code);
+                $sheet->setCellValue([7, $rowAt], $r->specs_side);
+                $sheet->setCellValue([8, $rowAt], $r->cycle_time);
+                $sheet->setCellValue([9, $rowAt], $r->lot_size);
+                $sheet->setCellValue([10, $rowAt], $r->plan_morning_qty + $r->plan_night_qty);
+                $sheet->setCellValue([11, $rowAt], $r->plan_morning_qty);
+                $sheet->setCellValue([12, $rowAt], $r->plan_night_qty);
+                $sheet->setCellValue([13, $rowAt], $r->output_hw_in1_m_qty + $r->output_hw_in1_n_qty);
+                $sheet->setCellValue([14, $rowAt], $r->output_hw_in1_m_qty);
+                $sheet->setCellValue([15, $rowAt], $r->output_hw_in1_n_qty);
+                $sheet->setCellValue([16, $rowAt], $r->output_hw_in2_m_qty + $r->output_hw_in2_n_qty);
+                $sheet->setCellValue([17, $rowAt], $r->output_hw_in2_m_qty);
+                $sheet->setCellValue([18, $rowAt], $r->output_hw_in2_n_qty);
+                $sheet->setCellValue([19, $rowAt], $r->output_hw_m_qty + $r->output_hw_n_qty);
+                $sheet->setCellValue([20, $rowAt], $r->output_hw_m_qty);
+                $sheet->setCellValue([21, $rowAt], $r->output_hw_n_qty);
+                $sheet->setCellValue([22, $rowAt], $_label);
+
+                if ($request->dateFrom == $request->dateTo) {
+                    for ($rs = 4; $rs < $countSimulationPlan; $rs++) {
+                        if ($simulationPlan[$rs][5]) {
+                            $rawInfo = explode('#', $simulationPlan[$rs][5]);
+                            $line = $rawInfo[8];
+                            $wo = $simulationPlan[$rs][3];
+                            $seq = $rawInfo[7];
+                            if ($line == $r->line_code) {
+                                if ($wo == $r->wo_full_code && $seq == $r->seq) {
+                                    for ($c = 6; $c < 41; $c++) {
+                                        if ($simulationPlan[$rs][$c] > 0) {
+                                            $sheet->setCellValue([22 + ($c - 5), $rowAt], $simulationPlan[$rs][$c]);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                $rowAt++;
+                $previousSpec = $r->specs;
+                $previousAssyCode = $r->item_code;
+                $previousSide = $r->specs_side;
+                $previousLine = $r->line_code;
+            }
+        }
+
+        $sheet->getStyle('I1:R' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
+
+        foreach (range('A', 'Z') as $v) {
+            $sheet->getColumnDimension($v)->setAutoSize(true);
+        }
 
         $sheet = $spreadSheet->createSheet();
         $sheet->setTitle('data');
