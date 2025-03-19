@@ -214,6 +214,7 @@ Route::prefix('work-order')->group(function () {
     Route::get('input', [WOController::class, 'getInput']);
     Route::get('export', [WOController::class, 'exportDailyOutput']);
     Route::get('export-cost', [WOController::class, 'exportCost']);
+    Route::get('', [WOController::class, 'getWO']);
 });
 
 Route::prefix('process-master')->group(function () {

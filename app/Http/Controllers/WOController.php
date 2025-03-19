@@ -3417,4 +3417,11 @@ class WOController extends Controller
             return response()->json(['message' => $message], 400);
         }
     }
+
+    function getWO(Request $request)
+    {
+        $data = DB::table('XPPSN1')->where('PPSN1_PSNNO', $request->doc)->groupBy('PPSN1_WONO', 'PPSN1_SIMQT')
+            ->get([DB::raw("RTRIM(PPSN1_WONO) WONO"), 'PPSN1_SIMQT']);
+        return ['data' => $data];
+    }
 }
