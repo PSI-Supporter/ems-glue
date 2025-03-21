@@ -3317,6 +3317,20 @@ class WOController extends Controller
                     end
                 end) ok_qty"), 'seq_data');
 
+        $dataOutputHW = DB::table('keikaku_output2s')
+            ->where('wo_code', 'like', '%' . $request->doc . '%')
+            ->whereNull('deleted_at')
+            ->where('created_by', '!=', 'sensor')
+            ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'seq_data')
+            ->select('wo_code', 'process_code', 'production_date', 'line_code', DB::raw("sum(case
+                    when production_date = convert(date, running_at) then ok_qty
+                    else case
+                    when convert(char(5), running_at, 108) < '07:00' then ok_qty
+                    end
+                end) ok_qty_hw"), 'seq_data');
+
+        $dataOutputAll = DB::query()->fromSub($dataOutput, 'vx')->union($dataOutputHW);
+
         $dataBasic = DB::table('keikaku_data')
             ->whereNull('deleted_at')
             ->where('wo_full_code', 'like', '%' . $request->doc . '%')
@@ -3324,7 +3338,7 @@ class WOController extends Controller
             ->select('production_date', 'line_code', 'wo_full_code', 'plan_qty', 'specs_side', 'seq', DB::raw("MAX(lot_size) lot_size"));
 
         $data = DB::query()->fromSub($dataBasic, 'V1')
-            ->leftJoinSub($dataOutput, 'V2', function ($join) {
+            ->leftJoinSub($dataOutputAll, 'V2', function ($join) {
                 $join->on('V1.production_date', '=', 'V2.production_date')
                     ->on('V1.line_code', '=', 'V2.line_code')
                     ->on('V1.wo_full_code', '=', 'V2.wo_code')
