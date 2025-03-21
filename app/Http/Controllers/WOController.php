@@ -3649,7 +3649,23 @@ class WOController extends Controller
     function getWO(Request $request)
     {
         $data = DB::table('XPPSN1')->where('PPSN1_PSNNO', $request->doc)->groupBy('PPSN1_WONO', 'PPSN1_SIMQT')
-            ->get([DB::raw("RTRIM(PPSN1_WONO) WONO"), 'PPSN1_SIMQT']);
+            ->get([DB::raw("RTRIM(UPPER(PPSN1_WONO)) WONO"), 'PPSN1_SIMQT', DB::raw("0 CLS_QTY")]);
+
+
+        $dataCLS = DB::table('WMS_CLS_JOB')->whereIn('CLS_JOBNO', $data->pluck('WONO')->toArray())
+            ->groupBy('CLS_JOBNO')
+            ->get([DB::raw('UPPER(RTRIM(CLS_JOBNO)) CLS_JOBNO'), DB::raw("SUM(CLS_QTY) CLS_QTY")]);
+
+        foreach ($data as $d) {
+            foreach ($dataCLS as $n) {
+                if ($d->WONO == $n->CLS_JOBNO) {
+                    $d->CLS_QTY = $n->CLS_QTY;
+                    break;
+                }
+            }
+        }
+        unset($d);
+
         return ['data' => $data];
     }
 }
