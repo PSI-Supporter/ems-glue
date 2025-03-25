@@ -633,7 +633,7 @@ class WOController extends Controller
                 $d->seq,
                 $d->production_worktime,
                 $d->wo_full_code,
-                'process_code_container',
+                $d->specs_side,
                 $d->ct_hour
             ];
 
