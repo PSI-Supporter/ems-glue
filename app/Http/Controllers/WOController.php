@@ -3379,8 +3379,6 @@ class WOController extends Controller
             'K3',
             'L3',
             'M3',
-            'OFFLINE 1',
-            'OFFLINE 2',
             'OFFLINE 3',
             'OFFLINE 4',
             'OFFLINE PS',
