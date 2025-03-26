@@ -1634,10 +1634,12 @@ class WOController extends Controller
             if (
                 DB::table('keikaku_calcs')
                 ->where('line_code', $data['line_code'])
+                ->whereNull('deleted_at')
                 ->where('production_date', $data['production_date'])->count() > 0
             ) {
                 DB::table('keikaku_calcs')
                     ->where('line_code', $data['line_code'])
+                    ->whereNull('deleted_at')
                     ->where('production_date', $data['production_date'])->update(
                         ['deleted_at' => date('Y-m-d H:i:s'), 'deleted_by' => $data['user_id']]
                     );
@@ -1645,10 +1647,12 @@ class WOController extends Controller
             if (
                 DB::table('keikaku_calc_resumes')
                 ->where('line_code', $data['line_code'])
+                ->whereNull('deleted_at')
                 ->where('production_date', $data['production_date'])->count() > 0
             ) {
                 DB::table('keikaku_calc_resumes')
                     ->where('line_code', $data['line_code'])
+                    ->whereNull('deleted_at')
                     ->where('production_date', $data['production_date'])->update(
                         ['deleted_at' => date('Y-m-d H:i:s'), 'deleted_by' => $data['user_id']]
                     );
