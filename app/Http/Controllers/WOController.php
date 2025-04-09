@@ -3372,7 +3372,6 @@ class WOController extends Controller
             'B3',
             'C3',
             'D3',
-            'D3-1',
             'E3',
             'F3',
             'H3-1',
