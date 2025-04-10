@@ -2289,13 +2289,13 @@ class WOController extends Controller
                 DB::raw("sum(case
                         when production_date = convert(date, running_at) AND convert(char(5), running_at, 108) < '19:00' then ok_qty     
                     END) output_hw_in1_m_qty"),
-                DB::raw("sum(case
+                DB::raw("ISNULL(sum(case
                         when production_date = convert(date, running_at) AND convert(char(5), running_at, 108) >= '19:00' then ok_qty     
-                    end) 
+                    end),0) 
                     +
-                    SUM(CASE 
+                    ISNULL(SUM(CASE 
                     WHEN production_date != convert(date, running_at) AND convert(char(5), running_at, 108) < '07:00' THEN ok_qty
-                    END) output_hw_in1_n_qty"),
+                    END),0) output_hw_in1_n_qty"),
                 'seq_data'
             ]);
         $dataInput2HW = DB::table('keikaku_input3s')
@@ -2311,13 +2311,13 @@ class WOController extends Controller
                 DB::raw("sum(case
                         when production_date = convert(date, running_at) AND convert(char(5), running_at, 108) < '19:00' then ok_qty     
                     END) output_hw_in2_m_qty"),
-                DB::raw("sum(case
+                DB::raw("ISNULL(sum(case
                         when production_date = convert(date, running_at) AND convert(char(5), running_at, 108) >= '19:00' then ok_qty     
-                    end) 
+                    end),0) 
                     +
-                    SUM(CASE 
+                    ISNULL(SUM(CASE 
                     WHEN production_date != convert(date, running_at) AND convert(char(5), running_at, 108) < '07:00' THEN ok_qty
-                    END) output_hw_in2_n_qty"),
+                    END),0) output_hw_in2_n_qty"),
                 'seq_data'
             ]);
 
