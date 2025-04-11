@@ -3340,7 +3340,7 @@ class WOController extends Controller
                     end
                 end) ok_qty"), 'seq_data');
 
-        $dataOutputHW = DB::table('keikaku_output2s')
+        $dataOutputHW = DB::table('keikaku_input3s')
             ->where('wo_code', 'like', '%' . $request->doc . '%')
             ->whereNull('deleted_at')
             ->where('created_by', '!=', 'sensor')
