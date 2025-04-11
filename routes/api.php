@@ -266,6 +266,10 @@ Route::prefix('users')->group(function () {
     Route::get('group', [UserController::class, 'getByGroup']);
 });
 
+Route::prefix('users-group')->group(function () {
+    Route::get('active', [UserController::class, 'getActiveUserGroup']);
+});
+
 Route::prefix('user')->group(function () {
     Route::get('group', [UserController::class, 'getByGroup']);
 });

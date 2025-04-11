@@ -56,4 +56,15 @@ class UserController extends Controller
         $data = DB::table('MSTEMP_TBL')->whereIn('MSTEMP_GRP', $groups)->get([DB::raw("CONCAT(RTRIM(MSTEMP_FNM), ' ', RTRIM(MSTEMP_FNM)) FULL_NAME")]);
         return ['data' => $data];
     }
+
+    function getActiveUserGroup()
+    {
+        $data = DB::table('MSTEMP_TBL')->leftJoin('MSTGRP_TBL', 'MSTEMP_TBL.MSTEMP_GRP', '=', 'MSTGRP_TBL.MSTGRP_ID')
+            ->where('MSTEMP_TBL.MSTEMP_STS', 1)
+            ->select('MSTGRP_TBL.MSTGRP_ID', 'MSTGRP_TBL.MSTGRP_NM')
+            ->distinct()
+            ->orderBy('MSTGRP_NM')
+            ->get();
+        return ['data' => $data];
+    }
 }
