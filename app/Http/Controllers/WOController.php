@@ -1727,6 +1727,24 @@ class WOController extends Controller
                 ->whereNull('deleted_at')
                 ->groupBy('wo_code', 'process_code', 'seq_data')
                 ->select('wo_code', 'process_code', 'seq_data', DB::raw('sum(ok_qty) ok_qty'));
+
+            $previousdataOutput = $request->line_code == '-' ? [] : DB::table('keikaku_input3s')
+                ->where('production_date', '<', $request->production_date)
+                ->whereNull('deleted_at')
+                ->groupBy('production_date', 'wo_code', 'process_code', 'seq_data', 'line_code')
+                ->select(
+                    'line_code',
+                    'production_date',
+                    'wo_code',
+                    'process_code',
+                    'seq_data',
+                    DB::raw("sum(case
+                    when production_date = convert(date, running_at) then ok_qty
+                    else case
+                    when convert(char(5), running_at, 108) < '07:00' then ok_qty
+                    end
+                end) ok_qty")
+                );
         } else {
             $dataOutput = $request->line_code == '-' ? [] : DB::table('keikaku_outputs')->where('production_date', $request->production_date)
                 ->where('line_code', $request->line_code)
@@ -1734,6 +1752,23 @@ class WOController extends Controller
                 ->whereNull('deleted_at')
                 ->groupBy('wo_code', 'process_code', 'seq_data')
                 ->select('wo_code', 'process_code', 'seq_data', DB::raw('sum(ok_qty) ok_qty'));
+            $previousdataOutput = $request->line_code == '-' ? [] : DB::table('keikaku_outputs')
+                ->where('production_date', '<', $request->production_date)
+                ->whereNull('deleted_at')
+                ->groupBy('production_date', 'wo_code', 'process_code', 'seq_data', 'line_code')
+                ->select(
+                    'line_code',
+                    'production_date',
+                    'wo_code',
+                    'process_code',
+                    'seq_data',
+                    DB::raw("sum(case
+                                when production_date = convert(date, running_at) then ok_qty
+                                else case
+                                when convert(char(5), running_at, 108) < '07:00' then ok_qty
+                                end
+                            end) ok_qty")
+                );
         }
 
         $data = $request->line_code == '-' ? [] : DB::table('keikaku_data')
@@ -1754,23 +1789,7 @@ class WOController extends Controller
             ->first();
         $keikakuDataStyleO = $keikakuDataStyle ? json_decode($keikakuDataStyle->styles) : [];
 
-        $previousdataOutput = $request->line_code == '-' ? [] : DB::table('keikaku_outputs')
-            ->where('production_date', '<', $request->production_date)
-            ->whereNull('deleted_at')
-            ->groupBy('production_date', 'wo_code', 'process_code', 'seq_data', 'line_code')
-            ->select(
-                'line_code',
-                'production_date',
-                'wo_code',
-                'process_code',
-                'seq_data',
-                DB::raw("sum(case
-                    when production_date = convert(date, running_at) then ok_qty
-                    else case
-                    when convert(char(5), running_at, 108) < '07:00' then ok_qty
-                    end
-                end) ok_qty")
-            );
+
 
         $previousData =  $request->line_code == '-' ? [] : DB::table('keikaku_data')
             ->leftJoinSub($previousdataOutput, 'output', function ($join) {
