@@ -272,6 +272,7 @@ Route::prefix('users-group')->group(function () {
 
 Route::prefix('user')->group(function () {
     Route::get('group', [UserController::class, 'getByGroup']);
+    Route::get('active', [UserController::class, 'getActiveByGroup']);
 });
 
 Route::prefix('item-tracer')->group(function () {

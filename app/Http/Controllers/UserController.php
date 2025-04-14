@@ -53,7 +53,14 @@ class UserController extends Controller
     function getByGroup(Request $request)
     {
         $groups = array_merge([''], $request->groupId);
-        $data = DB::table('MSTEMP_TBL')->whereIn('MSTEMP_GRP', $groups)->get([DB::raw("CONCAT(RTRIM(MSTEMP_FNM), ' ', RTRIM(MSTEMP_FNM)) FULL_NAME")]);
+        $data = DB::table('MSTEMP_TBL')->whereIn('MSTEMP_GRP', $groups)->get([DB::raw("CONCAT(RTRIM(MSTEMP_FNM), ' ', RTRIM(MSTEMP_LNM)) FULL_NAME")]);
+        return ['data' => $data];
+    }
+    function getActiveByGroup(Request $request)
+    {
+        $data = DB::table('MSTEMP_TBL')->where('MSTEMP_GRP', $request->groupId ?? '')
+            ->where('MSTEMP_TBL.MSTEMP_STS', 1)
+            ->get(['MSTEMP_ID', DB::raw("CONCAT(RTRIM(MSTEMP_FNM), ' ', RTRIM(MSTEMP_LNM)) FULL_NAME")]);
         return ['data' => $data];
     }
 
