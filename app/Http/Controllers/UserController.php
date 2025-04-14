@@ -57,14 +57,17 @@ class UserController extends Controller
         return ['data' => $data];
     }
 
-    function getActiveUserGroup()
+    function getActiveUserGroup(Request $request)
     {
         $data = DB::table('MSTEMP_TBL')->leftJoin('MSTGRP_TBL', 'MSTEMP_TBL.MSTEMP_GRP', '=', 'MSTGRP_TBL.MSTGRP_ID')
             ->where('MSTEMP_TBL.MSTEMP_STS', 1)
             ->select('MSTGRP_TBL.MSTGRP_ID', 'MSTGRP_TBL.MSTGRP_NM')
             ->distinct()
-            ->orderBy('MSTGRP_NM')
-            ->get();
-        return ['data' => $data];
+            ->orderBy('MSTGRP_NM');
+
+        if ($request->user_group != 'ADMIN') {
+            $data->where('MSTEMP_GRP', '!=', 'ADMIN');
+        }
+        return ['data' => $data->get()];
     }
 }
