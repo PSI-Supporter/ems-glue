@@ -2888,6 +2888,18 @@ class WOController extends Controller
 
         $sheet->freezePane('A3');
 
+
+        if ($request->dateFrom == $request->dateTo) {
+            $hour = 7;
+            for ($i = 1; $i <= 36; $i++) {
+                if ($hour == 24) {
+                    $hour = 0;
+                }
+                $sheet->setCellValue([22 + $i, 2], $hour . ' ~ ' . ($hour + 1));
+                $hour++;
+            }
+        }
+
         $rowAt = 3;
         $previousSpec = '';
         $previousAssyCode = '';
