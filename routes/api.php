@@ -254,6 +254,8 @@ Route::prefix('keikaku')->group(function () {
     Route::post('output-hw', [WOController::class, 'saveKeikakuOutputHW']);
     Route::post('input2-hw', [WOController::class, 'saveKeikakuInput2HW']);
     Route::post('comment', [WOController::class, 'keikakuSaveComment']);
+    Route::get('line-by-user', [WOController::class, 'getLineAccessByUser']);
+    Route::post('permission', [WOController::class, 'savePermission']);
 });
 
 Route::prefix('transaction')->group(function () {

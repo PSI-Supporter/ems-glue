@@ -278,7 +278,7 @@ class WOController extends Controller
     {
         $status = false;
         $statusUser = DB::table('keikaku_access_rules')->where('user_id', $data['user_id'])
-            ->whereNull('deleted_at')
+            ->whereNull('deleted_at')->where('line_code', strtoupper($data['line_code']))
             ->first('sheet_access');
         if ($statusUser) {
             $status = true;
@@ -1331,7 +1331,7 @@ class WOController extends Controller
 
         $data = $request->json()->all();
 
-        if (!$this->checkUserAccess(['user_id' => $data['user_id']]) && !$this->isHWContext(['line' => $data['line_code']])) {
+        if (!$this->checkUserAccess(['user_id' => $data['user_id'], 'line_code' => $data['line_code']])) {
             return response()->json(['message' => 'You have read-only access'], 403);
         }
 
@@ -1602,7 +1602,7 @@ class WOController extends Controller
         }
         $data = $request->json()->all();
 
-        if (!$this->checkUserAccess(['user_id' => $data['user_id']])) {
+        if (!$this->checkUserAccess(['user_id' => $data['user_id'], 'line_code' => $data['line_code']])) {
             return response()->json(['message' => 'You have read-only access'], 403);
         }
 
@@ -3715,5 +3715,65 @@ class WOController extends Controller
         unset($d);
 
         return ['data' => $data];
+    }
+
+    function getLineAccessByUser(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'user_id' => 'required',
+        ], [
+            'user_id.required' => ':attribute is required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 406);
+        }
+
+        $data = DB::table('keikaku_access_rules')
+            ->where('user_id', $request->user_id)
+            ->whereNull('deleted_at')
+            ->get(['line_code']);
+
+        return ['data' => $data];
+    }
+
+    function savePermission(Request $request)
+    {
+        try {
+            DB::beginTransaction();
+            $data = $request->json()->all();
+
+            // reset permission
+            DB::table('keikaku_access_rules')
+                ->where('user_id', $data['permittedUserId'])
+                ->whereNull('deleted_at')
+                ->update([
+                    'deleted_at' => date('Y-m-d H:i:s'),
+                    'deleted_by' => $data['user_id']
+                ]);
+
+            $tobeSaved = [];
+            foreach ($data['detail'] as $r) {
+                $tobeSaved[] = [
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'sheet_access' => 'DTA',
+                    'line_code' => $r['line_code'],
+                    'user_id' => $data['permittedUserId'],
+                    'created_by' => $data['user_id'],
+                ];
+            }
+
+            if ($tobeSaved) {
+                // save new permission
+                DB::table('keikaku_access_rules')->insert($tobeSaved);
+            }
+            
+            DB::commit();
+            return ['message' => 'Saved successfully'];
+        } catch (Exception $e) {
+            $message = $e->getMessage();
+            DB::rollBack();
+            return response()->json(['message' => $message], 400);
+        }
     }
 }
