@@ -279,6 +279,7 @@ class WOController extends Controller
         $status = false;
         $statusUser = DB::table('keikaku_access_rules')->where('user_id', $data['user_id'])
             ->whereNull('deleted_at')->where('line_code', strtoupper($data['line_code']))
+            ->where('sheet_access', 'DTA')
             ->first('sheet_access');
         if ($statusUser) {
             $status = true;
@@ -3732,7 +3733,7 @@ class WOController extends Controller
         $data = DB::table('keikaku_access_rules')
             ->where('user_id', $request->user_id)
             ->whereNull('deleted_at')
-            ->get(['line_code']);
+            ->get(['line_code', 'sheet_access']);
 
         return ['data' => $data];
     }
@@ -3746,6 +3747,7 @@ class WOController extends Controller
             // reset permission
             DB::table('keikaku_access_rules')
                 ->where('user_id', $data['permittedUserId'])
+                ->where('sheet_access', 'DTA')
                 ->whereNull('deleted_at')
                 ->update([
                     'deleted_at' => date('Y-m-d H:i:s'),
@@ -3767,7 +3769,27 @@ class WOController extends Controller
                 // save new permission
                 DB::table('keikaku_access_rules')->insert($tobeSaved);
             }
-            
+
+            // reset releaser rule
+
+            DB::table('keikaku_access_rules')
+                ->where('user_id', $data['permittedUserId'])
+                ->where('sheet_access', 'RLS')
+                ->whereNull('deleted_at')
+                ->update([
+                    'deleted_at' => date('Y-m-d H:i:s'),
+                    'deleted_by' => $data['user_id']
+                ]);
+
+            if ($data['as_releaser'] == '1') {
+                DB::table('keikaku_access_rules')->insert([
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'sheet_access' => 'RLS',
+                    'user_id' => $data['permittedUserId'],
+                    'created_by' => $data['user_id'],
+                ]);
+            }
+
             DB::commit();
             return ['message' => 'Saved successfully'];
         } catch (Exception $e) {
