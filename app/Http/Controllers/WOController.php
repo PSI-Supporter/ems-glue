@@ -1844,6 +1844,8 @@ class WOController extends Controller
             'currentActiveUser' => DB::table('MSTEMP_TBL')->where('MSTEMP_ID', $currentActiveUser)
                 ->first(['MSTEMP_ID', 'MSTEMP_FNM', 'MSTEMP_LNM']),
             'dataStyle' => $keikakuDataStyleO,
+            'release' => DB::table('keikaku_releases')->where('line_code', $request->line_code)->whereNull('deleted_at')
+                ->where('production_date', $request->production_date)->first(),
         ];
     }
 
@@ -3804,6 +3806,61 @@ class WOController extends Controller
 
             DB::commit();
             return ['message' => 'Saved successfully'];
+        } catch (Exception $e) {
+            $message = $e->getMessage();
+            DB::rollBack();
+            return response()->json(['message' => $message], 400);
+        }
+    }
+
+    function setRelease(Request $request)
+    {
+        $validator = Validator::make(
+            $request->all(),
+            [
+                'line_code' => 'required',
+                'production_date' => 'required|date',
+            ],
+            [
+                'line_code.required' => ':attribute is required',
+                'production_date.required' => ':attribute is required',
+                'production_date.date' => ':attribute should be date',
+            ]
+        );
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors()->all(), 406);
+        }
+
+
+        $message = 'Successfully changing from Released to Unreleased';
+        try {
+            DB::beginTransaction();
+
+            // reset permission
+            DB::table('keikaku_releases')
+                ->where('line_code', $request->line_code)
+                ->where('production_date', $request->production_date)
+                ->whereNull('deleted_at')
+                ->update([
+                    'deleted_at' => date('Y-m-d H:i:s'),
+                    'deleted_by' => $request->user_id
+                ]);
+
+            if ($request->release_flag == '1') {
+                $message = "Released successfully 🚀";
+
+                DB::table('keikaku_releases')->insert([
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'production_date' => $request->production_date,
+                    'line_code' => $request->line_code,
+                    'release_flag' => 'Y',
+                    'created_by' => $request->user_id
+                ]);
+            }
+            DB::commit();
+
+            return ['message' => $message];
         } catch (Exception $e) {
             $message = $e->getMessage();
             DB::rollBack();
