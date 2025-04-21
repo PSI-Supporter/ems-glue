@@ -815,12 +815,25 @@ class WOController extends Controller
 
     function getProdPlanSimulation(Request $request)
     {
-        $dataKeikakuData = DB::table('keikaku_data')
+        $ReleaseStatus = DB::table('keikaku_releases')->where('line_code', $request->line_code)->whereNull('deleted_at')
+            ->where('production_date', $request->production_date)->first();
+
+        $isReleaser = DB::table('keikaku_access_rules')
+            ->where('user_id', $request->user_id)
+            ->where('sheet_access', 'RLS')
             ->whereNull('deleted_at')
-            ->where('production_date', $request->production_date)
-            ->where('line_code', $request->line_code)
-            ->orderBy('id')
-            ->get(['*', DB::raw("cycle_time/3600*plan_qty as production_worktime"), DB::raw("cycle_time/3600 ct_hour")]);
+            ->count() >= 1 ? true : false;
+        if ($ReleaseStatus || $isReleaser) {
+            $dataKeikakuData = DB::table('keikaku_data')
+                ->whereNull('deleted_at')
+                ->where('production_date', $request->production_date)
+                ->where('line_code', $request->line_code)
+                ->orderBy('id')
+                ->get(['*', DB::raw("cycle_time/3600*plan_qty as production_worktime"), DB::raw("cycle_time/3600 ct_hour")]);
+        } else {
+            $dataKeikakuData = [];
+        }
+
 
         $dataCalc = DB::table('keikaku_calcs')->whereNull('deleted_at')->where('production_date', $request->production_date)
             ->where('line_code', $request->line_code)
