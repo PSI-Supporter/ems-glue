@@ -3894,4 +3894,103 @@ class WOController extends Controller
             return response()->json(['message' => $message], 400);
         }
     }
+
+    function saveWIP(Request $request)
+    {
+        $validator = Validator::make(
+            $request->json()->all(),
+            [
+                'production_date' => 'required|date',
+                'detail' => 'required|array',
+                'detail.*.wo_code' => 'required',
+            ],
+            [
+                'production_date.required' => ':attribute is required',
+                'production_date.date' => ':attribute should be date',
+                'detail.required' => ':attribute is required',
+                'detail.array' => ':attribute should be array',
+                'detail.*.wo_code.required' => ':attribute is required',
+            ]
+        );
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors()->all(), 406);
+        }
+
+        $data = $request->json()->all();
+
+        $tobeSaved = [];
+        $message = '';
+
+        try {
+            // get code of model,type and specs
+            $uniqueAssyCode = [];
+            foreach ($data['detail'] as $r) {
+                if (!in_array($r['item_code'], $uniqueAssyCode)) {
+                    $uniqueAssyCode[] = $r['item_code'];
+                }
+            }
+
+            $assyCodeO = DB::table('keikaku_data')->whereIn('item_code', $uniqueAssyCode)
+                ->groupBy('item_code', 'type', 'specs', 'model_code')
+                ->get(['item_code', 'type', 'specs', 'model_code']);
+
+            foreach ($data['detail'] as $r) {
+                $_wo = date('y') . '-' . $r['wo_code'] . '-' . trim($r['item_code']);
+                $_wo_only = date('y') . '-' . $r['wo_code'];
+
+                $_type = $_spec = $_model_code = '';
+                foreach ($assyCodeO as $d) {
+                    if ($r['item_code'] == $d->item_code) {
+                        $_type = $d->type;
+                        $_spec = $d->specs;
+                        $_model_code = $d->model_code;
+                        break;
+                    }
+                }
+                $tobeSaved[] = [
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'created_by' => $data['user_id'],
+                    'line_code' => $r['line_code'],
+                    'production_date' => $data['production_date'],
+                    'wo_code' => $r['wo_code'],
+                    'wo_full_code' => $_wo,
+                    'item_code' => $r['item_code'],
+                    'type' => $_type,
+                    'specs' => $_spec,
+                    'model_code' => $_model_code,
+                    'shift_code' => $data['shift'],
+                    'running_at' => $data['shift'] == 'M' ? $data['production_date'] . ' 07:01:00' : $data['production_date'] . ' 21:01:00',
+                    'ok_qty' => $r['output']
+                ];
+            }
+
+            DB::beginTransaction();
+            DB::table('w_i_p_outputs')
+                ->where('production_date', $data['production_date'])
+                ->where('shift_code', $data['shift'])
+                ->update(
+                    ['deleted_at' => date('Y-m-d H:i:s'), 'deleted_by' => $data['user_id']]
+                );
+            DB::table('w_i_p_outputs')->insert($tobeSaved);
+
+            DB::commit();
+            return ['message' => 'OK', 'data' => $tobeSaved];
+        } catch (Exception $e) {
+            $message = $e->getMessage();
+            DB::rollBack();
+            return response()->json(['message' => $message], 400);
+        }
+
+        return ['message' => 'debugging', 'data' => $data];
+    }
+
+    function getWIP(Request $request)
+    {
+        $data = DB::table('w_i_p_outputs')
+            ->where('production_date', $request->production_date)
+            ->where('shift_code', $request->shift)
+            ->get();
+        return ['data' => $data];
+    }
 }

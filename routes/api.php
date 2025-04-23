@@ -215,6 +215,8 @@ Route::prefix('work-order')->group(function () {
     Route::get('export', [WOController::class, 'exportDailyOutput']);
     Route::get('export-cost', [WOController::class, 'exportCost']);
     Route::get('', [WOController::class, 'getWO']);
+    Route::post('output-wip', [WOController::class, 'saveWIP']);
+    Route::get('output-wip', [WOController::class, 'getWIP']);
 });
 
 Route::prefix('process-master')->group(function () {
