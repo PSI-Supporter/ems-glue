@@ -3937,7 +3937,6 @@ class WOController extends Controller
 
             foreach ($data['detail'] as $r) {
                 $_wo = date('y') . '-' . $r['wo_code'] . '-' . trim($r['item_code']);
-                $_wo_only = date('y') . '-' . $r['wo_code'];
 
                 $_type = $_spec = $_model_code = '';
                 foreach ($assyCodeO as $d) {
@@ -3990,7 +3989,126 @@ class WOController extends Controller
         $data = DB::table('w_i_p_outputs')
             ->where('production_date', $request->production_date)
             ->where('shift_code', $request->shift)
+            ->whereNull('deleted_at')
             ->get();
-        return ['data' => $data];
+
+        $woUnique = $data->unique('wo_full_code')->pluck('wo_full_code')->toArray();
+
+        $input1 = DB::table('keikaku_input2s')->whereIn('wo_code', $woUnique)
+            ->where('production_date', '<=', $request->production_date)
+            ->whereNull('deleted_at')
+            ->groupBy('wo_code')
+            ->get(['wo_code', DB::raw("SUM(ok_qty) as ok_qty")]);
+
+
+        $output = DB::table('keikaku_output2s')->whereIn('wo_code', $woUnique)
+            ->where('production_date', '<=', $request->production_date)
+            ->whereNull('deleted_at')
+            ->groupBy('wo_code')
+            ->get(['wo_code', DB::raw("SUM(ok_qty) as ok_qty")]);
+
+        foreach ($data as &$r) {
+            $_input1v = 0;
+            $_outputv = 0;
+            foreach ($input1 as $i) {
+                if ($r->wo_full_code == $i->wo_code) {
+                    $_input1v = $i->ok_qty;
+                    break;
+                }
+            }
+            foreach ($output as $i) {
+                if ($r->wo_full_code == $i->wo_code) {
+                    $_outputv = $i->ok_qty;
+                    break;
+                }
+            }
+            $r->ostLotSize = $_outputv - $_input1v;
+        }
+        unset($r);
+        return ['data' => $data, '$input1' => $input1, '$output' => $output];
+    }
+
+    function getItemDescription(Request $request)
+    {
+        $data = $request->json()->all();
+        // get code of model,type and specs
+        $uniqueAssyCode = [];
+        foreach ($data['detail'] as $r) {
+            if (!in_array($r['item_code'], $uniqueAssyCode)) {
+                $uniqueAssyCode[] = $r['item_code'];
+            }
+        }
+
+        $assyCodeO = DB::table('keikaku_data')->whereIn('item_code', $uniqueAssyCode)
+            ->groupBy('item_code', 'type', 'specs', 'model_code')
+            ->get(['item_code', 'type', 'specs', 'model_code']);
+
+        return ['data' => $assyCodeO];
+    }
+
+    function getOutstandingLotsize(Request $request)
+    {
+        $data = $request->json()->all();
+
+        $woUnique = [];
+
+        foreach ($data['detail'] as &$r) {
+            $r['ost_qty'] = 0;
+            $r['wo_full_code'] = date('y') . '-' . $r['wo_code'] . '-' . $r['item_code'];
+            if (!in_array($r['item_code'], $woUnique)) {
+                $woUnique[] = date('y') . '-' . $r['wo_code'] . '-' . $r['item_code'];
+            }
+        }
+        unset($r);
+
+        $input1 = DB::table('keikaku_input2s')->whereIn('wo_code', $woUnique)
+            ->where('production_date', '<=', $data['production_date'])
+            ->whereNull('deleted_at')
+            ->groupBy('wo_code')
+            ->get(['wo_code', DB::raw("SUM(ok_qty) as ok_qty")]);
+
+
+        $output = DB::table('keikaku_output2s')->whereIn('wo_code', $woUnique)
+            ->where('production_date', '<=', $data['production_date'])
+            ->whereNull('deleted_at')
+            ->groupBy('wo_code')
+            ->get(['wo_code', DB::raw("SUM(ok_qty) as ok_qty")]);
+
+        $previousWIPoutput = DB::table('w_i_p_outputs')
+            ->whereNull('deleted_at')
+            ->where('production_date', '<', $data['production_date'])
+            ->whereIn('wo_full_code', $woUnique)
+            ->groupBy('wo_full_code')
+            ->get(['wo_full_code', DB::raw("SUM(ok_qty) as ok_qty")]);
+
+        foreach ($data['detail'] as &$r) {
+            $_input1v = 0;
+            $_outputv = 0;
+            $_outputWIP = 0;
+            foreach ($input1 as $i) {
+                if ($r['wo_full_code'] == $i->wo_code) {
+                    $_input1v = $i->ok_qty;
+                    break;
+                }
+            }
+
+            foreach ($output as $i) {
+                if ($r['wo_full_code'] == $i->wo_code) {
+                    $_outputv = $i->ok_qty;
+                    break;
+                }
+            }
+
+            foreach ($previousWIPoutput as $i) {
+                if ($r['wo_full_code'] == $i->wo_full_code) {
+                    $_outputWIP = $i->ok_qty;
+                    break;
+                }
+            }
+
+            $r['ost_qty'] = ($_outputv + $_outputWIP) - $_input1v;
+        }
+
+        return ['data' => $data['detail'], 'tInput' => $input1, 'tOutput' => $output, 'tPreviousOutput' => $previousWIPoutput];
     }
 }

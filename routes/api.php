@@ -217,6 +217,8 @@ Route::prefix('work-order')->group(function () {
     Route::get('', [WOController::class, 'getWO']);
     Route::post('output-wip', [WOController::class, 'saveWIP']);
     Route::get('output-wip', [WOController::class, 'getWIP']);
+    Route::post('item-description', [WOController::class, 'getItemDescription']);
+    Route::post('item-outstanding-lotsize', [WOController::class, 'getOutstandingLotsize']);
 });
 
 Route::prefix('process-master')->group(function () {
