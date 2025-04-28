@@ -2812,7 +2812,7 @@ class WOController extends Controller
         $previousSide = '';
         $previousLine = '';
         foreach ($data as $r) {
-            if (!$this->isHWContext(['line' => $r->line_code])) {
+            if (!$this->isHWContext(['line' => $r->line_code]) && !in_array($r->line_code, ['D3-1', 'OFFLINE 1', 'OFFLINE 2'])) {
                 $_label = '';
                 if (($r->morningOutput > 0 || $r->nightOutput > 0) && $r->line_code == $previousLine) {
                     if (substr($previousSpec, 0, 4) == substr($r->specs, 0, 4) && $previousSide == $r->specs_side) {
@@ -2935,7 +2935,7 @@ class WOController extends Controller
         $previousSide = '';
         $previousLine = '';
         foreach ($data as $r) {
-            if ($this->isHWContext(['line' => $r->line_code])) {
+            if ($this->isHWContext(['line' => $r->line_code]) || in_array($r->line_code, ['D3-1', 'OFFLINE 1', 'OFFLINE 2'])) {
                 $_label = '';
                 if (($r->output_hw_in2_m_qty > 0 || $r->output_hw_in2_n_qty > 0) && $r->line_code == $previousLine) {
                     if (substr($previousSpec, 0, 4) == substr($r->specs, 0, 4) && $previousSide == $r->specs_side) {
@@ -2963,9 +2963,15 @@ class WOController extends Controller
                 $sheet->setCellValue([16, $rowAt], $r->output_hw_in2_m_qty + $r->output_hw_in2_n_qty);
                 $sheet->setCellValue([17, $rowAt], $r->output_hw_in2_m_qty);
                 $sheet->setCellValue([18, $rowAt], $r->output_hw_in2_n_qty);
-                $sheet->setCellValue([19, $rowAt], $r->output_hw_m_qty + $r->output_hw_n_qty);
-                $sheet->setCellValue([20, $rowAt], $r->output_hw_m_qty);
-                $sheet->setCellValue([21, $rowAt], $r->output_hw_n_qty);
+                if (in_array($r->line_code, ['D3-1', 'OFFLINE 1', 'OFFLINE 2'])) {
+                    $sheet->setCellValue([19, $rowAt], $r->morningOutput + $r->nightOutput);
+                    $sheet->setCellValue([20, $rowAt], $r->morningOutput);
+                    $sheet->setCellValue([21, $rowAt], $r->nightOutput);
+                } else {
+                    $sheet->setCellValue([19, $rowAt], $r->output_hw_m_qty + $r->output_hw_n_qty);
+                    $sheet->setCellValue([20, $rowAt], $r->output_hw_m_qty);
+                    $sheet->setCellValue([21, $rowAt], $r->output_hw_n_qty);
+                }
                 $sheet->setCellValue([22, $rowAt], $_label);
 
                 if ($request->dateFrom == $request->dateTo) {
@@ -3380,9 +3386,9 @@ class WOController extends Controller
                     else case
                     when convert(char(5), running_at, 108) < '07:00' then ok_qty
                     end
-                end) ok_qty"), 'seq_data');
+                end) ok_qty"), 'seq_data'); // TO output
 
-        $dataOutputHW = DB::table('keikaku_input3s')
+        $dataInput2HW = DB::table('keikaku_input3s')
             ->where('wo_code', 'like', '%' . $request->doc . '%')
             ->whereNull('deleted_at')
             ->where('created_by', '!=', 'sensor')
@@ -3394,7 +3400,33 @@ class WOController extends Controller
                     end
                 end) ok_qty_hw"), 'seq_data');
 
-        $dataOutputAll = DB::query()->fromSub($dataOutput, 'vx')->union($dataOutputHW);
+        $dataOutputHW = DB::table('keikaku_output2s')
+            ->where('wo_code', 'like', '%' . $request->doc . '%')
+            ->whereNull('deleted_at')
+            ->where('created_by', '!=', 'sensor')
+            ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'seq_data')
+            ->select('wo_code', 'process_code', 'production_date', 'line_code', DB::raw("sum(case
+                    when production_date = convert(date, running_at) then ok_qty
+                    else case
+                    when convert(char(5), running_at, 108) < '07:00' then ok_qty
+                    end
+                end) ok_output_qty_hw"), 'seq_data');
+
+
+        $WIPoutput = DB::table('w_i_p_outputs')
+            ->whereNull('deleted_at')
+            ->where('wo_full_code', 'like', '%' . $request->doc . '%')
+            ->groupBy('wo_full_code', 'production_date', 'line_code')
+            ->select([
+                'production_date',
+                'line_code',
+                'wo_full_code',
+                DB::raw("0 plan_qty"),
+                DB::raw("SUM(ok_qty) as ok_qty"),
+                DB::raw("0 as ok_qty_hw"),
+                DB::raw("'' specs_side"),
+                DB::raw("'' lot_size"),
+            ]);
 
         $dataBasic = DB::table('keikaku_data')
             ->whereNull('deleted_at')
@@ -3403,7 +3435,7 @@ class WOController extends Controller
             ->select('production_date', 'line_code', 'wo_full_code', 'plan_qty', 'specs_side', 'seq', DB::raw("MAX(lot_size) lot_size"));
 
         $data = DB::query()->fromSub($dataBasic, 'V1')
-            ->leftJoinSub($dataOutputAll, 'V2', function ($join) {
+            ->leftJoinSub($dataOutput, 'V2', function ($join) {
                 $join->on('V1.production_date', '=', 'V2.production_date')
                     ->on('V1.line_code', '=', 'V2.line_code')
                     ->on('V1.wo_full_code', '=', 'V2.wo_code')
@@ -3411,19 +3443,41 @@ class WOController extends Controller
                     ->on('V1.seq', '=', 'V2.seq_data')
                 ;
             })
+            ->leftJoinSub($dataInput2HW, 'V3', function ($join) {
+                $join->on('V1.production_date', '=', 'V3.production_date')
+                    ->on('V1.line_code', '=', 'V3.line_code')
+                    ->on('V1.wo_full_code', '=', 'V3.wo_code')
+                    ->on('V1.specs_side', '=', 'V3.process_code')
+                    ->on('V1.seq', '=', 'V3.seq_data')
+                ;
+            })
+            ->leftJoinSub($dataOutputHW, 'V4', function ($join) {
+                $join->on('V1.production_date', '=', 'V4.production_date')
+                    ->on('V1.line_code', '=', 'V4.line_code')
+                    ->on('V1.wo_full_code', '=', 'V4.wo_code')
+                    ->on('V1.specs_side', '=', 'V4.process_code')
+                    ->on('V1.seq', '=', 'V4.seq_data')
+                ;
+            })
             ->groupBy('V1.production_date', 'V1.line_code', 'wo_full_code', 'plan_qty', 'specs_side', 'lot_size')
-            ->orderBy('V1.production_date')
-            ->orderBy('V1.line_code')
-            ->get([
+
+            ->select([
                 'V1.production_date',
                 'V1.line_code',
                 'wo_full_code',
                 DB::raw("SUM(plan_qty) plan_qty"),
-                DB::raw("ISNULL(SUM(ok_qty),0) ok_qty"),
+                DB::raw("ISNULL(SUM(ok_qty),0)+ISNULL(SUM(ok_output_qty_hw),0) ok_qty"),
+                DB::raw("ISNULL(SUM(ok_qty_hw),0) ok_qty_hw"),
                 'specs_side',
-                'lot_size'
+                'lot_size',
             ]);
-        return ['data' => $data];
+
+        $dataWrap = DB::query()->fromSub($data, 'vy')->union($WIPoutput)
+            ->where('ok_qty', '>', 0)->orWhere('ok_qty_hw', '>', 0)
+            ->orderBy('production_date')
+            ->orderBy('line_code')->get();
+
+        return ['data' => $dataWrap];
     }
 
     private function isHWContext($data)
