@@ -3423,7 +3423,7 @@ class WOController extends Controller
                 'wo_full_code',
                 DB::raw("0 plan_qty"),
                 DB::raw("SUM(ok_qty) as ok_qty"),
-                DB::raw("0 as ok_qty_hw"),
+                DB::raw("SUM(ok_qty) as ok_qty_hw"),
                 DB::raw("'' specs_side"),
                 DB::raw("'' lot_size"),
             ]);
@@ -3460,7 +3460,6 @@ class WOController extends Controller
                 ;
             })
             ->groupBy('V1.production_date', 'V1.line_code', 'wo_full_code', 'plan_qty', 'specs_side', 'lot_size')
-
             ->select([
                 'V1.production_date',
                 'V1.line_code',
