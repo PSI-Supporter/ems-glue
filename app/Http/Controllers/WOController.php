@@ -3791,11 +3791,19 @@ class WOController extends Controller
 
     function getWO(Request $request)
     {
-        $data = DB::table('XPPSN1')->where('PPSN1_PSNNO', $request->doc)->groupBy('PPSN1_WONO', 'PPSN1_SIMQT')
-            ->get([DB::raw("RTRIM(UPPER(PPSN1_WONO)) WONO"), 'PPSN1_SIMQT', DB::raw("0 CLS_QTY")]);
 
+        $data = DB::table('XPPSN1')->where('PPSN1_PSNNO', $request->doc)->groupBy('PPSN1_WONO', 'PPSN1_SIMQT', 'PPSN1_PROCD')
+            ->get([
+                DB::raw("RTRIM(UPPER(PPSN1_WONO)) WONO"),
+                'PPSN1_SIMQT',
+                DB::raw("0 CLS_QTY"),
+                DB::raw("RTRIM(UPPER(PPSN1_PROCD)) PROCD"),
+            ]);
 
-        $dataCLS = DB::table('WMS_CLS_JOB')->whereIn('CLS_JOBNO', $data->pluck('WONO')->toArray())
+        $WOUnique = $data->pluck('WONO')->toArray();
+        $ProcdUnique = $data->pluck('PROCD')->toArray();
+        $dataCLS = DB::table('WMS_CLS_JOB')->whereIn('CLS_JOBNO', $WOUnique)
+            ->whereIn('CLS_PROCD', $ProcdUnique)
             ->groupBy('CLS_JOBNO')
             ->get([DB::raw('UPPER(RTRIM(CLS_JOBNO)) CLS_JOBNO'), DB::raw("SUM(CLS_QTY) CLS_QTY")]);
 
