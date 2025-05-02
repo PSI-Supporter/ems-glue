@@ -3504,7 +3504,11 @@ class WOController extends Controller
             'ATH-1',
             'ATH-2',
             'ATH-3',
-            'ATH-4'
+            'ATH-4',
+            'M3.1',
+            'M3.2',
+            'BT4',
+            'BT3'
         ];
         return in_array($data['line'], $hwLine) ? true : false;
     }
@@ -3962,6 +3966,7 @@ class WOController extends Controller
             $request->json()->all(),
             [
                 'production_date' => 'required|date',
+                'line_code' => 'required|string',
                 'detail' => 'required|array',
                 'detail.*.wo_code' => 'required',
             ],
@@ -4011,7 +4016,7 @@ class WOController extends Controller
                 $tobeSaved[] = [
                     'created_at' => date('Y-m-d H:i:s'),
                     'created_by' => $data['user_id'],
-                    'line_code' => $r['line_code'],
+                    'line_code' => $data['line_code'],
                     'production_date' => $data['production_date'],
                     'wo_code' => $r['wo_code'],
                     'wo_full_code' => $_wo,
@@ -4029,6 +4034,7 @@ class WOController extends Controller
             DB::table('w_i_p_outputs')
                 ->where('production_date', $data['production_date'])
                 ->where('shift_code', $data['shift'])
+                ->where('line_code', $data['line_code'])
                 ->update(
                     ['deleted_at' => date('Y-m-d H:i:s'), 'deleted_by' => $data['user_id']]
                 );
