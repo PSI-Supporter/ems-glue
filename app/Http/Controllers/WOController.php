@@ -3471,7 +3471,11 @@ class WOController extends Controller
                 'lot_size',
             ]);
 
-        $dataWrap = DB::query()->fromSub($data, 'vy')->union($WIPoutput)
+        $dataWrap = $request->include_plan_only == 'Y' ?
+            DB::query()->fromSub($data, 'vy')->union($WIPoutput)
+            ->orderBy('production_date')
+            ->orderBy('line_code')->get() :
+            DB::query()->fromSub($data, 'vy')->union($WIPoutput)
             ->where('ok_qty', '>', 0)->orWhere('ok_qty_hw', '>', 0)
             ->orderBy('production_date')
             ->orderBy('line_code')->get();
