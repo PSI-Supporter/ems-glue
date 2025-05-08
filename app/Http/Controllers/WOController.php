@@ -4143,7 +4143,12 @@ class WOController extends Controller
             ->where('production_date', '<=', $data['production_date'])
             ->whereNull('deleted_at')
             ->groupBy('wo_code')
-            ->get(['wo_code', DB::raw("SUM(ok_qty) as ok_qty")]);
+            ->get(['wo_code', DB::raw("sum(case
+                    when production_date = convert(date, running_at) then ok_qty
+                    else case
+                    when convert(char(5), running_at, 108) < '07:00' then ok_qty
+                    end
+                end) as ok_qty")]);
 
         $previousWIPoutput = DB::table('w_i_p_outputs')
             ->whereNull('deleted_at')
