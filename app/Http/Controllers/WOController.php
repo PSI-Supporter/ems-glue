@@ -1744,6 +1744,13 @@ class WOController extends Controller
         $ReleaseStatus = DB::table('keikaku_releases')->where('line_code', $request->line_code)->whereNull('deleted_at')
             ->where('production_date', $request->production_date)->first();
 
+        $originLineCategory = DB::table('process_masters')
+            ->whereNull('deleted_at')
+            ->where('line_code', $request->line_code)->first();
+        $relatedLines = DB::table('wms_v_get_line_category')
+            ->where('line_category', $originLineCategory->line_category)->get()
+            ->unique('line_code')->pluck('line_code')->toArray();
+
         if ($ReleaseStatus || $isReleaser) {
 
             // only show data when someone is a releaser OR the data is released
@@ -1759,6 +1766,7 @@ class WOController extends Controller
                 $previousdataOutput = $request->line_code == '-' ? [] : DB::table('keikaku_input3s')
                     ->where('production_date', '<', $request->production_date)
                     ->whereNull('deleted_at')
+                    ->whereIn('line_code', $relatedLines)
                     ->groupBy('production_date', 'wo_code', 'process_code', 'seq_data', 'line_code')
                     ->select(
                         'line_code',
@@ -1783,6 +1791,7 @@ class WOController extends Controller
                 $previousdataOutput = $request->line_code == '-' ? [] : DB::table('keikaku_outputs')
                     ->where('production_date', '<', $request->production_date)
                     ->whereNull('deleted_at')
+                    ->whereIn('line_code', $relatedLines)
                     ->groupBy('production_date', 'wo_code', 'process_code', 'seq_data', 'line_code')
                     ->select(
                         'line_code',
@@ -1844,7 +1853,7 @@ class WOController extends Controller
         foreach ($data as &$d) {
             $d->previousRun = 0;
             foreach ($previousData as &$p) {
-                if ($d->line_code == $p->line_code && $d->wo_code == $p->wo_code && $d->item_code == $p->item_code && $d->specs_side == $p->specs_side && $p->previous_ok_qty > 0) {
+                if ($d->wo_code == $p->wo_code && $d->item_code == $p->item_code && $d->specs_side == $p->specs_side && $p->previous_ok_qty > 0) {
                     $d->previousRun += $p->previous_ok_qty;
                     $p->previous_ok_qty = 0;
                 }
