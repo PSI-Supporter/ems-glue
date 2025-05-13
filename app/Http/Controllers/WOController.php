@@ -1697,7 +1697,7 @@ class WOController extends Controller
             ->where('production_date', $request->production_date)
             ->where('line_code', $request->line_code)
             ->orderBy('id')
-            ->get(['worktype1', 'worktype2', 'worktype3', 'worktype4', 'worktype5', 'worktype6', 'flag_mot']);
+            ->get(['worktype1', 'worktype2', 'worktype3', 'worktype4', 'worktype5', 'worktype6', 'flag_mot', 'efficiency']);
 
         $dateO = date_create($request->production_date);
         $category = date_format($dateO, 'w') == '5' ? 'f' : 'nf'; // friday or non friday
