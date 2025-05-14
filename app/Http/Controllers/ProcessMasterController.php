@@ -135,4 +135,48 @@ class ProcessMasterController extends Controller
 
         return ['data' => $data];
     }
+
+    function getByLine(Request $request)
+    {
+        $dataFiltered = DB::table('process_masters')->whereNull('deleted_at')
+            ->where('line_code', $request->line_code)
+            ->select(
+                'assy_code',
+                'model_code',
+                'model_type',
+                'valid_date_time',
+                'process_code',
+                'cycle_time'
+            );
+
+        $data_latest = DB::table('process_masters')
+            ->whereNull('deleted_at')
+            ->where('line_code', $request->line_code)
+            ->groupBy('assy_code', 'process_code')
+            ->select('assy_code', DB::raw('MAX(valid_date_time) lts_time'), 'process_code');
+
+        $data = DB::query()->fromSub($dataFiltered, 'v1')
+            ->joinSub($data_latest, 'v2', function ($join) {
+                $join->on('v1.assy_code', '=', 'v2.assy_code')
+                    ->on('v1.process_code', '=', 'v2.process_code')
+                    ->on('valid_date_time', '=', 'lts_time');
+            })
+            ->orderBy('v1.model_code')
+            ->orderBy('v1.assy_code')
+            ->groupBy(
+                'v1.assy_code',
+                'v1.model_code',
+                'model_type',
+            )
+            ->get([
+                'v1.assy_code',
+                'v1.model_code',
+                DB::raw("MAX(CASE WHEN v1.process_code = 'SMT-A' OR v1.process_code = 'SMT-HW' THEN cycle_time END) side_a"),
+                DB::raw("MAX(CASE WHEN v1.process_code = 'SMT-B' THEN cycle_time END) side_b"),
+                DB::raw("MAX(CASE WHEN v1.process_code = 'SMT-A' OR v1.process_code = 'SMT-HW' THEN valid_date_time END) side_a_time"),
+                DB::raw("MAX(CASE WHEN v1.process_code = 'SMT-B' THEN valid_date_time END) side_b_time"),
+                'model_type',
+            ]);
+        return ['data' => $data];
+    }
 }
