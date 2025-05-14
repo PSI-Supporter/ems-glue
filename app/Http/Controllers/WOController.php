@@ -1349,6 +1349,26 @@ class WOController extends Controller
             return response()->json(['message' => 'You have read-only access'], 403);
         }
 
+        $isReleaser = DB::table('keikaku_access_rules')
+            ->where('user_id', $data['user_id'])
+            ->where('sheet_access', 'RLS')
+            ->whereNull('deleted_at')
+            ->count() >= 1 ? true : false;
+        $ReleaseStatus = DB::table('keikaku_releases')->where('line_code', $data['line_code'])->whereNull('deleted_at')
+            ->where('production_date', $data['production_date'])->first();
+
+        if (!$this->checkUserAccess(['user_id' => $data['user_id'], 'line_code' => $data['line_code']])) {
+            return response()->json(['message' => 'You have read-only access'], 403);
+        }
+
+        if ($ReleaseStatus) {
+        } else {
+            if (!$isReleaser) {
+                return response()->json(['message' => 'You are not a releaser'], 403);
+            }
+        }
+
+
         $tobeSaved = [];
         $message = '';
 
