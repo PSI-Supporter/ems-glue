@@ -75,6 +75,8 @@ class ProcessMasterController extends Controller
                 'created_by' => $data['user_id'],
                 'created_at' => date('Y-m-d H:i:s'),
                 'valid_date_time' => $data['valid_from'],
+                'process_seq' => $r['process_seq'],
+                'line_category' => $r['line_category'],
             ];
         }
 
@@ -82,7 +84,7 @@ class ProcessMasterController extends Controller
             DB::beginTransaction();
 
             $insert_data = collect($tobeSaved);
-            $chunks = $insert_data->chunk(2000 / 9);
+            $chunks = $insert_data->chunk(2000 / 11);
             foreach ($chunks as $chunk) {
                 ProcessMaster::insert($chunk->toArray());
             }
