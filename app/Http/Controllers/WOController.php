@@ -3539,9 +3539,7 @@ class WOController extends Controller
             'ATH-3',
             'ATH-4',
             'M3.1',
-            'M3.2',
-            'BT4',
-            'BT3'
+            'M3.2'
         ];
         return in_array($data['line'], $hwLine) ? true : false;
     }
