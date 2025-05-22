@@ -153,6 +153,7 @@ class LabelController extends Controller
                 'quantity',
                 'lot_code',
                 'created_by',
+                'item_value'
             )
             ->get([
                 'code',
@@ -163,7 +164,8 @@ class LabelController extends Controller
                 DB::raw('CONVERT(INT,quantity) quantity'),
                 'lot_code',
                 'created_by',
-                DB::raw("MAX(ITMLOC_LOC) LOC")
+                DB::raw("MAX(ITMLOC_LOC) LOC"),
+                'item_value'
             ]);
         $distinctDoc = $data->unique('created_by')->values()->pluck('created_by');
         $userDB = DB::table('VNPSI_USERS')->whereIn('ID', $distinctDoc)->get(['ID', 'user_nicename']);
