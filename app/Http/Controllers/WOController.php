@@ -1883,6 +1883,7 @@ class WOController extends Controller
                     end) previous_ok_qty")
                     )->get();
             } else {
+
                 $previousData = $request->line_code == '-' ? [] : DB::table('keikaku_outputs')
                     ->where('production_date', '<', $request->production_date)
                     ->whereNull('deleted_at')
@@ -1904,7 +1905,7 @@ class WOController extends Controller
             }
 
             foreach ($previousData as &$p) {
-                if ($d->wo_full_code == $p->wo_code && $p->previous_ok_qty > 0) {
+                if ($d->wo_full_code == $p->wo_code && $d->specs_side == $p->process_code && $p->previous_ok_qty > 0) {
                     $woCompleted[] = $p->wo_code;
                     $d->previousRun += $p->previous_ok_qty;
                     $p->previous_ok_qty = 0;
