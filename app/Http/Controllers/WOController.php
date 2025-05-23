@@ -1851,6 +1851,7 @@ class WOController extends Controller
         $keikakuDataStyleO = $keikakuDataStyle ? json_decode($keikakuDataStyle->styles) : [];
 
         $woCompleted = [];
+        $previousData_t = [];
         foreach ($data as &$d) {
             $d->previousRun = 0;
             if ($this->isHWContext(['line' => $request->line_code])) {
@@ -1899,7 +1900,7 @@ class WOController extends Controller
                                     when convert(char(5), running_at, 108) < '07:00' then ok_qty
                                     end
                                 end) previous_ok_qty")
-                    );
+                    )->get();
             }
 
             foreach ($previousData as &$p) {
