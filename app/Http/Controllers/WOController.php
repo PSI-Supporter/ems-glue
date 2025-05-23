@@ -1782,11 +1782,91 @@ class WOController extends Controller
                     ->whereNull('deleted_at')
                     ->groupBy('wo_code', 'process_code', 'seq_data')
                     ->select('wo_code', 'process_code', 'seq_data', DB::raw('sum(ok_qty) ok_qty'));
+            } else {
+                $dataOutput = $request->line_code == '-' ? [] : DB::table('keikaku_outputs')->where('production_date', $request->production_date)
+                    ->where('line_code', $request->line_code)
+                    ->where('running_at', '<', $maxCalculationDate)
+                    ->whereNull('deleted_at')
+                    ->groupBy('wo_code', 'process_code', 'seq_data')
+                    ->select('wo_code', 'process_code', 'seq_data', DB::raw('sum(ok_qty) ok_qty'));
+            }
 
-                $previousdataOutput = $request->line_code == '-' ? [] : DB::table('keikaku_input3s')
+            $data = $request->line_code == '-' ? [] : DB::table('keikaku_data')
+                ->leftJoinSub($dataOutput, 'output', function ($join) {
+                    $join->on('keikaku_data.wo_full_code', '=', 'output.wo_code')
+                        ->on('keikaku_data.specs_side', '=', 'output.process_code')
+                        ->on('keikaku_data.seq', '=', 'output.seq_data');
+                })
+                ->whereNull('deleted_at')
+                ->where('production_date', $request->production_date)
+                ->where('line_code', $request->line_code)
+                ->orderBy('id')
+                ->get(['keikaku_data.*', DB::raw('ISNULL(ok_qty,0) ok_qty')]);
+
+            $previousData = [];
+            $_uniqueItem = $data->unique('item_code')->pluck('item_code')->toArray();
+            $processMaster = DB::table('process_masters')
+                ->whereNull('deleted_at')
+                ->whereIn('assy_code', $_uniqueItem)
+                ->where('line_code', $request->line_code)
+                ->get(['assy_code', 'process_seq', 'process_code']);
+
+            $_processFocus = [];
+
+            foreach ($data as &$d) {
+                $d->process_seq = 9;
+                foreach ($processMaster as $p) {
+                    if ($originLineCategory->line_category == 'HW') {
+                        if ($d->item_code == $p->assy_code) {
+                            $d->process_seq = $p->process_seq;
+                            if (!in_array($p->process_seq, $_processFocus)) {
+                                $_processFocus[] = $p->process_seq;
+                            }
+                            break;
+                        }
+                    } else {
+                        if ($d->item_code == $p->assy_code && str_contains($p->process_code, $d->specs_side)) {
+                            $d->process_seq = $p->process_seq;
+                            if (!in_array($p->process_seq, $_processFocus)) {
+                                $_processFocus[] = $p->process_seq;
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+
+            $_relatedLinesByProcess = DB::table('process_masters')
+                ->whereNull('deleted_at')
+                ->whereIn('assy_code', $_uniqueItem)
+                ->whereIn('process_seq', $_processFocus)
+                ->groupBy('line_code')
+                ->get(['line_code'])->pluck('line_code')->toArray();
+        }
+
+        $keikakuDataStyle = $request->line_code == '-' ? [] : DB::table('keikaku_styles')->whereNull('deleted_at')
+            ->where('production_date', $request->production_date)
+            ->where('line_code', $request->line_code)
+            ->first();
+        $keikakuDataStyleO = $keikakuDataStyle ? json_decode($keikakuDataStyle->styles) : [];
+
+        $woCompleted = [];
+        foreach ($data as &$d) {
+            $d->previousRun = 0;
+            if ($this->isHWContext(['line' => $request->line_code])) {
+                $_relatedLinesByProcess = DB::table('process_masters')
+                    ->whereNull('deleted_at')
+                    ->where('assy_code', $d->item_code)
+                    ->where('process_seq', $d->process_seq)
+                    ->groupBy('line_code')
+                    ->get(['line_code'])->pluck('line_code')->toArray();
+
+                $previousData = $request->line_code == '-' ? [] : DB::table('keikaku_input3s')
                     ->where('production_date', '<', $request->production_date)
                     ->whereNull('deleted_at')
-                    ->whereIn('line_code', $relatedLines)
+                    ->whereIn('line_code', $_relatedLinesByProcess)
+                    ->where('wo_code', $d->wo_full_code)
+                    ->whereNotIn('wo_code', $woCompleted)
                     ->groupBy('production_date', 'wo_code', 'process_code', 'seq_data', 'line_code')
                     ->select(
                         'line_code',
@@ -1799,16 +1879,10 @@ class WOController extends Controller
                         else case
                         when convert(char(5), running_at, 108) < '07:00' then ok_qty
                         end
-                    end) ok_qty")
-                    );
+                    end) previous_ok_qty")
+                    )->get();
             } else {
-                $dataOutput = $request->line_code == '-' ? [] : DB::table('keikaku_outputs')->where('production_date', $request->production_date)
-                    ->where('line_code', $request->line_code)
-                    ->where('running_at', '<', $maxCalculationDate)
-                    ->whereNull('deleted_at')
-                    ->groupBy('wo_code', 'process_code', 'seq_data')
-                    ->select('wo_code', 'process_code', 'seq_data', DB::raw('sum(ok_qty) ok_qty'));
-                $previousdataOutput = $request->line_code == '-' ? [] : DB::table('keikaku_outputs')
+                $previousData = $request->line_code == '-' ? [] : DB::table('keikaku_outputs')
                     ->where('production_date', '<', $request->production_date)
                     ->whereNull('deleted_at')
                     ->whereIn('line_code', $relatedLines)
@@ -1824,58 +1898,16 @@ class WOController extends Controller
                                     else case
                                     when convert(char(5), running_at, 108) < '07:00' then ok_qty
                                     end
-                                end) ok_qty")
+                                end) previous_ok_qty")
                     );
             }
 
-            $data = $request->line_code == '-' ? [] : DB::table('keikaku_data')
-                ->leftJoinSub($dataOutput, 'output', function ($join) {
-                    $join->on('keikaku_data.wo_full_code', '=', 'output.wo_code')
-                        ->on('keikaku_data.specs_side', '=', 'output.process_code')
-                        ->on('keikaku_data.seq', '=', 'output.seq_data');
-                })
-                ->whereNull('deleted_at')
-                ->where('production_date', $request->production_date)
-                ->where('line_code', $request->line_code)
-                ->orderBy('id')
-                ->get(['keikaku_data.*', DB::raw('ISNULL(ok_qty,0) ok_qty')]);
-
-            $previousData =  $request->line_code == '-' ? [] : DB::table('keikaku_data')
-                ->leftJoinSub($previousdataOutput, 'output', function ($join) {
-                    $join->on('keikaku_data.wo_full_code', '=', 'output.wo_code')
-                        ->on('keikaku_data.specs_side', '=', 'output.process_code')
-                        ->on('keikaku_data.production_date', '=', 'output.production_date')
-                        ->on('keikaku_data.line_code', '=', 'output.line_code')
-                        ->on('keikaku_data.seq', '=', 'output.seq_data');
-                })
-                ->whereNull('deleted_at')
-                ->whereIn('keikaku_data.wo_full_code', $data->unique('wo_full_code')->pluck('wo_full_code')->toArray())
-                ->where('keikaku_data.production_date', '<', $request->production_date)
-                ->groupBy('keikaku_data.line_code', 'keikaku_data.wo_code', 'item_code', 'specs_side')
-                ->get([
-                    'keikaku_data.line_code',
-                    'keikaku_data.wo_code',
-                    'item_code',
-                    'specs_side',
-                    DB::raw('sum(plan_qty) plan_qty'),
-                    DB::raw('SUM(ISNULL(ok_qty,0)) previous_ok_qty'),
-                ]);
-        }
-
-        $keikakuDataStyle = $request->line_code == '-' ? [] : DB::table('keikaku_styles')->whereNull('deleted_at')
-            ->where('production_date', $request->production_date)
-            ->where('line_code', $request->line_code)
-            ->first();
-        $keikakuDataStyleO = $keikakuDataStyle ? json_decode($keikakuDataStyle->styles) : [];
-
-
-
-        foreach ($data as &$d) {
-            $d->previousRun = 0;
             foreach ($previousData as &$p) {
-                if ($d->wo_code == $p->wo_code && $d->item_code == $p->item_code && $d->specs_side == $p->specs_side && $p->previous_ok_qty > 0) {
+                if ($d->wo_full_code == $p->wo_code && $p->previous_ok_qty > 0) {
+                    $woCompleted[] = $p->wo_code;
                     $d->previousRun += $p->previous_ok_qty;
                     $p->previous_ok_qty = 0;
+                    break;
                 }
             }
             unset($p);
@@ -1894,7 +1926,6 @@ class WOController extends Controller
                 }
             }
         }
-
 
         return [
             'data' => $data,
