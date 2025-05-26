@@ -1767,7 +1767,8 @@ class WOController extends Controller
         $originLineCategory = DB::table('process_masters')
             ->whereNull('deleted_at')
             ->where('line_code', $request->line_code)->first();
-        $relatedLines = DB::table('wms_v_get_line_category')
+
+        $relatedLines = !$originLineCategory ? [] : DB::table('wms_v_get_line_category')
             ->where('line_category', $originLineCategory->line_category)->get()
             ->unique('line_code')->pluck('line_code')->toArray();
 
@@ -1814,9 +1815,9 @@ class WOController extends Controller
             $_processFocus = [];
 
             foreach ($data as &$d) {
-                $d->process_seq = 9;
+                $d->process_seq = -1;
                 foreach ($processMaster as $p) {
-                    if ($originLineCategory->line_category == 'HW') {
+                    if (in_array($originLineCategory->line_category, ['HW', 'MI'])) {
                         if ($d->item_code == $p->assy_code) {
                             $d->process_seq = $p->process_seq;
                             if (!in_array($p->process_seq, $_processFocus)) {
@@ -1851,7 +1852,7 @@ class WOController extends Controller
         $keikakuDataStyleO = $keikakuDataStyle ? json_decode($keikakuDataStyle->styles) : [];
 
         $woCompleted = [];
-        $previousData_t = [];
+
         foreach ($data as &$d) {
             $d->previousRun = 0;
             if ($this->isHWContext(['line' => $request->line_code])) {
@@ -1868,13 +1869,10 @@ class WOController extends Controller
                     ->whereIn('line_code', $_relatedLinesByProcess)
                     ->where('wo_code', $d->wo_full_code)
                     ->whereNotIn('wo_code', $woCompleted)
-                    ->groupBy('production_date', 'wo_code', 'process_code', 'seq_data', 'line_code')
+                    ->groupBy('wo_code', 'process_code')
                     ->select(
-                        'line_code',
-                        'production_date',
                         'wo_code',
                         'process_code',
-                        'seq_data',
                         DB::raw("sum(case
                         when production_date = convert(date, running_at) then ok_qty
                         else case
@@ -1883,18 +1881,15 @@ class WOController extends Controller
                     end) previous_ok_qty")
                     )->get();
             } else {
-
                 $previousData = $request->line_code == '-' ? [] : DB::table('keikaku_outputs')
                     ->where('production_date', '<', $request->production_date)
                     ->whereNull('deleted_at')
                     ->whereIn('line_code', $relatedLines)
-                    ->groupBy('production_date', 'wo_code', 'process_code', 'seq_data', 'line_code')
+                    ->where('wo_code', $d->wo_full_code)
+                    ->groupBy('wo_code', 'process_code')
                     ->select(
-                        'line_code',
-                        'production_date',
                         'wo_code',
                         'process_code',
-                        'seq_data',
                         DB::raw("sum(case
                                     when production_date = convert(date, running_at) then ok_qty
                                     else case
