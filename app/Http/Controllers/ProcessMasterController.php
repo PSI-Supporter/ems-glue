@@ -53,10 +53,27 @@ class ProcessMasterController extends Controller
 
     function getHistory(Request $request)
     {
-        $data = ProcessMaster::select('*')
-            ->where($request->searchBy, $request->searchValue)
-            ->orderBy('created_at', 'asc')
-            ->get();
+
+        $data = [];
+        if ($request->show_deleted) {
+            if ($request->show_deleted == 'Y') {
+                $data = DB::table('process_masters')->where($request->searchBy, $request->searchValue)
+                    ->orderBy('created_at', 'asc')
+                    ->get();
+            } else {
+                $data = ProcessMaster::select('*')
+                    ->where($request->searchBy, $request->searchValue)
+                    ->orderBy('created_at', 'asc')
+                    ->get();
+            }
+        } else {
+            $data = ProcessMaster::select('*')
+                ->where($request->searchBy, $request->searchValue)
+                ->orderBy('created_at', 'asc')
+                ->get();
+        }
+
+
         return ['data' => $data];
     }
 
