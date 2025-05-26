@@ -1881,21 +1881,44 @@ class WOController extends Controller
                     end) previous_ok_qty")
                     )->get();
             } else {
-                $previousData = $request->line_code == '-' ? [] : DB::table('keikaku_outputs')
+                $_data = DB::table('keikaku_data')->whereNull('deleted_at')
                     ->where('production_date', '<', $request->production_date)
-                    ->whereNull('deleted_at')
+                    ->whereIn('line_code', $relatedLines)
+                    ->where('wo_full_code', $d->wo_full_code)
+                    ->select('production_date', 'line_code', 'seq', 'wo_full_code');
+
+                $_output = DB::table('keikaku_outputs')->whereNull('deleted_at')
+                    ->where('production_date', '<', $request->production_date)
                     ->whereIn('line_code', $relatedLines)
                     ->where('wo_code', $d->wo_full_code)
-                    ->groupBy('wo_code', 'process_code')
                     ->select(
-                        'wo_code',
-                        'process_code',
+                        'production_date',
+                        'line_code',
+                        'seq_data',
                         DB::raw("sum(case
                                     when production_date = convert(date, running_at) then ok_qty
                                     else case
                                     when convert(char(5), running_at, 108) < '07:00' then ok_qty
                                     end
-                                end) previous_ok_qty")
+                                end) previous_ok_qty"),
+                        'wo_code',
+                        DB::raw("MAX(process_code) process_code")
+                    )
+                    ->groupBy('production_date', 'line_code', 'seq_data', 'wo_code');
+
+                $previousData = $request->line_code == '-' ? [] : DB::query()->fromSub($_data, 'V1')
+                    ->leftJoinSub($_output, 'V2', function ($join) {
+                        $join->on('V1.production_date', '=', 'V2.production_date')
+                            ->on('V1.line_code', '=', 'V2.line_code')
+                            ->on('V1.wo_full_code', '=', 'V2.wo_code')
+                            ->on('V1.seq', '=', 'V2.seq_data')
+                        ;
+                    })
+                    ->groupBy('wo_code', 'process_code')
+                    ->select(
+                        'wo_code',
+                        'process_code',
+                        DB::raw("sum(previous_ok_qty) previous_ok_qty")
                     )->get();
             }
 
