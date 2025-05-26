@@ -198,4 +198,16 @@ class ProcessMasterController extends Controller
             ]);
         return ['data' => $data];
     }
+
+    function update(Request $request)
+    {
+        $affectedRow = DB::table('process_masters')->where('id', base64_decode($request->id))
+            ->update([
+                'process_seq' => $request->process_seq,
+                'line_category' => $request->line_category,
+                'updated_at' => date('Y-m-d H:i:s'),
+                'updated_by' => $request->user_id
+            ]);
+        return ['message' => $affectedRow ? 'Updated successfully' : 'Could not be updated'];
+    }
 }

@@ -228,6 +228,7 @@ Route::prefix('process-master')->group(function () {
     Route::post('search', [ProcessMasterController::class, 'search']);
     Route::get('line-code', [ProcessMasterController::class, 'getLine']);
     Route::get('cycle-time-by-line-code', [ProcessMasterController::class, 'getByLine']);
+    Route::put('process/{id}', [ProcessMasterController::class, 'update']);
 });
 
 Route::prefix('kurs')->group(function () {
