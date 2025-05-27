@@ -1906,6 +1906,13 @@ class WOController extends Controller
                     )
                     ->groupBy('production_date', 'line_code', 'seq_data', 'wo_code');
 
+                $_procesMaster = DB::table('process_masters')
+                    ->whereNull('deleted_at')
+                    ->where('assy_code', $d->item_code)
+                    ->whereIn('line_code', $relatedLines)
+                    ->groupBy('assy_code', 'process_code', 'line_code')
+                    ->select('assy_code', DB::raw('MAX(process_seq) process_seq'), 'process_code', 'line_code');
+
                 $previousData = $request->line_code == '-' ? [] : DB::query()->fromSub($_data, 'V1')
                     ->leftJoinSub($_output, 'V2', function ($join) {
                         $join->on('V1.production_date', '=', 'V2.production_date')
@@ -1914,16 +1921,26 @@ class WOController extends Controller
                             ->on('V1.seq', '=', 'V2.seq_data')
                         ;
                     })
-                    ->groupBy('wo_code', 'process_code')
+                    ->leftJoinSub($_procesMaster, 'V3', function ($join) {
+                        $join->on('V2.line_code', '=', 'V3.line_code')
+                            ->on('V2.process_code', '=', 'V3.process_code')
+                        ;
+                    })
+                    ->groupBy('wo_code', 'V2.process_code')
                     ->select(
                         'wo_code',
-                        'process_code',
-                        DB::raw("sum(previous_ok_qty) previous_ok_qty")
+                        'V2.process_code',
+                        DB::raw("sum(previous_ok_qty) previous_ok_qty"),
+                        DB::raw('MAX(process_seq) process_seq')
                     )->get();
             }
 
             foreach ($previousData as &$p) {
-                if ($d->wo_full_code == $p->wo_code && $d->specs_side == $p->process_code && $p->previous_ok_qty > 0) {
+                if (
+                    $d->wo_full_code == $p->wo_code && $d->specs_side == $p->process_code
+                    && $d->process_seq    == $p->process_seq
+                    && $p->previous_ok_qty > 0
+                ) {
                     $woCompleted[] = $p->wo_code;
                     $d->previousRun += $p->previous_ok_qty;
                     $p->previous_ok_qty = 0;
