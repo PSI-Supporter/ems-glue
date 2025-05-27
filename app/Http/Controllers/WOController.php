@@ -1936,15 +1936,27 @@ class WOController extends Controller
             }
 
             foreach ($previousData as &$p) {
-                if (
-                    $d->wo_full_code == $p->wo_code && $d->specs_side == $p->process_code
-                    && $d->process_seq    == $p->process_seq
-                    && $p->previous_ok_qty > 0
-                ) {
-                    $woCompleted[] = $p->wo_code;
-                    $d->previousRun += $p->previous_ok_qty;
-                    $p->previous_ok_qty = 0;
-                    break;
+                if (isset($p->process_seq)) {
+                    if (
+                        $d->wo_full_code == $p->wo_code && $d->specs_side == $p->process_code
+                        && $d->process_seq == $p->process_seq
+                        && $p->previous_ok_qty > 0
+                    ) {
+                        $woCompleted[] = $p->wo_code;
+                        $d->previousRun += $p->previous_ok_qty;
+                        $p->previous_ok_qty = 0;
+                        break;
+                    }
+                } else {
+                    if (
+                        $d->wo_full_code == $p->wo_code && $d->specs_side == $p->process_code
+                        && $p->previous_ok_qty > 0
+                    ) {
+                        $woCompleted[] = $p->wo_code;
+                        $d->previousRun += $p->previous_ok_qty;
+                        $p->previous_ok_qty = 0;
+                        break;
+                    }
                 }
             }
             unset($p);
