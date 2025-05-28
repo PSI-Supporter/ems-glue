@@ -1854,12 +1854,31 @@ class WOController extends Controller
                 ->whereIn('line_code', $relatedLines)
                 ->where('wo_full_code', $d->wo_full_code)
                 ->select('production_date', 'line_code', 'seq', 'wo_full_code');
-            $_procesMaster = DB::table('process_masters')
+
+            $_procesMaster0 = DB::table('process_masters')
                 ->whereNull('deleted_at')
                 ->where('assy_code', $d->item_code)
                 ->whereIn('line_code', $relatedLines)
                 ->groupBy('assy_code', 'process_code', 'line_code')
-                ->select('assy_code', DB::raw('MAX(process_seq) process_seq'), 'process_code', 'line_code');
+                ->select(
+                    'assy_code',
+                    DB::raw('MAX(process_seq) process_seq'),
+                    DB::raw("case 
+                    when process_code = 'SMT-A' THEN 'A'                    
+                    when process_code = 'SMT-B' THEN 'B' 
+                    ELSE 'A'
+                    END process_code"),
+                    'line_code'
+                );
+
+            $_procesMaster = DB::query()->fromSub($_procesMaster0, 'vp1')
+                ->groupBy('assy_code', 'process_code', 'line_code')
+                ->select(
+                    'assy_code',
+                    DB::raw('MAX(process_seq) process_seq'),
+                    'process_code',
+                    'line_code'
+                );
 
             if ($this->isHWContext(['line' => $request->line_code])) {
                 $_output = DB::table('keikaku_input3s')->whereNull('deleted_at')
@@ -1914,12 +1933,12 @@ class WOController extends Controller
                         ->on('V2.process_code', '=', 'V3.process_code')
                     ;
                 })
-                ->groupBy('wo_code', 'V2.process_code')
+                ->groupBy('wo_code', 'V2.process_code', 'process_seq')
                 ->select(
                     'wo_code',
                     'V2.process_code',
                     DB::raw("sum(previous_ok_qty) previous_ok_qty"),
-                    DB::raw('MAX(process_seq) process_seq')
+                    DB::raw('process_seq')
                 )->get();
 
             foreach ($previousData as &$p) {
