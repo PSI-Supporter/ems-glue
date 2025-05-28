@@ -1836,13 +1836,6 @@ class WOController extends Controller
                     }
                 }
             }
-
-            $_relatedLinesByProcess = DB::table('process_masters')
-                ->whereNull('deleted_at')
-                ->whereIn('assy_code', $_uniqueItem)
-                ->whereIn('process_seq', $_processFocus)
-                ->groupBy('line_code')
-                ->get(['line_code'])->pluck('line_code')->toArray();
         }
 
         $keikakuDataStyle = $request->line_code == '-' ? [] : DB::table('keikaku_styles')->whereNull('deleted_at')
