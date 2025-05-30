@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ProductionInput;
 use App\Models\ProductionTime;
 use Exception;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
@@ -3503,10 +3504,10 @@ class WOController extends Controller
         $writer->save('php://output');
     }
 
-    function getWOHistory(Request $request)
+    function getWOHistoryData($params): Builder
     {
         $dataOutput = DB::table('keikaku_outputs')
-            ->where('wo_code', 'like', '%' . $request->doc . '%')
+            ->where('wo_code', 'like', '%' . $params['doc'] . '%')
             ->whereNull('deleted_at')
             ->where('created_by', '!=', 'sensor')
             ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'seq_data')
@@ -3518,7 +3519,7 @@ class WOController extends Controller
                 end) ok_qty"), 'seq_data'); // TO output
 
         $dataInput2HW = DB::table('keikaku_input3s')
-            ->where('wo_code', 'like', '%' . $request->doc . '%')
+            ->where('wo_code', 'like', '%' . $params['doc'] . '%')
             ->whereNull('deleted_at')
             ->where('created_by', '!=', 'sensor')
             ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'seq_data')
@@ -3530,7 +3531,7 @@ class WOController extends Controller
                 end) ok_qty_hw"), 'seq_data');
 
         $dataOutputHW = DB::table('keikaku_output2s')
-            ->where('wo_code', 'like', '%' . $request->doc . '%')
+            ->where('wo_code', 'like', '%' . $params['doc'] . '%')
             ->whereNull('deleted_at')
             ->where('created_by', '!=', 'sensor')
             ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'seq_data')
@@ -3541,10 +3542,9 @@ class WOController extends Controller
                     end
                 end) ok_output_qty_hw"), 'seq_data');
 
-
         $WIPoutput = DB::table('w_i_p_outputs')
             ->whereNull('deleted_at')
-            ->where('wo_full_code', 'like', '%' . $request->doc . '%')
+            ->where('wo_full_code', 'like', '%' . $params['doc'] . '%')
             ->groupBy('wo_full_code', 'production_date', 'line_code')
             ->select([
                 'production_date',
@@ -3559,7 +3559,7 @@ class WOController extends Controller
 
         $dataBasic = DB::table('keikaku_data')
             ->whereNull('deleted_at')
-            ->where('wo_full_code', 'like', '%' . $request->doc . '%')
+            ->where('wo_full_code', 'like', '%' . $params['doc'] . '%')
             ->groupBy('production_date', 'line_code', 'wo_full_code', 'plan_qty', 'specs_side', 'seq')
             ->select('production_date', 'line_code', 'wo_full_code', 'plan_qty', 'specs_side', 'seq', DB::raw("MAX(lot_size) lot_size"));
 
@@ -3600,12 +3600,18 @@ class WOController extends Controller
                 'lot_size',
             ]);
 
+        $dataFinal = DB::query()->fromSub($data, 'vy')->union($WIPoutput);
+        return $dataFinal;
+    }
+
+    function getWOHistory(Request $request)
+    {
+        $datax = $this->getWOHistoryData(['doc' => $request->doc]);
+
         $dataWrap = $request->include_plan_only == 'Y' ?
-            DB::query()->fromSub($data, 'vy')->union($WIPoutput)
-            ->orderBy('production_date')
+            $datax->orderBy('production_date')
             ->orderBy('line_code')->get() :
-            DB::query()->fromSub($data, 'vy')->union($WIPoutput)
-            ->where('ok_qty', '>', 0)->orWhere('ok_qty_hw', '>', 0)
+            $datax->where('ok_qty', '>', 0)->orWhere('ok_qty_hw', '>', 0)
             ->orderBy('production_date')
             ->orderBy('line_code')->get();
 
