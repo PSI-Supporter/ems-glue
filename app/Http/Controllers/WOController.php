@@ -2828,6 +2828,10 @@ class WOController extends Controller
             'dateTo' => $request->dateTo,
         ];
         $data = $this->_getBaseKeikakuDataReport($theParam)[0];
+        $dataRelease = DB::table('keikaku_releases')->whereNull('deleted_at')
+            ->where('release_flag', 'Y')
+            ->get(['production_date', 'line_code']);
+
         $spreadSheet = new Spreadsheet();
         $sheet = $spreadSheet->getActiveSheet();
         $sheet->setTitle('keikaku_mc');
@@ -2927,6 +2931,8 @@ class WOController extends Controller
         $previousSide = '';
         $previousLine = '';
         foreach ($data as $r) {
+            $isReleased = $dataRelease->where('line_code', $r->line_code)
+                ->where('production_date', $r->production_date)->count();
             if (!$this->isHWContext(['line' => $r->line_code]) && !in_array($r->line_code, ['D3-1', 'OFFLINE 1', 'OFFLINE 2'])) {
                 $_label = '';
                 if (($r->morningOutput > 0 || $r->nightOutput > 0) && $r->line_code == $previousLine) {
@@ -2974,6 +2980,9 @@ class WOController extends Controller
                             }
                         }
                     }
+                }
+                if ($isReleased == 0) {
+                    $sheet->getStyle('A' . $rowAt . ':I' . $rowAt)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('f59a5d');
                 }
                 $rowAt++;
                 $previousSpec = $r->specs;
@@ -3050,6 +3059,8 @@ class WOController extends Controller
         $previousSide = '';
         $previousLine = '';
         foreach ($data as $r) {
+            $isReleased = $dataRelease->where('line_code', $r->line_code)
+                ->where('production_date', $r->production_date)->count();
             if ($this->isHWContext(['line' => $r->line_code]) || in_array($r->line_code, ['D3-1', 'OFFLINE 1', 'OFFLINE 2'])) {
                 $_label = '';
                 if (($r->output_hw_in2_m_qty > 0 || $r->output_hw_in2_n_qty > 0) && $r->line_code == $previousLine) {
@@ -3107,6 +3118,9 @@ class WOController extends Controller
                             }
                         }
                     }
+                }
+                if ($isReleased == 0) {
+                    $sheet->getStyle('A' . $rowAt . ':I' . $rowAt)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('f59a5d');
                 }
                 $rowAt++;
                 $previousSpec = $r->specs;
