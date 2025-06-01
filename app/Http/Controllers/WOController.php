@@ -1847,126 +1847,131 @@ class WOController extends Controller
 
         $woCompleted = [];
 
+        $woProcessed = [];
         foreach ($data as &$d) {
             $d->previousRun = 0;
 
-            $_data = DB::table('keikaku_data')->whereNull('deleted_at')
-                ->where('production_date', '<', $request->production_date)
-                ->whereIn('line_code', $relatedLines)
-                ->where('wo_full_code', $d->wo_full_code)
-                ->select('production_date', 'line_code', 'seq', 'wo_full_code');
+            if (!in_array($d->wo_full_code, $woProcessed)) {
+                $woProcessed[] = $d->wo_full_code;
+                $_data = DB::table('keikaku_data')->whereNull('deleted_at')
+                    ->where('production_date', '<', $request->production_date)
+                    ->whereIn('line_code', $relatedLines)
+                    ->where('wo_full_code', $d->wo_full_code)
+                    ->select('production_date', 'line_code', 'seq', 'wo_full_code');
 
-            $_procesMaster0 = DB::table('process_masters')
-                ->whereNull('deleted_at')
-                ->where('assy_code', $d->item_code)
-                ->whereIn('line_code', $relatedLines)
-                ->groupBy('assy_code', 'process_code', 'line_code')
-                ->select(
-                    'assy_code',
-                    DB::raw('MAX(process_seq) process_seq'),
-                    DB::raw("case 
+                $_procesMaster0 = DB::table('process_masters')
+                    ->whereNull('deleted_at')
+                    ->where('assy_code', $d->item_code)
+                    ->whereIn('line_code', $relatedLines)
+                    ->groupBy('assy_code', 'process_code', 'line_code')
+                    ->select(
+                        'assy_code',
+                        DB::raw('MAX(process_seq) process_seq'),
+                        DB::raw("case 
                     when process_code = 'SMT-A' THEN 'A'                    
                     when process_code = 'SMT-B' THEN 'B' 
                     ELSE 'A'
                     END process_code"),
-                    'line_code'
-                );
+                        'line_code'
+                    );
 
-            $_procesMaster = DB::query()->fromSub($_procesMaster0, 'vp1')
-                ->groupBy('assy_code', 'process_code', 'line_code')
-                ->select(
-                    'assy_code',
-                    DB::raw('MAX(process_seq) process_seq'),
-                    'process_code',
-                    'line_code'
-                );
-
-            if ($this->isHWContext(['line' => $request->line_code])) {
-                $_output = DB::table('keikaku_input3s')->whereNull('deleted_at')
-                    ->where('production_date', '<', $request->production_date)
-                    ->whereIn('line_code', $relatedLines)
-                    ->where('wo_code', $d->wo_full_code)
+                $_procesMaster = DB::query()->fromSub($_procesMaster0, 'vp1')
+                    ->groupBy('assy_code', 'process_code', 'line_code')
                     ->select(
-                        'production_date',
-                        'line_code',
-                        'seq_data',
-                        DB::raw("sum(case
+                        'assy_code',
+                        DB::raw('MAX(process_seq) process_seq'),
+                        'process_code',
+                        'line_code'
+                    );
+
+                if ($this->isHWContext(['line' => $request->line_code])) {
+                    $_output = DB::table('keikaku_input3s')->whereNull('deleted_at')
+                        ->where('production_date', '<', $request->production_date)
+                        ->whereIn('line_code', $relatedLines)
+                        ->where('wo_code', $d->wo_full_code)
+                        ->select(
+                            'production_date',
+                            'line_code',
+                            'seq_data',
+                            DB::raw("sum(case
                                     when production_date = convert(date, running_at) then ok_qty
                                     else case
                                     when convert(char(5), running_at, 108) < '07:00' then ok_qty
                                     end
                                 end) previous_ok_qty"),
-                        'wo_code',
-                        DB::raw("MAX(process_code) process_code")
-                    )
-                    ->groupBy('production_date', 'line_code', 'seq_data', 'wo_code');
-            } else {
-                $_output = DB::table('keikaku_outputs')->whereNull('deleted_at')
-                    ->where('production_date', '<', $request->production_date)
-                    ->whereIn('line_code', $relatedLines)
-                    ->where('wo_code', $d->wo_full_code)
-                    ->select(
-                        'production_date',
-                        'line_code',
-                        'seq_data',
-                        DB::raw("sum(case
-                                    when production_date = convert(date, running_at) then ok_qty
-                                    else case
-                                    when convert(char(5), running_at, 108) < '07:00' then ok_qty
-                                    end
-                                end) previous_ok_qty"),
-                        'wo_code',
-                        DB::raw("MAX(process_code) process_code")
-                    )
-                    ->groupBy('production_date', 'line_code', 'seq_data', 'wo_code');
-            }
-
-            $previousData = $request->line_code == '-' ? [] : DB::query()->fromSub($_data, 'V1')
-                ->leftJoinSub($_output, 'V2', function ($join) {
-                    $join->on('V1.production_date', '=', 'V2.production_date')
-                        ->on('V1.line_code', '=', 'V2.line_code')
-                        ->on('V1.wo_full_code', '=', 'V2.wo_code')
-                        ->on('V1.seq', '=', 'V2.seq_data')
-                    ;
-                })
-                ->leftJoinSub($_procesMaster, 'V3', function ($join) {
-                    $join->on('V2.line_code', '=', 'V3.line_code')
-                        ->on('V2.process_code', '=', 'V3.process_code')
-                    ;
-                })
-                ->groupBy('wo_code', 'V2.process_code', 'process_seq')
-                ->select(
-                    'wo_code',
-                    'V2.process_code',
-                    DB::raw("sum(previous_ok_qty) previous_ok_qty"),
-                    DB::raw('process_seq')
-                )->get();
-
-            foreach ($previousData as &$p) {
-                if (isset($p->process_seq)) {
-                    if (
-                        $d->wo_full_code == $p->wo_code && $d->specs_side == $p->process_code
-                        && $d->process_seq == $p->process_seq
-                        && $p->previous_ok_qty > 0
-                    ) {
-                        $woCompleted[] = $p->wo_code;
-                        $d->previousRun += $p->previous_ok_qty;
-                        $p->previous_ok_qty = 0;
-                        break;
-                    }
+                            'wo_code',
+                            DB::raw("MAX(process_code) process_code")
+                        )
+                        ->groupBy('production_date', 'line_code', 'seq_data', 'wo_code');
                 } else {
-                    if (
-                        $d->wo_full_code == $p->wo_code && $d->specs_side == $p->process_code
-                        && $p->previous_ok_qty > 0
-                    ) {
-                        $woCompleted[] = $p->wo_code;
-                        $d->previousRun += $p->previous_ok_qty;
-                        $p->previous_ok_qty = 0;
-                        break;
+                    $_output = DB::table('keikaku_outputs')->whereNull('deleted_at')
+                        ->where('production_date', '<', $request->production_date)
+                        ->whereIn('line_code', $relatedLines)
+                        ->where('wo_code', $d->wo_full_code)
+                        ->select(
+                            'production_date',
+                            'line_code',
+                            'seq_data',
+                            DB::raw("sum(case
+                                    when production_date = convert(date, running_at) then ok_qty
+                                    else case
+                                    when convert(char(5), running_at, 108) < '07:00' then ok_qty
+                                    end
+                                end) previous_ok_qty"),
+                            'wo_code',
+                            DB::raw("MAX(process_code) process_code")
+                        )
+                        ->groupBy('production_date', 'line_code', 'seq_data', 'wo_code');
+                }
+
+
+                $previousData = $request->line_code == '-' ? [] : DB::query()->fromSub($_data, 'V1')
+                    ->leftJoinSub($_output, 'V2', function ($join) {
+                        $join->on('V1.production_date', '=', 'V2.production_date')
+                            ->on('V1.line_code', '=', 'V2.line_code')
+                            ->on('V1.wo_full_code', '=', 'V2.wo_code')
+                            ->on('V1.seq', '=', 'V2.seq_data')
+                        ;
+                    })
+                    ->leftJoinSub($_procesMaster, 'V3', function ($join) {
+                        $join->on('V2.line_code', '=', 'V3.line_code')
+                            ->on('V2.process_code', '=', 'V3.process_code')
+                        ;
+                    })
+                    ->groupBy('wo_code', 'V2.process_code', 'process_seq')
+                    ->select(
+                        'wo_code',
+                        'V2.process_code',
+                        DB::raw("sum(previous_ok_qty) previous_ok_qty"),
+                        DB::raw('process_seq')
+                    )->get();
+
+                foreach ($previousData as &$p) {
+                    if (isset($p->process_seq)) {
+                        if (
+                            $d->wo_full_code == $p->wo_code && $d->specs_side == $p->process_code
+                            && $d->process_seq == $p->process_seq
+                            && $p->previous_ok_qty > 0
+                        ) {
+                            $woCompleted[] = $p->wo_code;
+                            $d->previousRun += $p->previous_ok_qty;
+                            $p->previous_ok_qty = 0;
+                            break;
+                        }
+                    } else {
+                        if (
+                            $d->wo_full_code == $p->wo_code && $d->specs_side == $p->process_code
+                            && $p->previous_ok_qty > 0
+                        ) {
+                            $woCompleted[] = $p->wo_code;
+                            $d->previousRun += $p->previous_ok_qty;
+                            $p->previous_ok_qty = 0;
+                            break;
+                        }
                     }
                 }
+                unset($p);
             }
-            unset($p);
         }
         unset($d);
 
