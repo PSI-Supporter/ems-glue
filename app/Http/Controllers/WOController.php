@@ -2936,10 +2936,11 @@ class WOController extends Controller
         $previousAssyCode = '';
         $previousSide = '';
         $previousLine = '';
+        $lineMaster = DB::table('wms_v_get_line_category')->get();
         foreach ($data as $r) {
             $isReleased = $dataRelease->where('line_code', $r->line_code)
                 ->where('production_date', $r->production_date)->count();
-            if (!$this->isHWContext(['line' => $r->line_code]) && !in_array($r->line_code, ['D3-1', 'OFFLINE 1', 'OFFLINE 2'])) {
+            if (!$this->isHWContext(['line' => $r->line_code]) && $lineMaster->where('line_code', $r->line_code)->whereIn('line_category', ['MC', 'RG', 'AX', 'TES', 'TS'])->count() > 0) {
                 $_label = '';
                 if (($r->morningOutput > 0 || $r->nightOutput > 0) && $r->line_code == $previousLine) {
                     if (substr($previousSpec, 0, 4) == substr($r->specs, 0, 4) && $previousSide == $r->specs_side) {
@@ -3067,7 +3068,7 @@ class WOController extends Controller
         foreach ($data as $r) {
             $isReleased = $dataRelease->where('line_code', $r->line_code)
                 ->where('production_date', $r->production_date)->count();
-            if ($this->isHWContext(['line' => $r->line_code]) || in_array($r->line_code, ['D3-1', 'OFFLINE 1', 'OFFLINE 2'])) {
+            if ($this->isHWContext(['line' => $r->line_code]) || $lineMaster->where('line_code', $r->line_code)->whereIn('line_category', ['MC', 'RG', 'AX', 'TES', 'TS'])->count() == 0) {
                 $_label = '';
                 if (($r->output_hw_in2_m_qty > 0 || $r->output_hw_in2_n_qty > 0) && $r->line_code == $previousLine) {
                     if (substr($previousSpec, 0, 4) == substr($r->specs, 0, 4) && $previousSide == $r->specs_side) {
@@ -3095,7 +3096,7 @@ class WOController extends Controller
                 $sheet->setCellValue([16, $rowAt], $r->output_hw_in2_m_qty + $r->output_hw_in2_n_qty);
                 $sheet->setCellValue([17, $rowAt], $r->output_hw_in2_m_qty);
                 $sheet->setCellValue([18, $rowAt], $r->output_hw_in2_n_qty);
-                if (in_array($r->line_code, ['D3-1', 'OFFLINE 1', 'OFFLINE 2'])) {
+                if (!$this->isHWContext(['line' => $r->line_code])) {
                     $sheet->setCellValue([19, $rowAt], $r->morningOutput + $r->nightOutput);
                     $sheet->setCellValue([20, $rowAt], $r->morningOutput);
                     $sheet->setCellValue([21, $rowAt], $r->nightOutput);
