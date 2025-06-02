@@ -2269,7 +2269,6 @@ class SupplyController extends Controller
         $PSNs = [];
         $Parts = [];
         $CustomsParts = [];
-        $CustomsPartsDFiltered = [];
 
         foreach ($DLVDocs as $r) {
             $suspectedMCZ = $r->SERD2_MCZ;
