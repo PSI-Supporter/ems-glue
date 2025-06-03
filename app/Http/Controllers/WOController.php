@@ -3512,62 +3512,142 @@ class WOController extends Controller
 
     function getWOHistoryData($params): Builder
     {
-        $dataOutput = DB::table('keikaku_outputs')
-            ->where('wo_code', 'like', '%' . $params['doc'] . '%')
-            ->whereNull('deleted_at')
-            ->where('created_by', '!=', 'sensor')
-            ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'seq_data')
-            ->select('wo_code', 'process_code', 'production_date', 'line_code', DB::raw("sum(case
-                    when production_date = convert(date, running_at) then ok_qty
-                    else case
-                    when convert(char(5), running_at, 108) < '07:00' then ok_qty
-                    end
-                end) ok_qty"), 'seq_data'); // TO output
+        if (isset($params['multiple'])) {
+            $dataOutput = DB::table('keikaku_outputs')
+                ->whereIn('wo_code', $params['doc'])
+                ->whereNull('deleted_at')
+                ->where('created_by', '!=', 'sensor')
+                ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'seq_data')
+                ->select('wo_code', 'process_code', 'production_date', 'line_code', DB::raw("sum(case
+                        when production_date = convert(date, running_at) then ok_qty
+                        else case
+                        when convert(char(5), running_at, 108) < '07:00' then ok_qty
+                        end
+                    end) ok_qty"), 'seq_data'); // TO output
 
-        $dataInput2HW = DB::table('keikaku_input3s')
-            ->where('wo_code', 'like', '%' . $params['doc'] . '%')
-            ->whereNull('deleted_at')
-            ->where('created_by', '!=', 'sensor')
-            ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'seq_data')
-            ->select('wo_code', 'process_code', 'production_date', 'line_code', DB::raw("sum(case
-                    when production_date = convert(date, running_at) then ok_qty
-                    else case
-                    when convert(char(5), running_at, 108) < '07:00' then ok_qty
-                    end
-                end) ok_qty_hw"), 'seq_data');
+            $dataInput2HW = DB::table('keikaku_input3s')
+                ->whereIn('wo_code', $params['doc'])
+                ->whereNull('deleted_at')
+                ->where('created_by', '!=', 'sensor')
+                ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'seq_data')
+                ->select('wo_code', 'process_code', 'production_date', 'line_code', DB::raw("sum(case
+                        when production_date = convert(date, running_at) then ok_qty
+                        else case
+                        when convert(char(5), running_at, 108) < '07:00' then ok_qty
+                        end
+                    end) ok_qty_hw"), 'seq_data');
 
-        $dataOutputHW = DB::table('keikaku_output2s')
-            ->where('wo_code', 'like', '%' . $params['doc'] . '%')
-            ->whereNull('deleted_at')
-            ->where('created_by', '!=', 'sensor')
-            ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'seq_data')
-            ->select('wo_code', 'process_code', 'production_date', 'line_code', DB::raw("sum(case
-                    when production_date = convert(date, running_at) then ok_qty
-                    else case
-                    when convert(char(5), running_at, 108) < '07:00' then ok_qty
-                    end
-                end) ok_output_qty_hw"), 'seq_data');
+            $dataOutputHW = DB::table('keikaku_output2s')
+                ->whereIn('wo_code', $params['doc'])
+                ->whereNull('deleted_at')
+                ->where('created_by', '!=', 'sensor')
+                ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'seq_data')
+                ->select('wo_code', 'process_code', 'production_date', 'line_code', DB::raw("sum(case
+                        when production_date = convert(date, running_at) then ok_qty
+                        else case
+                        when convert(char(5), running_at, 108) < '07:00' then ok_qty
+                        end
+                    end) ok_output_qty_hw"), 'seq_data');
 
-        $WIPoutput = DB::table('w_i_p_outputs')
-            ->whereNull('deleted_at')
-            ->where('wo_full_code', 'like', '%' . $params['doc'] . '%')
-            ->groupBy('wo_full_code', 'production_date', 'line_code')
-            ->select([
-                'production_date',
-                'line_code',
-                'wo_full_code',
-                DB::raw("0 plan_qty"),
-                DB::raw("SUM(ok_qty) as ok_qty"),
-                DB::raw("SUM(ok_qty) as ok_qty_hw"),
-                DB::raw("'' specs_side"),
-                DB::raw("'' lot_size"),
-            ]);
+            $WIPoutput = DB::table('w_i_p_outputs')
+                ->whereNull('deleted_at')
+                ->whereIn('wo_full_code', $params['doc'])
+                ->groupBy('wo_full_code', 'production_date', 'line_code', 'item_code')
+                ->select([
+                    'production_date',
+                    'line_code',
+                    'wo_full_code',
+                    DB::raw("0 plan_qty"),
+                    DB::raw("SUM(ok_qty) as ok_qty"),
+                    DB::raw("SUM(ok_qty) as ok_qty_hw"),
+                    DB::raw("'A' specs_side"),
+                    DB::raw("'' lot_size"),
+                    'item_code'
+                ]);
 
-        $dataBasic = DB::table('keikaku_data')
-            ->whereNull('deleted_at')
-            ->where('wo_full_code', 'like', '%' . $params['doc'] . '%')
-            ->groupBy('production_date', 'line_code', 'wo_full_code', 'plan_qty', 'specs_side', 'seq')
-            ->select('production_date', 'line_code', 'wo_full_code', 'plan_qty', 'specs_side', 'seq', DB::raw("MAX(lot_size) lot_size"));
+            $dataBasic = DB::table('keikaku_data')
+                ->whereNull('deleted_at')
+                ->whereIn('wo_full_code', $params['doc'])
+                ->where('production_date', '<=', $params['cutoff_date'])
+                ->groupBy('production_date', 'line_code', 'wo_full_code', 'plan_qty', 'specs_side', 'seq')
+                ->select(
+                    'production_date',
+                    'line_code',
+                    'wo_full_code',
+                    'plan_qty',
+                    'specs_side',
+                    'seq',
+                    DB::raw("MAX(lot_size) lot_size"),
+                    DB::raw("MAX(item_code) item_code"),
+                );
+        } else {
+            $dataOutput = DB::table('keikaku_outputs')
+                ->where('wo_code', 'like', '%' . $params['doc'] . '%')
+                ->whereNull('deleted_at')
+                ->where('created_by', '!=', 'sensor')
+                ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'seq_data')
+                ->select('wo_code', 'process_code', 'production_date', 'line_code', DB::raw("sum(case
+                        when production_date = convert(date, running_at) then ok_qty
+                        else case
+                        when convert(char(5), running_at, 108) < '07:00' then ok_qty
+                        end
+                    end) ok_qty"), 'seq_data'); // TO output
+
+            $dataInput2HW = DB::table('keikaku_input3s')
+                ->where('wo_code', 'like', '%' . $params['doc'] . '%')
+                ->whereNull('deleted_at')
+                ->where('created_by', '!=', 'sensor')
+                ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'seq_data')
+                ->select('wo_code', 'process_code', 'production_date', 'line_code', DB::raw("sum(case
+                        when production_date = convert(date, running_at) then ok_qty
+                        else case
+                        when convert(char(5), running_at, 108) < '07:00' then ok_qty
+                        end
+                    end) ok_qty_hw"), 'seq_data');
+
+            $dataOutputHW = DB::table('keikaku_output2s')
+                ->where('wo_code', 'like', '%' . $params['doc'] . '%')
+                ->whereNull('deleted_at')
+                ->where('created_by', '!=', 'sensor')
+                ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'seq_data')
+                ->select('wo_code', 'process_code', 'production_date', 'line_code', DB::raw("sum(case
+                        when production_date = convert(date, running_at) then ok_qty
+                        else case
+                        when convert(char(5), running_at, 108) < '07:00' then ok_qty
+                        end
+                    end) ok_output_qty_hw"), 'seq_data');
+
+            $WIPoutput = DB::table('w_i_p_outputs')
+                ->whereNull('deleted_at')
+                ->where('wo_full_code', 'like', '%' . $params['doc'] . '%')
+                ->groupBy('wo_full_code', 'production_date', 'line_code', 'item_code')
+                ->select([
+                    'production_date',
+                    'line_code',
+                    'wo_full_code',
+                    DB::raw("0 plan_qty"),
+                    DB::raw("SUM(ok_qty) as ok_qty"),
+                    DB::raw("SUM(ok_qty) as ok_qty_hw"),
+                    DB::raw("'A' specs_side"),
+                    DB::raw("'' lot_size"),
+                    'item_code'
+                ]);
+
+            $dataBasic = DB::table('keikaku_data')
+                ->whereNull('deleted_at')
+                ->where('wo_full_code', 'like', '%' . $params['doc'] . '%')
+                ->groupBy('production_date', 'line_code', 'wo_full_code', 'plan_qty', 'specs_side', 'seq')
+                ->select(
+                    'production_date',
+                    'line_code',
+                    'wo_full_code',
+                    'plan_qty',
+                    'specs_side',
+                    'seq',
+                    DB::raw("MAX(lot_size) lot_size"),
+                    DB::raw("MAX(item_code) item_code"),
+                );
+        }
 
         $data = DB::query()->fromSub($dataBasic, 'V1')
             ->leftJoinSub($dataOutput, 'V2', function ($join) {
@@ -3594,7 +3674,7 @@ class WOController extends Controller
                     ->on('V1.seq', '=', 'V4.seq_data')
                 ;
             })
-            ->groupBy('V1.production_date', 'V1.line_code', 'wo_full_code', 'plan_qty', 'specs_side', 'lot_size')
+            ->groupBy('V1.production_date', 'V1.line_code', 'wo_full_code', 'plan_qty', 'specs_side', 'lot_size', 'item_code')
             ->select([
                 'V1.production_date',
                 'V1.line_code',
@@ -3604,6 +3684,7 @@ class WOController extends Controller
                 DB::raw("ISNULL(SUM(ok_qty_hw),0) ok_qty_hw"),
                 'specs_side',
                 'lot_size',
+                'item_code',
             ]);
 
         $dataFinal = DB::query()->fromSub($data, 'vy')->union($WIPoutput);
@@ -4260,70 +4341,95 @@ class WOController extends Controller
     {
         $data = $request->json()->all();
 
-        $woUnique = [];
+        $woUnique = $itemUnique = [];
 
         foreach ($data['detail'] as &$r) {
             $r['ost_qty'] = 0;
             $r['wo_full_code'] = date('y') . '-' . $r['wo_code'] . '-' . $r['item_code'];
-            if (!in_array($r['item_code'], $woUnique)) {
-                $woUnique[] = date('y') . '-' . $r['wo_code'] . '-' . $r['item_code'];
+            $_inputUnique = date('y') . '-' . $r['wo_code'] . '-' . $r['item_code'];
+
+            if (!in_array($_inputUnique, $woUnique)) {
+                $woUnique[] = $_inputUnique;
+            }
+
+            if (!in_array($r['item_code'], $itemUnique)) {
+                $itemUnique[] = $r['item_code'];
             }
         }
         unset($r);
 
-        $input1 = DB::table('keikaku_input2s')->whereIn('wo_code', $woUnique)
-            ->where('production_date', '<=', $data['production_date'])
+        $procesMaster = DB::table('process_masters')
             ->whereNull('deleted_at')
-            ->groupBy('wo_code')
-            ->get(['wo_code', DB::raw("SUM(ok_qty) as ok_qty")]);
+            ->whereIn('assy_code', $itemUnique)
+            ->groupBy('assy_code', 'process_code', 'line_code')
+            ->select(
+                'assy_code',
+                DB::raw('MAX(process_seq) process_seq'),
+                DB::raw("case 
+                    when process_code = 'SMT-A' THEN 'A'                    
+                    when process_code = 'SMT-B' THEN 'B' 
+                    ELSE 'A'
+                    END process_code"),
+                'line_code'
+            );
 
+        $historyData = $this->getWOHistoryData([
+            'multiple' => true,
+            'doc' => $woUnique,
+            'cutoff_date' => $data['production_date']
+        ])
+            ->where('ok_qty', '>', 0)->orWhere('ok_qty_hw', '>', 0);
 
-        $output = DB::table('keikaku_output2s')->whereIn('wo_code', $woUnique)
-            ->where('production_date', '<=', $data['production_date'])
-            ->whereNull('deleted_at')
-            ->groupBy('wo_code')
-            ->get(['wo_code', DB::raw("sum(case
-                    when production_date = convert(date, running_at) then ok_qty
-                    else case
-                    when convert(char(5), running_at, 108) < '07:00' then ok_qty
-                    end
-                end) as ok_qty")]);
-
-        $previousWIPoutput = DB::table('w_i_p_outputs')
-            ->whereNull('deleted_at')
-            ->where('production_date', '<', $data['production_date'])
-            ->whereIn('wo_full_code', $woUnique)
-            ->groupBy('wo_full_code')
-            ->get(['wo_full_code', DB::raw("SUM(ok_qty) as ok_qty")]);
+        $historyDataJoin = DB::query()->fromSub($historyData, 'V2')
+            ->leftJoinSub($procesMaster, 'V3', function ($join) {
+                $join->on('V2.line_code', '=', 'V3.line_code')
+                    ->on('V2.specs_side', '=', 'V3.process_code')
+                    ->on('V2.item_code', '=', 'V3.assy_code')
+                ;
+            })
+            ->get([
+                'V2.*',
+                'process_seq'
+            ]);
 
         foreach ($data['detail'] as &$r) {
             $_input1v = 0;
             $_outputv = 0;
             $_outputWIP = 0;
-            foreach ($input1 as $i) {
-                if ($r['wo_full_code'] == $i->wo_code) {
-                    $_input1v = $i->ok_qty;
+            $_processSeq = NULL;
+
+            // determine current process seq per job
+            foreach ($historyDataJoin as $h) {
+                if ($r['wo_full_code'] == $h->wo_full_code && $data['line_code'] == $h->line_code) {
+                    $_processSeq = $h->process_seq;
                     break;
                 }
             }
 
-            foreach ($output as $i) {
-                if ($r['wo_full_code'] == $i->wo_code) {
-                    $_outputv = $i->ok_qty;
-                    break;
+            // get total current output
+            foreach ($historyDataJoin as $h) {
+                if ($r['wo_full_code'] == $h->wo_full_code && $h->process_seq == $_processSeq) {
+                    if ($data['production_date'] == $h->production_date) {
+                    } else {
+                        $_outputv += $h->ok_qty;
+                    }
                 }
             }
 
-            foreach ($previousWIPoutput as $i) {
-                if ($r['wo_full_code'] == $i->wo_full_code) {
-                    $_outputWIP = $i->ok_qty;
-                    break;
+            // get total input on previous seq
+            foreach ($historyDataJoin as $h) {
+                if ($r['wo_full_code'] == $h->wo_full_code && $h->process_seq == ($_processSeq - 1)) {
+                    $_input1v += $h->ok_qty;
                 }
             }
 
             $r['ost_qty'] = ($_outputv + $_outputWIP) - $_input1v;
+            $r['ost_qty_raw'] = "raw_" . $_outputv . '-' . $_input1v;
         }
 
-        return ['data' => $data['detail'], 'tInput' => $input1, 'tOutput' => $output, 'tPreviousOutput' => $previousWIPoutput];
+        return [
+            'data' => $data['detail'],
+            'tHistory' => $historyDataJoin
+        ];
     }
 }
