@@ -705,43 +705,11 @@ class ReturnController extends Controller
                 ->where("SPL_DOC", $request->doc)->groupBy("SPL_BG")->get()
                 : DB::table("XPPSN1")->select(DB::raw("RTRIM(PPSN1_BSGRP) PPSN1_BSGRP"))
                 ->where("PPSN1_PSNNO", $request->doc)->groupBy("PPSN1_BSGRP")->get();
-            $rsbg = json_decode(json_encode($rsbg), true);
-            foreach ($rsbg as $r) {
-                switch ($r['PPSN1_BSGRP']) {
-                    case 'PSI1PPZIEP':
-                        $cwh_inc = 'ARWH1';
-                        $cwh_out = 'PLANT1';
-                        break;
-                    case 'PSI2PPZADI':
-                        $cwh_inc = 'ARWH2';
-                        $cwh_out = 'PLANT2';
-                        break;
-                    case 'PSI2PPZINS':
-                        $cwh_inc = 'NRWH2';
-                        $cwh_out = 'PLANT_NA';
-                        break;
-                    case 'PSI2PPZOMC':
-                        $cwh_inc = 'NRWH2';
-                        $cwh_out = 'PLANT_NA';
-                        break;
-                    case 'PSI2PPZOMI':
-                        $cwh_inc = 'ARWH2';
-                        $cwh_out = 'PLANT2';
-                        break;
-                    case 'PSI2PPZSSI':
-                        $cwh_inc = 'NRWH2';
-                        $cwh_out = 'PLANT_NA';
-                        break;
-                    case 'PSI2PPZSTY':
-                        $cwh_inc = 'ARWH2';
-                        $cwh_out = 'PLANT2';
-                        break;
-                    case 'PSI2PPZTDI':
-                        $cwh_inc = 'ARWH2';
-                        $cwh_out = 'PLANT2';
-                        break;
-                }
-            }
+
+            $WHRoute = $this->decideLocationRoute(['BG' => $rsbg->first()->PPSN1_BSGRP]);
+            $cwh_inc = $WHRoute['TO'];
+            $cwh_out = $WHRoute['FROM'];
+
             $thelupdt = $request->dateConfirm . " " . $thetime;
             $_affectedRowTemp = 0;
             $_affectedRowITH = 0;
@@ -750,6 +718,7 @@ class ReturnController extends Controller
                     ->select("SPL_DOC", "SPL_ITMCD", DB::raw("MAX(SPL_RACKNO) SPL_RACKNO"))
                     ->where("SPL_DOC", $request->doc)
                     ->groupBy(["SPL_DOC", "SPL_ITMCD"]);
+
                 $RSCountedPart = DB::table("RETSCN_TBL AS a")
                     ->select(DB::raw("a.*,b.*, RTRIM(MITM_SPTNO) MITM_SPTNO, RTRIM(ISNULL(RETSCN_HOLD,'0'))  FLG_HOLD,ISNULL(SPL_RACKNO,'') SPL_RACKNO"))
                     ->join("MMADE_TBL AS b", "a.RETSCN_CNTRYID", "=", "MMADE_CD")
@@ -762,6 +731,7 @@ class ReturnController extends Controller
                     ->where("RETSCN_ITMCD", $request->item[$b])
                     ->where(DB::raw("ISNULL(RETSCN_HOLD,'0')"), '0')
                     ->get();
+
                 $RSCountedPart = json_decode(json_encode($RSCountedPart), true);
                 $datas = [];
                 foreach ($RSCountedPart as $r) {
@@ -810,7 +780,19 @@ class ReturnController extends Controller
                     $_affectedRowITH += DB::table('ITH_TBL')->insert($chunk);
                 }
             }
-            return ['message' => $_affectedRowTemp > 0 ||  $_affectedRowITH > 0  ? 'confirmed' : 'already confirmed', '_affectedRowTemp' => $_affectedRowTemp, '_affectedRowITH' => $_affectedRowITH];
+
+            $dataSubPSN = $this->conformBasedParent([
+                'doc' => $request->doc,
+                'dateConfirm' => $request->dateConfirm,
+                'userId' => $request->userId
+            ]);
+
+            return [
+                'message' => $_affectedRowTemp > 0 ||  $_affectedRowITH > 0  ? 'confirmed' : 'already confirmed',
+                '_affectedRowTemp' => $_affectedRowTemp,
+                '_affectedRowITH' => $_affectedRowITH,
+                '_dataSubPSN' => $dataSubPSN
+            ];
         } else {
             return ['message' => 'no data'];
         }
@@ -1072,5 +1054,124 @@ class ReturnController extends Controller
             $myar[] = ['cd' => '0', 'msg' => 'not ok'];
         }
         return ['status' => $myar, 'data' => $rs];
+    }
+
+    function decideLocationRoute($param)
+    {
+        $cwh_inc = $cwh_out = NULL;
+        switch ($param['BG']) {
+            case 'PSI1PPZIEP':
+                $cwh_inc = 'ARWH1';
+                $cwh_out = 'PLANT1';
+                break;
+            case 'PSI2PPZADI':
+                $cwh_inc = 'ARWH2';
+                $cwh_out = 'PLANT2';
+                break;
+            case 'PSI2PPZINS':
+                $cwh_inc = 'NRWH2';
+                $cwh_out = 'PLANT_NA';
+                break;
+            case 'PSI2PPZOMC':
+                $cwh_inc = 'NRWH2';
+                $cwh_out = 'PLANT_NA';
+                break;
+            case 'PSI2PPZOMI':
+                $cwh_inc = 'ARWH2';
+                $cwh_out = 'PLANT2';
+                break;
+            case 'PSI2PPZSSI':
+                $cwh_inc = 'NRWH2';
+                $cwh_out = 'PLANT_NA';
+                break;
+            case 'PSI2PPZSTY':
+                $cwh_inc = 'ARWH2';
+                $cwh_out = 'PLANT2';
+                break;
+            case 'PSI2PPZTDI':
+                $cwh_inc = 'ARWH2';
+                $cwh_out = 'PLANT2';
+                break;
+        }
+        return ['TO' => $cwh_inc, 'FROM' => $cwh_out];
+    }
+
+    function conformBasedParent($param)
+    {
+        $dataSPL = DB::table("SPL_TBL")->select(DB::raw("SPL_DOC"))
+            ->where("SPL_REFDOCNO", $param['doc'])
+            ->groupBy("SPL_DOC", "SPL_BG")
+            ->select('SPL_DOC', DB::raw('RTRIM(SPL_BG) SPL_BG'))
+            ->get();
+
+        $dataRTN = DB::table('RETSCN_TBL')
+            ->whereIn('RETSCN_SPLDOC', $dataSPL->unique('SPL_DOC')->pluck('SPL_DOC')->toArray())
+            ->whereNull('RETSCN_SAVED')
+            ->where(DB::raw("ISNULL(RETSCN_HOLD,'0')"), "!=", '1')
+            ->get([
+                'RETSCN_ID',
+                'RETSCN_ITMCD',
+                'RETSCN_SPLDOC',
+                'RETSCN_QTYAFT',
+                'RETSCN_UNIQUEKEY',
+                DB::raw("RTRIM(RETSCN_LINE) RETSCN_LINE"),
+                DB::raw("RTRIM(RETSCN_FEDR) RETSCN_FEDR"),
+                DB::raw("RTRIM(RETSCN_CAT) RETSCN_CAT"),
+            ]);
+
+        $dataTobeSaved = [];
+
+        $WHRoute = $this->decideLocationRoute(['BG' => $dataSPL->first()->SPL_BG]);
+        $thelupdt = $param['dateConfirm'] . " 07:01:00";
+        foreach ($dataRTN as $r) {
+            $_fieldsToBeUpdated = [
+                'RETSCN_SAVED' => '1',
+                'RETSCN_CNFRMDT' => $param['dateConfirm'],
+                'RETSCN_LUPDT' => date('Y-m-d H:i:s')
+            ];
+
+            $_affectedRows = PartReturned::where("RETSCN_ID", $r->RETSCN_ID)
+                ->whereNull("RETSCN_SAVED")
+                ->where(DB::raw("ISNULL(RETSCN_HOLD,'0')"), "!=", '1')
+                ->update($_fieldsToBeUpdated, ['timestamps' => false]);
+
+            if ($_affectedRows) {
+                $ithdoc = $r->RETSCN_SPLDOC . '|' . $r->RETSCN_CAT . '|' . $r->RETSCN_LINE . '|' . $r->RETSCN_FEDR;
+
+                $dataTobeSaved[] = [
+                    'ITH_ITMCD' => $r->RETSCN_ITMCD,
+                    'ITH_DATE' => $param['dateConfirm'],
+                    'ITH_FORM' => 'INC-RET',
+                    'ITH_DOC' => $ithdoc,
+                    'ITH_QTY' => $r->RETSCN_QTYAFT,
+                    'ITH_WH' => $WHRoute['TO'],
+                    'ITH_REMARK' => $r->RETSCN_ID,
+                    'ITH_SER' => $r->RETSCN_UNIQUEKEY,
+                    'ITH_LUPDT' => $thelupdt,
+                    'ITH_USRID' => $param['userId']
+                ];
+
+                $dataTobeSaved[] = [
+                    'ITH_ITMCD' => $r->RETSCN_ITMCD,
+                    'ITH_DATE' => $param['dateConfirm'],
+                    'ITH_FORM' => 'OUT-RET',
+                    'ITH_DOC' => $ithdoc,
+                    'ITH_QTY' => -$r->RETSCN_QTYAFT,
+                    'ITH_WH' => $WHRoute['FROM'],
+                    'ITH_REMARK' => $r->RETSCN_ID,
+                    'ITH_SER' => NULL,
+                    'ITH_LUPDT' => $thelupdt,
+                    'ITH_USRID' => $param['userId']
+                ];
+            }
+        }
+
+        if ($dataTobeSaved) {
+            foreach (array_chunk($dataTobeSaved, (2100 / 3) - 2) as $chunk) {
+                DB::table('ITH_TBL')->insert($chunk);
+            }
+        }
+
+        return ['data' => $dataSPL, 'route' => $WHRoute, 'dataTobeSaved' => $dataTobeSaved];
     }
 }
