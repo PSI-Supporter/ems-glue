@@ -4284,39 +4284,79 @@ class WOController extends Controller
             ->get();
 
         $woUnique = $data->unique('wo_full_code')->pluck('wo_full_code')->toArray();
+        $itemUnique = $data->unique('item_code')->pluck('item_code')->toArray();
 
-        $input1 = DB::table('keikaku_input2s')->whereIn('wo_code', $woUnique)
-            ->where('production_date', '<=', $request->production_date)
+        $historyData = $this->getWOHistoryData([
+            'multiple' => true,
+            'doc' => $woUnique,
+            'cutoff_date' => $request->production_date
+        ])->where('ok_qty', '>', 0)->orWhere('ok_qty_hw', '>', 0);
+
+        $procesMaster = DB::table('process_masters')
             ->whereNull('deleted_at')
-            ->groupBy('wo_code')
-            ->get(['wo_code', DB::raw("SUM(ok_qty) as ok_qty")]);
+            ->whereIn('assy_code', $itemUnique)
+            ->groupBy('assy_code', 'process_code', 'line_code')
+            ->select(
+                'assy_code',
+                DB::raw('MAX(process_seq) process_seq'),
+                DB::raw("case 
+                    when process_code = 'SMT-A' THEN 'A'                    
+                    when process_code = 'SMT-B' THEN 'B' 
+                    ELSE 'A'
+                    END process_code"),
+                'line_code'
+            );
 
-
-        $output = DB::table('keikaku_output2s')->whereIn('wo_code', $woUnique)
-            ->where('production_date', '<=', $request->production_date)
-            ->whereNull('deleted_at')
-            ->groupBy('wo_code')
-            ->get(['wo_code', DB::raw("SUM(ok_qty) as ok_qty")]);
+        $historyDataJoin = DB::query()->fromSub($historyData, 'V2')
+            ->leftJoinSub($procesMaster, 'V3', function ($join) {
+                $join->on('V2.line_code', '=', 'V3.line_code')
+                    ->on('V2.specs_side', '=', 'V3.process_code')
+                    ->on('V2.item_code', '=', 'V3.assy_code')
+                ;
+            })
+            ->get([
+                'V2.*',
+                'process_seq'
+            ]);
 
         foreach ($data as &$r) {
             $_input1v = 0;
             $_outputv = 0;
-            foreach ($input1 as $i) {
-                if ($r->wo_full_code == $i->wo_code) {
-                    $_input1v = $i->ok_qty;
+            $_outputWIP = 0;
+            $_processSeq = NULL;
+
+            // determine current process seq per job
+            foreach ($historyDataJoin as $h) {
+                if ($r->wo_full_code == $h->wo_full_code && $r->line_code == $h->line_code) {
+                    $_processSeq = $h->process_seq;
                     break;
                 }
             }
-            foreach ($output as $i) {
-                if ($r->wo_full_code == $i->wo_code) {
-                    $_outputv = $i->ok_qty;
-                    break;
+
+            // get total current output
+            foreach ($historyDataJoin as $h) {
+                if ($r->wo_full_code == $h->wo_full_code && $h->process_seq == $_processSeq) {
+                    if ($r->production_date == $h->production_date) {
+                    } else {
+                        $_outputv += $h->ok_qty;
+                    }
                 }
             }
-            $r->ostLotSize = $_outputv - $_input1v;
+
+            // get total input on previous seq
+            foreach ($historyDataJoin as $h) {
+                if ($r->wo_full_code == $h->wo_full_code && $h->process_seq == ($_processSeq - 1)) {
+                    $_input1v += $h->ok_qty;
+                }
+            }
+
+
+            $r->ostLotSize = ($_outputv + $_outputWIP) - $_input1v;
+            $r->ost_qty_raw = "raw_" . $_outputv . '-' . $_input1v;
         }
         unset($r);
-        return ['data' => $data, '$input1' => $input1, '$output' => $output];
+        
+        return ['data' => $data];
     }
 
     function getItemDescription(Request $request)
