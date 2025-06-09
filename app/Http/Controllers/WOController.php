@@ -3070,7 +3070,8 @@ class WOController extends Controller
                 ->where('production_date', $r->production_date)->count();
             if ($this->isHWContext(['line' => $r->line_code]) || $lineMaster->where('line_code', $r->line_code)->whereIn('line_category', ['MC', 'RG', 'AX', 'TES', 'TS'])->count() == 0) {
                 $_label = '';
-                if (($r->output_hw_in2_m_qty > 0 || $r->output_hw_in2_n_qty > 0) && $r->line_code == $previousLine) {
+                if (($r->output_hw_in2_m_qty > 0 || $r->output_hw_in2_n_qty > 0
+                    || $r->morningOutput > 0 || $r->nightOutput > 0) && $r->line_code == $previousLine) {
                     if (substr($previousSpec, 0, 4) == substr($r->specs, 0, 4) && $previousSide == $r->specs_side) {
                         $_label = $r->item_code == $previousAssyCode ? '' : 'CHANGE TYPE';
                     } else {
