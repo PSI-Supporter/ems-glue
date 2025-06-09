@@ -4020,10 +4020,12 @@ class WOController extends Controller
     function getWO(Request $request)
     {
 
-        $data = DB::table('XPPSN1')->where('PPSN1_PSNNO', $request->doc)->groupBy('PPSN1_WONO', 'PPSN1_SIMQT', 'PPSN1_PROCD')
+        $data = DB::table('XPPSN1')->where('PPSN1_PSNNO', $request->doc)
+            ->leftJoin('XWO', 'PPSN1_WONO', '=', 'PDPP_WONO')
+            ->groupBy('PPSN1_WONO', 'PDPP_WORQT', 'PPSN1_PROCD')
             ->get([
                 DB::raw("RTRIM(UPPER(PPSN1_WONO)) WONO"),
-                'PPSN1_SIMQT',
+                DB::raw("PDPP_WORQT"),
                 DB::raw("0 CLS_QTY"),
                 DB::raw("RTRIM(UPPER(PPSN1_PROCD)) PROCD"),
             ]);
@@ -4032,12 +4034,12 @@ class WOController extends Controller
         $ProcdUnique = $data->pluck('PROCD')->toArray();
         $dataCLS = DB::table('WMS_CLS_JOB')->whereIn('CLS_JOBNO', $WOUnique)
             ->whereIn('CLS_PROCD', $ProcdUnique)
-            ->groupBy('CLS_JOBNO')
-            ->get([DB::raw('UPPER(RTRIM(CLS_JOBNO)) CLS_JOBNO'), DB::raw("SUM(CLS_QTY) CLS_QTY")]);
+            ->groupBy('CLS_JOBNO', 'CLS_PROCD')
+            ->get([DB::raw('UPPER(RTRIM(CLS_JOBNO)) CLS_JOBNO'), DB::raw("SUM(CLS_QTY) CLS_QTY"), 'CLS_PROCD']);
 
         foreach ($data as $d) {
             foreach ($dataCLS as $n) {
-                if ($d->WONO == $n->CLS_JOBNO) {
+                if ($d->WONO == $n->CLS_JOBNO && $d->PROCD == $n->CLS_PROCD) {
                     $d->CLS_QTY = $n->CLS_QTY;
                     break;
                 }
@@ -4355,7 +4357,7 @@ class WOController extends Controller
             $r->ost_qty_raw = "raw_" . $_outputv . '-' . $_input1v;
         }
         unset($r);
-        
+
         return ['data' => $data];
     }
 
