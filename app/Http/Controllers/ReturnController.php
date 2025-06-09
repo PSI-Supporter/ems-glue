@@ -1119,6 +1119,10 @@ class ReturnController extends Controller
                 DB::raw("RTRIM(RETSCN_CAT) RETSCN_CAT"),
             ]);
 
+        if ($dataRTN->count() == 0) {
+            return ['data' => []];
+        }
+
         $dataTobeSaved = [];
 
         $WHRoute = $this->decideLocationRoute(['BG' => $dataSPL->first()->SPL_BG]);
