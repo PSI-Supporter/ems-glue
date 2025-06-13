@@ -1552,6 +1552,7 @@ class WOController extends Controller
             ) {
                 DB::table('keikaku_data')
                     ->where('line_code', $data['line_code'])
+                    ->whereNull('deleted_at')
                     ->where('production_date', $data['production_date'])->update(
                         ['deleted_at' => date('Y-m-d H:i:s'), 'deleted_by' => $data['user_id']]
                     );
