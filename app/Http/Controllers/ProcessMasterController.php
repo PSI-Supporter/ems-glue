@@ -58,17 +58,20 @@ class ProcessMasterController extends Controller
         if ($request->show_deleted) {
             if ($request->show_deleted == 'Y') {
                 $data = DB::table('process_masters')->where($request->searchBy, $request->searchValue)
+                    ->orderBy('process_seq', 'asc')
                     ->orderBy('created_at', 'asc')
                     ->get();
             } else {
                 $data = ProcessMaster::select('*')
                     ->where($request->searchBy, $request->searchValue)
+                    ->orderBy('process_seq', 'asc')
                     ->orderBy('created_at', 'asc')
                     ->get();
             }
         } else {
             $data = ProcessMaster::select('*')
                 ->where($request->searchBy, $request->searchValue)
+                ->orderBy('process_seq', 'asc')
                 ->orderBy('created_at', 'asc')
                 ->get();
         }
