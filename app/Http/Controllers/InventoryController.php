@@ -584,4 +584,10 @@ class InventoryController extends Controller
         ob_end_clean();
         $Excel_writer->save('php://output');
     }
+
+    function getWarehouse()
+    {
+        $data = DB::table('WMS_Inv')->groupBy('mstloc_grp')->get(['mstloc_grp']);
+        return ['data' => $data];
+    }
 }

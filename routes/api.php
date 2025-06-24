@@ -100,6 +100,7 @@ Route::get('/form-inv', [InventoryController::class, 'formInventory']);
 Route::get('/export/inventory-fg', [InventoryController::class, 'exportInv']);
 Route::prefix('inventory')->group(function () {
     Route::delete("keys/{id}", [InventoryController::class, 'removeLine']);
+    Route::get  ("warehouse", [InventoryController::class, 'getWarehouse']);
 });
 
 
@@ -194,6 +195,7 @@ Route::prefix('receive')->group(function () {
     Route::get('rtn-fg-report', [ReceiveController::class, 'reportRTNFG']);
     Route::get('update-rtn-fg', [ReceiveController::class, 'updateRTNFGBG']);
     Route::post('parse-image', [ReceiveController::class, 'parseImage']);
+    Route::get('document', [ReceiveController::class, 'getDocument']);
 });
 
 Route::prefix('production-plan')->group(function () {
