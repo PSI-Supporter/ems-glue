@@ -1811,6 +1811,7 @@ class WOController extends Controller
             $processMaster = DB::table('process_masters')
                 ->whereNull('deleted_at')
                 ->whereIn('assy_code', $_uniqueItem)
+                ->whereRaw("isnull(process_seq,0)>0")
                 ->where('line_code', $request->line_code)
                 ->get(['assy_code', 'process_seq', 'process_code']);
 
@@ -1846,18 +1847,18 @@ class WOController extends Controller
             ->first();
         $keikakuDataStyleO = $keikakuDataStyle ? json_decode($keikakuDataStyle->styles) : [];
 
-        $woCompleted = [];
-
-        $woProcessed = [];
+        $woCompleted = $woProcessed = [];
         foreach ($data as &$d) {
             $d->previousRun = 0;
+            $_wo_and_process = $d->wo_full_code . $d->specs_side;
+            if (!in_array($_wo_and_process, $woProcessed)) {
+                $woProcessed[] = $_wo_and_process;
 
-            if (!in_array($d->wo_full_code, $woProcessed)) {
-                $woProcessed[] = $d->wo_full_code;
                 $_data = DB::table('keikaku_data')->whereNull('deleted_at')
                     ->where('production_date', '<', $request->production_date)
                     ->whereIn('line_code', $relatedLines)
                     ->where('wo_full_code', $d->wo_full_code)
+                    ->where('specs_side', $d->specs_side)
                     ->select('production_date', 'line_code', 'seq', 'wo_full_code');
 
                 $_procesMaster0 = DB::table('process_masters')
@@ -1939,7 +1940,6 @@ class WOController extends Controller
                             ->on('V2.process_code', '=', 'V3.process_code')
                         ;
                     })
-                    ->whereNotNull('wo_code')
                     ->groupBy('wo_code', 'V2.process_code', 'process_seq')
                     ->select(
                         'wo_code',
@@ -1961,6 +1961,7 @@ class WOController extends Controller
                             break;
                         }
                     } else {
+
                         if (
                             $d->wo_full_code == $p->wo_code && $d->specs_side == $p->process_code
                             && $p->previous_ok_qty > 0
