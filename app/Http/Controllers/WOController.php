@@ -2336,10 +2336,92 @@ class WOController extends Controller
             ->select(DB::raw('isnull(sum(ok_qty),0) ok_qty'))
             ->first();
 
-        if ($currentOutput->ok_qty + $request->quantity > $productionPlan->plan_qty) {
+        // periksa proses konteks
+        $procesMaster = DB::table('process_masters')
+            ->whereNull('deleted_at')
+            ->where('assy_code', $request->assy_code)
+            ->groupBy('assy_code', 'process_code', 'line_code')
+            ->select(
+                'assy_code',
+                DB::raw('MAX(process_seq) process_seq'),
+                DB::raw("case 
+                    when process_code = 'SMT-A' THEN 'A'                    
+                    when process_code = 'SMT-B' THEN 'B' 
+                    ELSE 'A'
+                    END process_code"),
+                'line_code'
+            );
+
+        $procesMasterO = DB::query()->fromSub($procesMaster, 'v1')
+            ->where('process_code', $request->side)
+            ->where('line_code', $request->line)
+            ->first();
+
+        $historyDataJoin = [];
+
+        if (!empty($procesMasterO)) {
+            if ($procesMasterO->process_seq > 1) { // hanya untuk seq > 1                
+                $totalOutputCurrentSeq = $request->quantity;
+                $historyData = $this->getWOHistoryData([
+                    'doc' => $request->job,
+                    'cutoff_date' => $request->production_date
+                ])->where('ok_qty', '>', 0)->orWhere('ok_qty_hw', '>', 0);
+
+                $historyDataJoinSQL = DB::query()->fromSub($historyData, 'V2')
+                    ->leftJoinSub($procesMaster, 'V3', function ($join) {
+                        $join->on('V2.line_code', '=', 'V3.line_code')
+                            ->on('V2.specs_side', '=', 'V3.process_code')
+                            ->on('V2.item_code', '=', 'V3.assy_code')
+                        ;
+                    })
+                    ->groupBy('wo_full_code', 'process_seq')
+                    ->whereRaw("ISNULL(process_seq,'')>=" . ($procesMasterO->process_seq - 1))
+                    ->select(
+                        'wo_full_code',
+                        'process_seq',
+                        DB::raw("SUM(ok_qty)+SUM(ok_qty_hw) ok_qty")
+                    );
+
+                $historyDataJoin = $historyDataJoinSQL->get();
+                $_totalPrevSeq = $historyDataJoin->where('process_seq', ($procesMasterO->process_seq - 1))->first();
+                $_totalCurrentSeq = $historyDataJoin->where('process_seq', $procesMasterO->process_seq)->first();
+
+                $_totalPrevSeqV = 0;
+
+                if (!empty($_totalPrevSeq)) {
+                    $_totalPrevSeqV = $_totalPrevSeq->ok_qty;
+                }
+
+                if (!empty($_totalCurrentSeq)) {
+                    $totalOutputCurrentSeq += $_totalCurrentSeq->ok_qty ?? 0;
+                }
+
+                if (!empty($historyDataJoin)) {
+                    if ($totalOutputCurrentSeq > $_totalPrevSeqV ?? 0) {
+                        return response()->json(
+                            [
+                                'message' => 'Previous Process=' . $_totalPrevSeqV . ', output=' .
+                                    $totalOutputCurrentSeq,
+                                'data' => $historyDataJoin,
+                            ],
+                            406
+                        );
+                    } else {
+                        $totalOutputCurrentSeq = $currentOutput->ok_qty ?? 0 + $request->quantity;
+                    }
+                }
+            } else {
+                $totalOutputCurrentSeq = $currentOutput->ok_qty ?? 0 + $request->quantity;
+            }
+        }
+
+        if ($totalOutputCurrentSeq > $productionPlan->plan_qty) {
             return response()->json(
-                ['message' => 'Prodplan=' . $productionPlan->plan_qty . ', output=' .
-                    $currentOutput->ok_qty . '+' . $request->quantity],
+                [
+                    'message' => 'Prodplan=' . $productionPlan->plan_qty . ', output=' .
+                        $totalOutputCurrentSeq,
+                    'data' => $historyDataJoin
+                ],
                 406
             );
         }
@@ -2364,7 +2446,8 @@ class WOController extends Controller
             'created_by' => $request->user_id,
         ]);
 
-        return $affectedRows ? ['message' => 'Recorded successfully'] : ['message' => 'Failed, please try again'];
+        return $affectedRows ? ['message' => 'Recorded successfully'] :
+            ['message' => 'Failed, please try again', 'data' => $historyDataJoin];
     }
 
     public function saveKeikakuDownTime(Request $request)
