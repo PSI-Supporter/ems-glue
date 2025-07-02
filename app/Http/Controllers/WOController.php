@@ -2345,8 +2345,8 @@ class WOController extends Controller
                 'assy_code',
                 DB::raw('MAX(process_seq) process_seq'),
                 DB::raw("case 
-                    when process_code = 'SMT-A' THEN 'A'                    
-                    when process_code = 'SMT-B' THEN 'B' 
+                    when process_code = 'SMT-A' OR process_code = 'A' THEN 'A'                    
+                    when process_code = 'SMT-B' OR process_code = 'B' THEN 'B' 
                     ELSE 'A'
                     END process_code"),
                 'line_code'
