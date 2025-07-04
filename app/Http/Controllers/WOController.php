@@ -2432,6 +2432,7 @@ class WOController extends Controller
             ->where('wo_code', $request->job)
             ->where('process_code', $request->side)
             ->where('seq_data', $request->seq_data)
+            ->whereNull('deleted_at')
             ->update(['deleted_at' => date('Y-m-d H:i:s')]);
 
         $affectedRows = DB::table('keikaku_outputs')->insert([
@@ -4046,6 +4047,7 @@ class WOController extends Controller
             ->where('wo_code', $request->job)
             ->where('process_code', $request->side)
             ->where('seq_data', $request->seq_data)
+            ->whereNull('deleted_at')
             ->update(['deleted_at' => date('Y-m-d H:i:s')]);
 
         $affectedRows = DB::table('keikaku_input3s')->insert([
