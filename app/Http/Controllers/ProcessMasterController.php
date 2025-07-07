@@ -85,6 +85,14 @@ class ProcessMasterController extends Controller
         $data = $request->data;
         $tobeSaved = [];
         foreach ($data['master'] as $r) {
+            $_validated_valid = NULL;
+            $hour = substr($data['valid_from'], 11, 2);
+
+            if ($hour === '24') {
+                // Ganti jam jadi 00, sisanya tetap
+                $_validated_valid = substr($data['valid_from'], 0, 11) . '00' . substr($data['valid_from'], -6);
+            }
+
             $tobeSaved[] = [
                 'line_code' => $r['line_code'],
                 'assy_code' => $r['assy_code'],
@@ -94,7 +102,7 @@ class ProcessMasterController extends Controller
                 'process_code' => $r['process_code'],
                 'created_by' => $data['user_id'],
                 'created_at' => date('Y-m-d H:i:s'),
-                'valid_date_time' => $data['valid_from'],
+                'valid_date_time' => $_validated_valid,
                 'process_seq' => $r['process_seq'],
                 'line_category' => $r['line_category'],
             ];
