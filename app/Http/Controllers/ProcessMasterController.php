@@ -85,7 +85,7 @@ class ProcessMasterController extends Controller
         $data = $request->data;
         $tobeSaved = [];
         foreach ($data['master'] as $r) {
-            $_validated_valid = NULL;
+            $_validated_valid = $data['valid_from'];
             $hour = substr($data['valid_from'], 11, 2);
 
             if ($hour === '24') {
