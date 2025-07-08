@@ -2405,9 +2405,9 @@ class WOController extends Controller
                     if ($totalOutputCurrentSeq > $_totalPrevSeqV) {
                         return response()->json(
                             [
-                                'message' => 'Previous Process=' . $_totalPrevSeqV . ', output=' .
+                                'message' => 'Previous Process=' . (int)$_totalPrevSeqV . ', output=' .
                                     $totalOutputCurrentSeq,
-                                'data' => $historyDataJoin,
+
                             ],
                             406
                         );
@@ -4124,10 +4124,8 @@ class WOController extends Controller
                     if ($totalOutputCurrentSeq > $_totalPrevSeqV) {
                         return response()->json(
                             [
-                                'message' => 'Previous Process=' . $_totalPrevSeqV . ', output=' .
+                                'message' => 'Previous Process[' . $_totalPrevSeq->process_seq . ']=' . (int)$_totalPrevSeqV . ', Input2=' .
                                     $totalOutputCurrentSeq,
-                                'data' => $historyDataJoin,
-                                '$historyData' => $historyData->get()
                             ],
                             406
                         );
