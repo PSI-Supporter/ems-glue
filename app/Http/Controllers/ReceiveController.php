@@ -411,4 +411,15 @@ class ReceiveController extends Controller
         }
         return $request;
     }
+
+    public function getDocument(Request $request)
+    {
+        $data = DB::table('receive_p_l_s')->whereNull('deleted_at')
+            ->where('delivery_doc', 'like', '%' . $request->doc . '%')
+            ->groupBy('delivery_doc', 'delivery_date')
+            ->orderBy('delivery_date')
+            ->get(['delivery_doc', 'delivery_date']);
+
+        return ['data' => $data];
+    }
 }
