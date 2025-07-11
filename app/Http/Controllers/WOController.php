@@ -732,8 +732,13 @@ class WOController extends Controller
         // transform time into qty
         $asProdPlanX = $asMatrix;
 
+        $maxColumn = (6 + 36);
         for ($i = 3; $i < $matrixRowsLength; $i++) {
-            for ($col = $this->keikakuColumnIndexStart; $col < (6 + 36); $col++) {
+            $_prodplanMax = str_contains($asProdPlanX[$i][5], '#') ? (int)explode('#', $asProdPlanX[$i][5])[4] : 0;
+            $_endColumnHasValueIndex = 0;
+            $_totalProdplanSim = 0;
+
+            for ($col = $this->keikakuColumnIndexStart; $col < $maxColumn; $col++) {
                 if (!$asProdPlanX[$i][0]) { // change model
                     if ($col === $this->keikakuColumnIndexStart) {
                         if ($asProdPlanX[$i][1]) {
@@ -756,15 +761,29 @@ class WOController extends Controller
                     } else {
                         if ($col === $this->keikakuColumnIndexStart) {
                             $asProdPlanX[$i][$col] = round($asProdPlanX[$i][$col] / $asMatrix[$i][4]);
+                            if ($asProdPlanX[$i][$col] > 0) {
+                                $_endColumnHasValueIndex = $col;
+                                $_totalProdplanSim += $asProdPlanX[$i][$col];
+                            }
                         } else {
                             if ($asProdPlanX[$i][$col] == 0) {
                                 $asProdPlanX[$i][$col] = 0;
                             } else {
                                 $asProdPlanX[$i][$col] = round($asProdPlanX[$i][$col] / $asMatrix[$i][4]);
+                                if ($asProdPlanX[$i][$col] > 0) {
+                                    $_endColumnHasValueIndex = $col;
+                                    $_totalProdplanSim += $asProdPlanX[$i][$col];
+                                }
                             }
                         }
                     }
                 }
+            }
+
+            // ketika total simulasi plan tidak sama dengan [prod plan manual] (entry data dari user)
+            // maka sesuaikan simulasi agar secara total sama dengan [prod plan manual]
+            if ($_totalProdplanSim != $_prodplanMax && $_endColumnHasValueIndex != ($maxColumn - 1)) {
+                $asProdPlanX[$i][$_endColumnHasValueIndex] += ($_prodplanMax - $_totalProdplanSim);
             }
         }
 
