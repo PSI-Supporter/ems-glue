@@ -782,7 +782,7 @@ class WOController extends Controller
 
             // ketika total simulasi plan tidak sama dengan [prod plan manual] (entry data dari user)
             // maka sesuaikan simulasi agar secara total sama dengan [prod plan manual]
-            if ($_totalProdplanSim != $_prodplanMax && $_endColumnHasValueIndex != ($maxColumn - 1)) {
+            if ($_totalProdplanSim != $_prodplanMax && $_endColumnHasValueIndex != ($maxColumn - 1) && $_endColumnHasValueIndex > 0) {
                 $asProdPlanX[$i][$_endColumnHasValueIndex] += ($_prodplanMax - $_totalProdplanSim);
             }
         }
