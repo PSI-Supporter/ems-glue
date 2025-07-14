@@ -3714,6 +3714,14 @@ class WOController extends Controller
                         when convert(char(5), running_at, 108) < '07:00' then ok_qty
                         end
                     end) ok_qty"), 'seq_data'); // TO output
+            if (isset($params['keikaku_outputs'])) {
+                $_condition = $params['keikaku_outputs'];
+                if (isset($_condition['operator'])) {
+                    if ($_condition['operator'] == 'not_in') {
+                        $dataOutput->whereNotIn($_condition['column_name'], $_condition['column_value']);
+                    }
+                }
+            }
 
             $dataInput2HW = DB::table('keikaku_input3s')
                 ->where('wo_code', 'like', '%' . $params['doc'] . '%')
@@ -3726,6 +3734,15 @@ class WOController extends Controller
                         when convert(char(5), running_at, 108) < '07:00' then ok_qty
                         end
                     end) ok_qty_hw"), 'seq_data');
+
+            if (isset($params['keikaku_input3s'])) {
+                $_condition = $params['keikaku_input3s'];
+                if (isset($_condition['operator'])) {
+                    if ($_condition['operator'] == 'not_in') {
+                        $dataInput2HW->whereNotIn($_condition['column_name'], $_condition['column_value']);
+                    }
+                }
+            }
 
             $dataOutputHW = DB::table('keikaku_output2s')
                 ->where('wo_code', 'like', '%' . $params['doc'] . '%')
