@@ -127,8 +127,11 @@ class ProcessMasterController extends Controller
 
     function getLine()
     {
-        $data = DB::table('process_masters')->select(DB::raw('UPPER(line_code) line_code'))
+        $data = DB::table('process_masters')->select(
+            DB::raw('UPPER(line_code) line_code')
+        )
             ->whereNull('deleted_at')
+            ->whereRaw("ISNULL(is_active,'Y')='Y'")
             ->groupBy('line_code')->orderBy('line_code')->get();
         return ['data' => $data];
     }
