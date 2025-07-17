@@ -1827,7 +1827,7 @@ class WOController extends Controller
                 ->get(['keikaku_data.*', DB::raw('ISNULL(ok_qty,0) ok_qty')]);
 
             $previousData = [];
-            $_uniqueItem = $data->unique('item_code')->pluck('item_code')->toArray();
+            $_uniqueItem = $request->line_code == '-' ? [] : $data->unique('item_code')->pluck('item_code')->toArray();
             $processMaster = DB::table('process_masters')
                 ->whereNull('deleted_at')
                 ->whereIn('assy_code', $_uniqueItem)
