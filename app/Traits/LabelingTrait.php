@@ -71,9 +71,38 @@ trait LabelingTrait
             'composed' => $data['composed'] ?? NULL,
             'parent_code' => $data['parent_code'] ?? NULL,
             'item_value' => $data['item_value'] ?? NULL,
+            'pallet' => $data['pallet'] ?? NULL,
         ]);
 
 
         return ['data' => $NewID, 'created_at' => $LabelDate . ' ' . $LabelTime];
+    }
+
+    function balancingPerPallet($data = [])
+    {
+        $rcv_data = DB::table('receive_p_l_s')->whereNull('deleted_at')
+            ->where('delivery_doc',  $data['doc'])
+            ->where('item_code',  $data['item'])
+            ->groupBy('item_code', 'pallet')
+            ->select('item_code', 'pallet', DB::raw("SUM(ship_quantity) total_ship_qty"));
+
+        $ser_data = DB::table('raw_material_labels')
+            ->whereNull('deleted_at')
+            ->where('doc_code', $data['doc'])
+            ->where('item_code',  $data['item'])
+            ->groupBy('item_code', 'pallet')
+            ->select('item_code', 'pallet', DB::raw("SUM(quantity) total_lbl_qty"));
+
+        $join_data = DB::query()->fromSub($rcv_data, 'v1')
+            ->leftJoinSub($ser_data, 'v2', function ($join) {
+                $join->on('v1.item_code', '=', 'v2.item_code')
+                    ->on(DB::raw("isnull(v1.pallet,'')"), '=', DB::raw("isnull(v2.pallet,'')"));
+            })->get([
+                "v1.item_code",
+                "v1.pallet",
+                DB::raw("ISNULL(total_ship_qty,0)-ISNULL(total_lbl_qty,0) total_bal_qty"),
+            ]);
+
+        return $join_data;
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Traits\LabelingTrait;
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
 use Illuminate\Http\Request;
@@ -13,6 +14,8 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class ReceiveController extends Controller
 {
+    use LabelingTrait;
+
     function search(Request $request)
     {
         $columnMap = [
@@ -421,5 +424,35 @@ class ReceiveController extends Controller
             ->get(['delivery_doc', 'delivery_date']);
 
         return ['data' => $data];
+    }
+
+    public function getDocumentDetail(Request $request)
+    {
+        $data = DB::table('receive_p_l_s')
+            ->leftJoin('MITM_TBL', 'item_code', '=', 'MITM_ITMCD')
+            ->whereNull('deleted_at')
+            ->where('delivery_doc',  base64_decode($request->doc))
+            ->groupBy('item_code', 'pallet', 'MITM_SPTNO')
+            ->orderBy('pallet')
+            ->orderBy('item_code')
+            ->get(['item_code', DB::raw("RTRIM(MITM_SPTNO) SPTNO"), 'pallet', DB::raw("SUM(delivery_quantity) total_qty")]);
+
+        return ['data' => $data];
+    }
+
+    public function getItemByDoc(Request $request)
+    {
+        $doc = base64_decode($request->doc);
+        $item = base64_decode($request->item);
+        $data = DB::table('raw_material_labels')
+            ->whereNull('deleted_at')
+            ->where('doc_code',  $doc)
+            ->where('item_code',  $item)
+            ->orderBy('created_at')
+            ->get(['code', 'lot_code', 'quantity']);
+
+        $join_data = $this->balancingPerPallet(['doc' => $doc, 'item' => $item]);
+
+        return ['data' => $data, 'balance_data' => $join_data];
     }
 }
