@@ -2380,7 +2380,7 @@ class WOController extends Controller
             ->where('process_code', $request->side)
             ->where('seq_data', $request->seq_data)
             ->whereNull('deleted_at')
-            ->update(['deleted_at' => date('Y-m-d H:i:s')]);
+            ->update(['deleted_at' => date('Y-m-d H:i:s'), 'deleted_by' => $request->user_id]);
 
         $affectedRows = DB::table('keikaku_outputs')->insert([
             'created_at' => date('Y-m-d H:i:s'),
@@ -3853,7 +3853,7 @@ class WOController extends Controller
             ->where('process_code', $request->side)
             ->where('seq_data', $request->seq_data)
             ->whereNull('deleted_at')
-            ->update(['deleted_at' => date('Y-m-d H:i:s')]);
+            ->update(['deleted_at' => date('Y-m-d H:i:s'), 'deleted_by' => $request->user_id]);
 
         $affectedRows = DB::table('keikaku_input2s')->insert([
             'created_at' => date('Y-m-d H:i:s'),
@@ -3933,7 +3933,7 @@ class WOController extends Controller
             ->where('process_code', $request->side)
             ->where('seq_data', $request->seq_data)
             ->whereNull('deleted_at')
-            ->update(['deleted_at' => date('Y-m-d H:i:s')]);
+            ->update(['deleted_at' => date('Y-m-d H:i:s'), 'deleted_by' => $request->user_id]);
 
         $affectedRows = DB::table('keikaku_output2s')->insert([
             'created_at' => date('Y-m-d H:i:s'),
@@ -4013,7 +4013,7 @@ class WOController extends Controller
             ->where('process_code', $request->side)
             ->where('seq_data', $request->seq_data)
             ->whereNull('deleted_at')
-            ->update(['deleted_at' => date('Y-m-d H:i:s')]);
+            ->update(['deleted_at' => date('Y-m-d H:i:s'), 'deleted_by' => $request->user_id]);
 
         $affectedRows = DB::table('keikaku_input3s')->insert([
             'created_at' => date('Y-m-d H:i:s'),
