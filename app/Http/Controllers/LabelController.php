@@ -9,6 +9,7 @@ use App\Traits\LabelingTrait;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
@@ -302,7 +303,7 @@ class LabelController extends Controller
             ->whereNull('splitted')
             ->whereNull('combined')
             ->first();
-            
+
         return ['data' => $data];
     }
 
@@ -430,5 +431,56 @@ class LabelController extends Controller
         header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
         header('Cache-Control: max-age=0');
         $writer->save('php://output');
+    }
+
+    function registerLabel(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'doc' => 'required',
+        ], [
+            'doc.required' => ':attribute is required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 406);
+        }
+
+        $_data = [
+            'machineName' => $request->machineName ?? 'DF',
+            'documentCode' => $request->doc,
+            'itemCode' => $request->item_code,
+            'qty' => $request->qty,
+            'lotNumber' => $request->lot_number,
+            'userID' => $request->user_id,
+            'parent_code' => $request->uniqueBefore,
+            'item_value' => $request->itemValue ?? '',
+            'pallet' => $request->pallet ?? '',
+        ];
+        $Response = $this->generateLabelId($_data);
+
+        $data = $this->getPrintableLabel(['uniqueList' => [$Response['data']]]);
+
+        $balanceData = $this->balancingPerPallet(['doc' => $request->doc, 'item' => $request->item_code]);
+
+
+        return ['data' => $data->first(), 'balance_data' => $balanceData];
+    }
+
+    function getPrintableLabel($params)
+    {
+        $data = DB::table('raw_material_labels')
+            ->leftJoin('MITM_TBL', 'item_code', '=', 'MITM_ITMCD')
+            ->leftJoin('ITMLOC_TBL', 'MITM_ITMCD', '=', 'ITMLOC_ITM')
+            ->whereIn('code', $params['uniqueList'])
+            ->orderBy('created_at')
+            ->get([
+                'code',
+                DB::raw('RTRIM(MITM_SPTNO) SPTNO'),
+                DB::raw('CONVERT(INT,quantity) quantity'),
+                DB::raw('RTRIM(ITMLOC_LOC) LOC'),
+                'item_value',
+            ]);
+
+        return $data;
     }
 }

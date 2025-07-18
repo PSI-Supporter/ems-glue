@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\BenchMarkController;
 use App\Http\Controllers\BOMCalculationController;
 use App\Http\Controllers\BusinessGroupController;
 use App\Http\Controllers\CountryController;
@@ -89,6 +90,7 @@ Route::prefix('item')->group(function () {
     Route::get('downloadsa', [ItemController::class, 'downloadsa']);
     Route::get('xray', [ItemController::class, 'toXRAYItem']);
     Route::post('split', [ItemController::class, 'splitC3']);
+    Route::post('register-label', [ItemController::class, 'registerC3']);
     Route::get('upload-composite', [ItemController::class, 'uploadComposite']);
     Route::get('xray-sync-rack', [ItemController::class, 'updateLocationXray']);
     Route::get('category', [ItemController::class, 'getCategories']);
@@ -100,7 +102,7 @@ Route::get('/form-inv', [InventoryController::class, 'formInventory']);
 Route::get('/export/inventory-fg', [InventoryController::class, 'exportInv']);
 Route::prefix('inventory')->group(function () {
     Route::delete("keys/{id}", [InventoryController::class, 'removeLine']);
-    Route::get  ("warehouse", [InventoryController::class, 'getWarehouse']);
+    Route::get("warehouse", [InventoryController::class, 'getWarehouse']);
 });
 
 
@@ -109,6 +111,7 @@ Route::prefix('label')->group(function () {
     Route::post('combine-raw-material', [LabelController::class, 'combineRMLabel']);
     Route::post('c3-reprint', [LabelController::class, 'getRawMaterialLabelsHelper']);
     Route::get('c3', [LabelController::class, 'getLabel']);
+    Route::post('c3', [LabelController::class, 'registerLabel']);
     Route::get('c3-active', [LabelController::class, 'getActiveLabel']);
     Route::post('log', [LabelController::class, 'logAction']);
     Route::put('', [LabelController::class, 'updateLabelValue']);
@@ -196,6 +199,8 @@ Route::prefix('receive')->group(function () {
     Route::get('update-rtn-fg', [ReceiveController::class, 'updateRTNFGBG']);
     Route::post('parse-image', [ReceiveController::class, 'parseImage']);
     Route::get('document', [ReceiveController::class, 'getDocument']);
+    Route::get('document/{doc}', [ReceiveController::class, 'getDocumentDetail']);
+    Route::get('document/{doc}/{item}', [ReceiveController::class, 'getItemByDoc']);
 });
 
 Route::prefix('production-plan')->group(function () {
@@ -291,4 +296,9 @@ Route::prefix('item-tracer')->group(function () {
     Route::get('outstanding-scan-detail', [ItemTracerController::class, 'getOutstandingScanDetail']);
     Route::post('adjust-detail', [ItemTracerController::class, 'adjustDetail']);
     Route::get('lot', [ItemTracerController::class, 'getReportTraceLot']);
+});
+
+Route::prefix('testing')->group(function () {
+    Route::get('with-opcache', [BenchMarkController::class, 'benchmarkWithOpCache']);
+    Route::get('without-opcache', [BenchMarkController::class, 'benchmarkWithoutOpCache']);
 });
