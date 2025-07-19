@@ -105,4 +105,20 @@ trait LabelingTrait
 
         return $join_data;
     }
+
+    function progressLabeling($data = [])
+    {
+        $rcv_data = DB::table('receive_p_l_s')->whereNull('deleted_at')->where('delivery_doc', $data['doc'])
+            ->groupBy('delivery_doc')
+            ->select('delivery_doc', DB::raw("SUM(ship_quantity) ship_qty"));
+
+        $lbl_data = DB::table('raw_material_labels')->whereNull('deleted_at')->where('doc_code', $data['doc'])
+            ->groupBy('doc_code')
+            ->select('doc_code', DB::raw("SUM(quantity) lbl_qty"));
+
+        $balance_data = DB::query()->fromSub($rcv_data, 'v1')->leftJoinSub($lbl_data, 'v2', 'v1.delivery_doc', '=', 'doc_code')
+            ->get(['v1.*', DB::raw("round(lbl_qty / ship_qty * 100, 2) percentage")]);
+
+        return $balance_data->first();
+    }
 }

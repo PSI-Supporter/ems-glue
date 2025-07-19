@@ -462,8 +462,9 @@ class LabelController extends Controller
 
         $balanceData = $this->balancingPerPallet(['doc' => $request->doc, 'item' => $request->item_code]);
 
+        $dataProgress = $this->progressLabeling(['doc' => $request->doc]);
 
-        return ['data' => $data->first(), 'balance_data' => $balanceData];
+        return ['data' => $data->first(), 'balance_data' => $balanceData, 'progress' => round($dataProgress->percentage ?? 0, 2)];
     }
 
     function getPrintableLabel($params)
