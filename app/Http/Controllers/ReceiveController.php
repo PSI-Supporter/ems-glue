@@ -428,16 +428,27 @@ class ReceiveController extends Controller
 
     public function getDocumentDetail(Request $request)
     {
+        $doc = base64_decode($request->doc);
+        $dataRack = DB::table('ITMLOC_TBL')->groupBy('ITMLOC_ITM')->select('ITMLOC_ITM', DB::raw("max(ITMLOC_LOC) RACK_CD"));
         $data = DB::table('receive_p_l_s')
             ->leftJoin('MITM_TBL', 'item_code', '=', 'MITM_ITMCD')
+            ->leftJoinSub($dataRack, "vrack", "item_code", "=", "ITMLOC_ITM")
             ->whereNull('deleted_at')
-            ->where('delivery_doc',  base64_decode($request->doc))
-            ->groupBy('item_code', 'pallet', 'MITM_SPTNO')
+            ->where('delivery_doc',  $doc)
+            ->groupBy('item_code', 'pallet', 'MITM_SPTNO', 'RACK_CD')
             ->orderBy('pallet')
             ->orderBy('item_code')
-            ->get(['item_code', DB::raw("RTRIM(MITM_SPTNO) SPTNO"), 'pallet', DB::raw("SUM(delivery_quantity) total_qty")]);
+            ->get([
+                'item_code',
+                DB::raw("RTRIM(MITM_SPTNO) SPTNO"),
+                'pallet',
+                DB::raw("SUM(delivery_quantity) total_qty"),
+                'RACK_CD',
+            ]);
 
-        return ['data' => $data];
+        $dataBalance = $this->progressLabeling(['doc' => $doc]);
+
+        return ['data' => $data, 'progress' => round($dataBalance->percentage ?? 0, 2)];
     }
 
     public function getItemByDoc(Request $request)
