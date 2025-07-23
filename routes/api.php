@@ -193,6 +193,7 @@ Route::prefix('redmine-wrapper')->group(function () {
 
 Route::prefix('receive')->group(function () {
     Route::get('synchronize', [ReceiveController::class, 'synchronize_from_MEGAEMS']);
+    Route::post('synchronize-for-labeling', [ReceiveController::class, 'syncFromOtherSource']);
     Route::get('download-template', [ReceiveController::class, 'downloadTemplateUpload']);
     Route::get('upload-massively', [ReceiveController::class, 'uploadMassive']);
     Route::get('rtn-fg-report', [ReceiveController::class, 'reportRTNFG']);

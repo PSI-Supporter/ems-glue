@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Traits\LabelingTrait;
-use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -465,5 +465,70 @@ class ReceiveController extends Controller
         $join_data = $this->balancingPerPallet(['doc' => $doc, 'item' => $item]);
 
         return ['data' => $data, 'balance_data' => $join_data];
+    }
+
+    function syncFromOtherSource(Request $request)
+    {
+        $receivingHeader = DB::table('XPGRN_VIEW')
+            ->groupBy('PGRN_SUPNO')
+            ->where('PGRN_SUPNO', 'LIKE', "%" . $request->doc . "%")
+            ->get([
+                DB::raw("RTRIM(PGRN_SUPNO) SUPNO"),
+            ]);
+
+        $DONumber = '';
+
+        if ($receivingHeader->count() == 1) {
+            $DONumber = $receivingHeader->first()->SUPNO;
+
+            $receiving = DB::table('XPGRN_VIEW')
+                ->groupBy('PGRN_ITMCD', 'PGRN_SUPNO', 'PGRN_RCVDT')
+                ->where('PGRN_SUPNO', 'LIKE', "%" . $DONumber . "%")
+                ->get([
+                    'PGRN_RCVDT',
+                    DB::raw("RTRIM(PGRN_ITMCD) ITMCD"),
+                    DB::raw("SUM(PGRN_ROKQT) QTY"),
+                ]);
+
+            $data = [];
+            foreach ($receiving as $r) {
+                $data[] = [
+                    'delivery_doc' => $DONumber,
+                    'created_by' => 'ane',
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'item_code' => $r->ITMCD,
+                    'delivery_date' => $r->PGRN_RCVDT,
+                    'delivery_quantity' => $r->QTY,
+                    'ship_quantity' => $r->QTY,
+                    'pallet' => '',
+                    'item_name' => ''
+                ];
+            }
+
+            try {
+                DB::beginTransaction();
+                DB::table('receive_p_l_s')
+                    ->whereNull('deleted_at')->where('delivery_doc', $DONumber)
+                    ->update(['deleted_by' => 'ane', 'deleted_at' => date('Y-m-d H:i:s')]);
+
+                $TOTAL_COLUMN = 8;
+                $insert_data = collect($data);
+                $chunks = $insert_data->chunk(2000 / $TOTAL_COLUMN);
+                foreach ($chunks as $chunk) {
+                    DB::table('receive_p_l_s')->insert($chunk->toArray());
+                }
+                DB::commit();
+
+                return ['message' => 'Synchronized', 'synchronized_items_count' => count($data)];
+            } catch (Exception $e) {
+                DB::rollBack();
+                return response()->json(['message' => $e->getMessage()], 400);
+            }
+        } else {
+            return [
+                'message' => $receivingHeader->count() == 0 ? 'Not found' : 'too many documents',
+                'synchronized_items_count' => 0
+            ];
+        }
     }
 }
