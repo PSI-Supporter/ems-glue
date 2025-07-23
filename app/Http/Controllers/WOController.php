@@ -3678,7 +3678,7 @@ class WOController extends Controller
                     'wo_full_code',
                     DB::raw("0 plan_qty"),
                     DB::raw("SUM(ok_qty) as ok_qty"),
-                    DB::raw("SUM(ok_qty) as ok_qty_hw"),
+                    DB::raw("0 as ok_qty_hw"),
                     DB::raw("'A' specs_side"),
                     DB::raw("'' lot_size"),
                     'item_code'
