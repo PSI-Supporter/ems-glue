@@ -429,13 +429,27 @@ class ReceiveController extends Controller
     public function getDocumentDetail(Request $request)
     {
         $doc = base64_decode($request->doc);
+        $ser_data = DB::table('raw_material_labels')
+            ->whereNull('deleted_at')
+            ->where('doc_code', $doc)
+            ->groupBy('item_code', 'pallet')
+            ->select(
+                DB::raw('item_code as lbl_item_code'),
+                DB::raw('pallet as lbl_pallet'),
+                DB::raw("SUM(quantity) total_lbl_qty")
+            );
+
         $dataRack = DB::table('ITMLOC_TBL')->groupBy('ITMLOC_ITM')->select('ITMLOC_ITM', DB::raw("max(ITMLOC_LOC) RACK_CD"));
         $data = DB::table('receive_p_l_s')
             ->leftJoin('MITM_TBL', 'item_code', '=', 'MITM_ITMCD')
             ->leftJoinSub($dataRack, "vrack", "item_code", "=", "ITMLOC_ITM")
+            ->leftJoinSub($ser_data, 'v2', function ($join) {
+                $join->on('item_code', '=', 'v2.lbl_item_code')
+                    ->on('pallet', '=', DB::raw("isnull(v2.lbl_pallet,'')"));
+            })
             ->whereNull('deleted_at')
             ->where('delivery_doc',  $doc)
-            ->groupBy('item_code', 'pallet', 'MITM_SPTNO', 'RACK_CD')
+            ->groupBy('item_code', 'pallet', 'MITM_SPTNO', 'RACK_CD', 'total_lbl_qty')
             ->orderBy('pallet')
             ->orderBy('item_code')
             ->get([
@@ -444,6 +458,8 @@ class ReceiveController extends Controller
                 'pallet',
                 DB::raw("SUM(delivery_quantity) total_qty"),
                 'RACK_CD',
+                DB::raw("ISNULL(total_lbl_qty,0) total_lbl_qty"),
+                DB::raw("SUM(delivery_quantity)-ISNULL(total_lbl_qty,0) balance_qty")
             ]);
 
         $dataBalance = $this->progressLabeling(['doc' => $doc]);
