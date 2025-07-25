@@ -444,27 +444,31 @@ class LabelController extends Controller
         if ($validator->fails()) {
             return response()->json($validator->errors(), 406);
         }
+        $NewlyId = [];
 
-        $_data = [
-            'machineName' => $request->machineName ?? 'DF',
-            'documentCode' => $request->doc,
-            'itemCode' => $request->item_code,
-            'qty' => $request->qty,
-            'lotNumber' => $request->lot_number,
-            'userID' => $request->user_id,
-            'parent_code' => $request->uniqueBefore,
-            'item_value' => $request->itemValue ?? '',
-            'pallet' => $request->pallet ?? '',
-        ];
-        $Response = $this->generateLabelId($_data);
+        for ($i = 0; $i < $request->print_qty; $i++) {
+            $_data = [
+                'machineName' => $request->machineName ?? 'DF',
+                'documentCode' => $request->doc,
+                'itemCode' => $request->item_code,
+                'qty' => $request->qty,
+                'lotNumber' => $request->lot_number,
+                'userID' => $request->user_id,
+                'parent_code' => $request->uniqueBefore,
+                'item_value' => $request->itemValue ?? '',
+                'pallet' => $request->pallet ?? '',
+            ];
+            $Response = $this->generateLabelId($_data);
+            $NewlyId[] = $Response['data'];
+        }
 
-        $data = $this->getPrintableLabel(['uniqueList' => [$Response['data']]]);
+        $data = $this->getPrintableLabel(['uniqueList' => $NewlyId]);
 
         $balanceData = $this->balancingPerPallet(['doc' => $request->doc, 'item' => $request->item_code]);
 
         $dataProgress = $this->progressLabeling(['doc' => $request->doc]);
 
-        return ['data' => $data->first(), 'balance_data' => $balanceData, 'progress' => round($dataProgress->percentage ?? 0, 2)];
+        return ['data' => $data, 'balance_data' => $balanceData, 'progress' => round($dataProgress->percentage ?? 0, 2)];
     }
 
     function getPrintableLabel($params)
