@@ -112,6 +112,7 @@ Route::prefix('label')->group(function () {
     Route::post('c3-reprint', [LabelController::class, 'getRawMaterialLabelsHelper']);
     Route::get('c3', [LabelController::class, 'getLabel']);
     Route::post('c3', [LabelController::class, 'registerLabel']);
+    Route::delete('c3', [LabelController::class, 'delete']);
     Route::get('c3-active', [LabelController::class, 'getActiveLabel']);
     Route::post('log', [LabelController::class, 'logAction']);
     Route::put('', [LabelController::class, 'updateLabelValue']);

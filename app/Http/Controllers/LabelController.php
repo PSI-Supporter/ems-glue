@@ -488,4 +488,21 @@ class LabelController extends Controller
 
         return $data;
     }
+
+    function delete(Request $request)
+    {
+        $params = [
+            'code' => $request->code,
+            'user_id' => $request->user_id
+        ];
+
+        $respons = $this->deleteLabel($params);
+
+        $message = $respons['affected_rows'] > 0 ? 'Deleted successfully' : 'there is no deleted row';
+
+        return [
+            'message' => $message,
+            'affected_rows' => $respons['affected_rows']
+        ];
+    }
 }

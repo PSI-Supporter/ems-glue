@@ -121,4 +121,15 @@ trait LabelingTrait
 
         return $balance_data->first();
     }
+
+    function deleteLabel($data = [])
+    {
+        $AffectedRows = DB::table('raw_material_labels')->whereNull('deleted_at')
+            ->where('code', $data['code'])
+            ->update([
+                'deleted_by' => $data['user_id'],
+                'deleted_at' => date('Y-m-d H:i:s'),
+            ]);
+        return ['affected_rows' => $AffectedRows];
+    }
 }
