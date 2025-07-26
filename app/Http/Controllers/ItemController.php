@@ -510,6 +510,14 @@ class ItemController extends Controller
             if ($data->item_code != $request->item_code) {
                 return ['cd' => '0', 'msg' => 'item code must be same with item in database'];
             }
+
+            if (DB::table('WMS_SWPS_HIS')->where('SWPS_NUNQ', $request->uniqueBefore)->count()) {
+                return ['cd' => '0', 'msg' => 'Already scanned in Traceability System'];
+            }
+
+            if (DB::table('WMS_SWMP_HIS')->where('SWMP_UNQ', $request->uniqueBefore)->count()) {
+                return ['cd' => '0', 'msg' => 'Already scanned in Traceability System.'];
+            }
         }
 
         if ($request->old_qty != $request->new_qty) {
