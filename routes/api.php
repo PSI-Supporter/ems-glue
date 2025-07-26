@@ -238,6 +238,7 @@ Route::prefix('process-master')->group(function () {
     Route::get('line-code', [ProcessMasterController::class, 'getLine']);
     Route::get('cycle-time-by-line-code', [ProcessMasterController::class, 'getByLine']);
     Route::put('process/{id}', [ProcessMasterController::class, 'update']);
+    Route::delete('process/{id}', [ProcessMasterController::class, 'delete']);
 });
 
 Route::prefix('kurs')->group(function () {

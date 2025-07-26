@@ -216,6 +216,7 @@ class ProcessMasterController extends Controller
     function update(Request $request)
     {
         $affectedRow = DB::table('process_masters')->where('id', base64_decode($request->id))
+            ->whereNull('deleted_at')
             ->update([
                 'process_seq' => $request->process_seq,
                 'line_category' => $request->line_category,
@@ -223,5 +224,16 @@ class ProcessMasterController extends Controller
                 'updated_by' => $request->user_id
             ]);
         return ['message' => $affectedRow ? 'Updated successfully' : 'Could not be updated'];
+    }
+
+    function delete(Request $request)
+    {
+        $affectedRow = DB::table('process_masters')->where('id', base64_decode($request->id))
+            ->whereNull('deleted_at')
+            ->update([
+                'deleted_at' => date('Y-m-d H:i:s'),
+                'deleted_by' => $request->user_id
+            ]);
+        return ['message' => $affectedRow ? 'Deleted successfully' : 'Could not be deleted'];
     }
 }
