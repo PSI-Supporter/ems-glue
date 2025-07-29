@@ -420,7 +420,7 @@ class ReceiveController extends Controller
         $data = DB::table('receive_p_l_s')->whereNull('deleted_at')
             ->where('delivery_doc', 'like', '%' . $request->doc . '%')
             ->groupBy('delivery_doc', 'delivery_date')
-            ->orderBy('delivery_date')
+            ->orderBy('delivery_date', 'desc')
             ->get(['delivery_doc', 'delivery_date']);
 
         return ['data' => $data];
