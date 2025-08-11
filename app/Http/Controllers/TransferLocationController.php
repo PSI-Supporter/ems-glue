@@ -366,7 +366,7 @@ class TransferLocationController extends Controller
             ->leftJoin('XSTKTRND2', 'STKTRND1_RQRLSNO', '=', 'STKTRND2_RQRLSNO')
             ->leftJoin('XMITM_V', 'STKTRND2_ITMCD', '=', 'MITM_ITMCD')
             ->where('STKTRND1_DOCNO', base64_decode($request->id))
-            ->where('STKTRND1_DOCCD', 'TRF')
+            ->whereIn('STKTRND1_DOCCD', ['TRF', 'ADJ'])
             ->select(
                 DB::raw('CONVERT(DATE,STKTRND1_ISUDT) ISUDT'),
                 DB::raw('RTRIM(STKTRND1_LOCCDFR) LOCCDFR'),
@@ -389,7 +389,8 @@ class TransferLocationController extends Controller
             [
                 'document' => [
                     Rule::unique('sync_xtrf_hs', 'xdocument_number')
-                ], 'userId' => 'required'
+                ],
+                'userId' => 'required'
             ],
             [
                 'userId.required' => 'User ID is required',
@@ -403,7 +404,8 @@ class TransferLocationController extends Controller
 
         $ttlRows = DB::table("XSTKTRND1")
             ->where('STKTRND1_DOCNO', $request->document)
-            ->where('STKTRND1_DOCCD', 'TRF')->count();
+            ->whereIn('STKTRND1_DOCCD', ['TRF', 'ADJ'])
+            ->count();
 
         if ($ttlRows === 0) {
             return response()->json(['Document is not found'], 400);
