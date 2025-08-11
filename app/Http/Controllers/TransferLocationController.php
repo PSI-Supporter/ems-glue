@@ -446,10 +446,10 @@ class TransferLocationController extends Controller
 
         $SavedDocs = 0;
         foreach ($XSigneddocument as $r) {
-
+            $_doc = trim($r->STKTRND1_DOCNO);
             // get list detail of the approved document
             $XSigneddocumentDetail = DB::table('XITRN_TBL')
-                ->where('ITRN_DOCNO', trim($r->STKTRND1_DOCNO))
+                ->where('ITRN_DOCNO', $_doc)
                 ->select(
                     DB::raw("RTRIM(ITRN_LOCCD) ITRN_LOCCD"),
                     DB::raw("RTRIM(ITRN_ITMCD) ITRN_ITMCD"),
@@ -463,35 +463,49 @@ class TransferLocationController extends Controller
             // make a list tobe synchronized
             $tobeSaved = [];
             foreach ($XSigneddocumentDetail as $_r) {
-                $tobeSaved[] = [
-                    "ITH_ITMCD" => $_r->ITRN_ITMCD,
-                    "ITH_DATE" => $_r->ITRN_ISUDT,
-                    "ITH_FORM" => $_r->IOQT > 0 ? 'TRFIN-RM' : 'TRFOUT-RM',
-                    "ITH_DOC" => trim($r->STKTRND1_DOCNO),
-                    "ITH_QTY" => $_r->IOQT,
-                    "ITH_WH" => $_r->ITRN_LOCCD,
-                    "ITH_REMARK" => $_r->ITRN_LINE,
-                    "ITH_LUPDT" => $_r->ITRN_ISUDT . ' 07:07:07',
-                    "ITH_USRID" => $_r->ITRN_USRID,
-                ];
+                if (str_contains($_doc, 'ADJ')) {
+                    $tobeSaved[] = [
+                        "ITH_ITMCD" => $_r->ITRN_ITMCD,
+                        "ITH_DATE" => $_r->ITRN_ISUDT,
+                        "ITH_FORM" => $_r->IOQT > 0 ? 'ADJ-INC' : 'ADJ-OUT',
+                        "ITH_DOC" => $_doc,
+                        "ITH_QTY" => $_r->IOQT,
+                        "ITH_WH" => $_r->ITRN_LOCCD,
+                        "ITH_REMARK" => $_r->ITRN_LINE,
+                        "ITH_LUPDT" => $_r->ITRN_ISUDT . ' 07:07:07',
+                        "ITH_USRID" => $_r->ITRN_USRID,
+                    ];
+                } else {
+                    $tobeSaved[] = [
+                        "ITH_ITMCD" => $_r->ITRN_ITMCD,
+                        "ITH_DATE" => $_r->ITRN_ISUDT,
+                        "ITH_FORM" => $_r->IOQT > 0 ? 'TRFIN-RM' : 'TRFOUT-RM',
+                        "ITH_DOC" => $_doc,
+                        "ITH_QTY" => $_r->IOQT,
+                        "ITH_WH" => $_r->ITRN_LOCCD,
+                        "ITH_REMARK" => $_r->ITRN_LINE,
+                        "ITH_LUPDT" => $_r->ITRN_ISUDT . ' 07:07:07',
+                        "ITH_USRID" => $_r->ITRN_USRID,
+                    ];
+                }
             }
 
             if (!empty($tobeSaved)) {
-                $synchronizedRows = DB::table("ITH_TBL")->where("ITH_DOC", trim($r->STKTRND1_DOCNO))->count();
+                $synchronizedRows = DB::table("ITH_TBL")->where("ITH_DOC", $_doc)->count();
 
                 // check wheter the approved document already synchronized
                 if ($synchronizedRows === 0) {
                     try {
                         DB::table("ITH_TBL")->insert($tobeSaved);
                         $SavedDocs++;
-                        logger('SYCXDOC success message :' . trim($r->STKTRND1_DOCNO));
+                        logger('SYCXDOC success message :' . $_doc);
                     } catch (Exception $e) {
                         logger('SYCXDOC exception message : ' . $e->getMessage());
                     }
                 }
 
                 // update un-synchronized flag document to be synchronized
-                sync_xtrf_h::where('xdocument_number', trim($r->STKTRND1_DOCNO))
+                sync_xtrf_h::where('xdocument_number', $_doc)
                     ->whereNull('synchronized_at')
                     ->update(['synchronized_at' => date('Y-m-d H:i:s')]);
             }
