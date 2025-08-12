@@ -456,10 +456,10 @@ class ReceiveController extends Controller
                 'item_code',
                 DB::raw("RTRIM(MITM_SPTNO) SPTNO"),
                 'pallet',
-                DB::raw("SUM(delivery_quantity) total_qty"),
+                DB::raw("SUM(ship_quantity) total_qty"),
                 'RACK_CD',
                 DB::raw("ISNULL(total_lbl_qty,0) total_lbl_qty"),
-                DB::raw("SUM(delivery_quantity)-ISNULL(total_lbl_qty,0) balance_qty")
+                DB::raw("SUM(ship_quantity)-ISNULL(total_lbl_qty,0) balance_qty")
             ]);
 
         $dataBalance = $this->progressLabeling(['doc' => $doc]);
