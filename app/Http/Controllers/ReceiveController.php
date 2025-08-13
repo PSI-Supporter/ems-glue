@@ -510,7 +510,7 @@ class ReceiveController extends Controller
             foreach ($receiving as $r) {
                 $data[] = [
                     'delivery_doc' => $DONumber,
-                    'created_by' => 'ane',
+                    'created_by' => $request->user_id ?? 'ane.',
                     'created_at' => date('Y-m-d H:i:s'),
                     'item_code' => $r->ITMCD,
                     'delivery_date' => $r->PGRN_RCVDT,
@@ -525,7 +525,7 @@ class ReceiveController extends Controller
                 DB::beginTransaction();
                 DB::table('receive_p_l_s')
                     ->whereNull('deleted_at')->where('delivery_doc', $DONumber)
-                    ->update(['deleted_by' => 'ane', 'deleted_at' => date('Y-m-d H:i:s')]);
+                    ->update(['deleted_by' => $request->user_id ?? 'ane.', 'deleted_at' => date('Y-m-d H:i:s')]);
 
                 $TOTAL_COLUMN = 8;
                 $insert_data = collect($data);
