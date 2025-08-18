@@ -3,6 +3,7 @@
 namespace App\Traits;
 
 use App\Models\RawMaterialLabel;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 trait LabelingTrait
@@ -131,5 +132,39 @@ trait LabelingTrait
                 'deleted_at' => date('Y-m-d H:i:s'),
             ]);
         return ['affected_rows' => $AffectedRows];
+    }
+
+    function getRelatedLabels($data)
+    {
+        $code = $data['code'];
+        $finalData = DB::select("
+        WITH RecursiveLabels
+            AS (
+                SELECT code
+                    ,item_code
+                    ,quantity
+                    ,parent_code
+                    ,splitted
+                FROM raw_material_labels
+                WHERE code = ?
+                
+                UNION ALL
+                
+                SELECT ml.code
+                    ,ml.item_code
+                    ,ml.quantity
+                    ,ml.parent_code
+                    ,ml.splitted
+                FROM raw_material_labels ml
+                INNER JOIN RecursiveLabels r ON ml.code = r.parent_code
+                )
+            SELECT code
+                ,item_code
+                ,quantity
+                ,parent_code
+                ,splitted
+            FROM RecursiveLabels        
+        ", [$code]);
+        return $finalData;
     }
 }

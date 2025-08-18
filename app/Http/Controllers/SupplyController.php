@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use App\Classes\EMSFpdf;
+use App\Traits\LabelingTrait;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -23,6 +24,7 @@ use Symfony\Component\Process\Process;
 class SupplyController extends Controller
 {
     use BusinessSelectionTrait;
+    use LabelingTrait;
 
     protected $fpdf;
 
@@ -2578,7 +2580,27 @@ class SupplyController extends Controller
                 'data' => $data
             ];
         } else {
-            return response()->json(['message' => 'tidak ditemukan'], 406);
+
+            // try seek history
+            $data = $this->getRelatedLabels(['code' => $request->uniquekey]);
+            $uniqueKeys = [];
+            foreach ($data as $r) {
+                if (!in_array($r->code, $uniqueKeys)) {
+                    $uniqueKeys[] = $r->code;
+                }
+            }
+
+            $splscn_data = DB::table('SPLSCN_TBL')->whereIn('SPLSCN_UNQCODE', $uniqueKeys)
+                ->get(['SPLSCN_DOC', 'SPLSCN_CAT', 'SPLSCN_LINE']);
+
+            if ($splscn_data->count() > 0) {
+                return [
+                    'message' => 'OK',
+                    'data' => $splscn_data
+                ];
+            } else {
+                return response()->json(['message' => 'tidak ditemukan'], 406);
+            }
         }
     }
 
