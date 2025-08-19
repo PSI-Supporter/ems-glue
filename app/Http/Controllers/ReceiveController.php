@@ -506,8 +506,11 @@ class ReceiveController extends Controller
                     DB::raw("SUM(PGRN_ROKQT) QTY"),
                 ]);
 
+            logger("memulai upload $DONumber atau " . $request->doc);
+
             $data = [];
             foreach ($receiving as $r) {
+                logger($r->ITMCD . " total baris " . $receiving->where('ITMCD', $r->ITMCD)->count());
                 $data[] = [
                     'delivery_doc' => $DONumber,
                     'created_by' => $request->user_id ?? 'ane.',
@@ -534,6 +537,8 @@ class ReceiveController extends Controller
                     DB::table('receive_p_l_s')->insert($chunk->toArray());
                 }
                 DB::commit();
+
+                logger("selesai upload $DONumber atau " . $request->doc);
 
                 return ['message' => 'Synchronized', 'synchronized_items_count' => count($data)];
             } catch (Exception $e) {
