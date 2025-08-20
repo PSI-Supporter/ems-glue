@@ -457,6 +457,7 @@ class LabelController extends Controller
                 'parent_code' => $request->uniqueBefore,
                 'item_value' => $request->itemValue ?? '',
                 'pallet' => $request->pallet ?? '',
+                'org_qty' => $request->qty ?? NULL,
             ];
             $Response = $this->generateLabelId($_data);
             $NewlyId[] = $Response['data'];
