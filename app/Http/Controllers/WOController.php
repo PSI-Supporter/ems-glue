@@ -2476,8 +2476,24 @@ class WOController extends Controller
             ->where('production_date', '>=', $params['dateFrom'])
             ->where('production_date', '<=', $params['dateTo'])
             ->whereNull('deleted_at')
-            ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'running_at', 'seq_data')
-            ->get(['wo_code', 'process_code', 'production_date', 'line_code', 'running_at', DB::raw('sum(ok_qty) ok_qty'), 'seq_data']);
+            ->groupBy('wo_code', 'process_code', 'production_date', 'line_code', 'seq_data')
+            ->select([
+                'wo_code',
+                'process_code',
+                'production_date',
+                'line_code',
+                DB::raw("sum(case
+                        when production_date = convert(date, running_at) AND convert(char(5), running_at, 108) < '19:00' then ok_qty     
+                    END) output_mc_m_qty"),
+                DB::raw("ISNULL(sum(case
+                        when production_date = convert(date, running_at) AND convert(char(5), running_at, 108) >= '19:00' then ok_qty     
+                    end),0) 
+                    +
+                    ISNULL(SUM(CASE 
+                    WHEN production_date != convert(date, running_at) AND convert(char(5), running_at, 108) < '07:00' THEN ok_qty
+                    END),0) output_mc_n_qty"),
+                'seq_data'
+            ]);
 
         $dataInput1HW = DB::table('keikaku_input2s')
             ->where('production_date', '>=', $params['dateFrom'])
@@ -2562,6 +2578,13 @@ class WOController extends Controller
                 $join->on('keikaku_data.production_date', '=', 'calculation_summary.production_date')
                     ->on('keikaku_data.line_code', '=', 'calculation_summary.line_code');
             })
+            ->leftJoinSub($dataOutput, 'output_mc', function ($join) {
+                $join->on('keikaku_data.wo_full_code', '=', 'output_mc.wo_code')
+                    ->on('keikaku_data.specs_side', '=', 'output_mc.process_code')
+                    ->on('keikaku_data.production_date', '=', 'output_mc.production_date')
+                    ->on('keikaku_data.line_code', '=', 'output_mc.line_code')
+                    ->on('keikaku_data.seq', '=', 'output_mc.seq_data');
+            })
             ->leftJoinSub($dataOutputHW, 'output_hw', function ($join) {
                 $join->on('keikaku_data.wo_full_code', '=', 'output_hw.wo_code')
                     ->on('keikaku_data.specs_side', '=', 'output_hw.process_code')
@@ -2600,35 +2623,13 @@ class WOController extends Controller
                 DB::raw('ISNULL(output_hw_in2_n_qty,0) output_hw_in2_n_qty'),
                 DB::raw('ISNULL(output_hw_m_qty,0) output_hw_m_qty'),
                 DB::raw('ISNULL(output_hw_n_qty,0) output_hw_n_qty'),
+                DB::raw('ISNULL(output_hw_in2_m_qty,output_mc_m_qty) morningOutput'),
+                DB::raw('ISNULL(output_hw_in2_n_qty,output_mc_n_qty) nightOutput'),
             ]);
 
         $dataAssyVer = [];
         foreach ($data as &$r) {
-            $_morningOutput = 0;
-            $_nightOutput = 0;
-            foreach ($dataOutput as $o) {
-                if (
-                    $r->production_date == $o->production_date
-                    && $r->wo_full_code == $o->wo_code
-                    && $r->line_code == $o->line_code
-                    && $r->seq == $o->seq_data
-                ) {
-                    $_running_at = explode(' ', $o->running_at);
-                    if ($r->production_date == $_running_at[0]) {
-                        if ($_running_at[1] >= '19:00:00') {
-                            $_nightOutput += $o->ok_qty;
-                        } else {
-                            $_morningOutput += $o->ok_qty;
-                        }
-                    } else {
-                        if ($_running_at[1] < '07:00:00') {
-                            $_nightOutput += $o->ok_qty;
-                        }
-                    }
-                }
-            }
-            $r->morningOutput = $_morningOutput;
-            $r->nightOutput = $_nightOutput;
+
             $r->baseMount = 0;
 
             // resume for next loop to get base mountings
