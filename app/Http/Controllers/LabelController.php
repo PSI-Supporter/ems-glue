@@ -472,6 +472,47 @@ class LabelController extends Controller
         return ['data' => $data, 'balance_data' => $balanceData, 'progress' => round($dataProgress->percentage ?? 0, 2)];
     }
 
+    function registerLabelWithoutReference(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'doc' => 'required',
+        ], [
+            'doc.required' => ':attribute is required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 406);
+        }
+
+        $itemMaster = DB::table('MITM_TBL')->where('MITM_ITMCD', $request->item_code)->get(['MITM_ITMCD', 'MITM_SPTNO']);
+
+        if ($itemMaster->isEmpty()) {
+            return response()->json(['message' => 'Item is not found'], 400);
+        }
+
+        $NewlyId = [];
+
+        for ($i = 0; $i < $request->print_qty; $i++) {
+            $_data = [
+                'machineName' => $request->machineName ?? 'DF',
+                'documentCode' => $request->doc,
+                'itemCode' => $request->item_code,
+                'qty' => $request->qty,
+                'lotNumber' => $request->lot_number,
+                'userID' => $request->user_id,
+                'item_value' => $request->itemValue ?? '',
+                'org_qty' => $request->qty ?? NULL,
+                'remark' => 'emergency',
+            ];
+            $Response = $this->generateLabelId($_data);
+            $NewlyId[] = $Response['data'];
+        }
+
+        $data = $this->getPrintableLabel(['uniqueList' => $NewlyId]);
+
+        return ['data' => $data];
+    }
+
     function getPrintableLabel($params)
     {
         $data = DB::table('raw_material_labels')
@@ -481,6 +522,7 @@ class LabelController extends Controller
             ->orderBy('created_at')
             ->get([
                 'code',
+                DB::raw('RTRIM(MITM_ITMCD) ITMCD'),
                 DB::raw('RTRIM(MITM_SPTNO) SPTNO'),
                 DB::raw('CONVERT(INT,quantity) quantity'),
                 DB::raw('RTRIM(ITMLOC_LOC) LOC'),

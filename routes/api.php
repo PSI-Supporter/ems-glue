@@ -112,6 +112,7 @@ Route::prefix('label')->group(function () {
     Route::post('c3-reprint', [LabelController::class, 'getRawMaterialLabelsHelper']);
     Route::get('c3', [LabelController::class, 'getLabel']);
     Route::post('c3', [LabelController::class, 'registerLabel']);
+    Route::post('c3-emergency', [LabelController::class, 'registerLabelWithoutReference']);
     Route::delete('c3', [LabelController::class, 'delete']);
     Route::get('c3-active', [LabelController::class, 'getActiveLabel']);
     Route::post('log', [LabelController::class, 'logAction']);
@@ -203,6 +204,7 @@ Route::prefix('receive')->group(function () {
     Route::get('document', [ReceiveController::class, 'getDocument']);
     Route::get('document/{doc}', [ReceiveController::class, 'getDocumentDetail']);
     Route::get('document/{doc}/{item}', [ReceiveController::class, 'getItemByDoc']);
+    Route::get('document-emergency/{doc}', [ReceiveController::class, 'getItemByDocEmergency']);
 });
 
 Route::prefix('production-plan')->group(function () {

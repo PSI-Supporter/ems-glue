@@ -483,6 +483,19 @@ class ReceiveController extends Controller
         return ['data' => $data, 'balance_data' => $join_data];
     }
 
+    public function getItemByDocEmergency(Request $request)
+    {
+        $doc = base64_decode($request->doc);        
+        $data = DB::table('raw_material_labels')
+            ->whereNull('deleted_at')
+            ->where('doc_code',  $doc)            
+            ->where('remark',  'emergency')
+            ->orderBy('created_at')
+            ->get(['code', 'lot_code', 'quantity', 'doc_code', 'item_code']);
+
+        return ['data' => $data];
+    }
+
     function syncFromOtherSource(Request $request)
     {
         $receivingHeader = DB::table('XPGRN_VIEW')

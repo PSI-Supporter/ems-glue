@@ -74,6 +74,7 @@ trait LabelingTrait
             'item_value' => $data['item_value'] ?? NULL,
             'pallet' => $data['pallet'] ?? NULL,
             'org_quantity' => $data['org_qty'] ?? NULL,
+            'remark' => $data['remark'] ?? NULL,
         ]);
 
 
