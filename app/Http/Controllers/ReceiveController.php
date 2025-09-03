@@ -464,7 +464,10 @@ class ReceiveController extends Controller
 
         $dataBalance = $this->progressLabeling(['doc' => $doc]);
 
-        return ['data' => $data, 'progress' => round($dataBalance->percentage ?? 0, 2)];
+        $persentase = round($dataBalance->percentage ?? 0, 2);
+        $persentase = $persentase > 100 ? 100 : $persentase;
+
+        return ['data' => $data, 'progress' => $persentase];
     }
 
     public function getItemByDoc(Request $request)
@@ -485,10 +488,10 @@ class ReceiveController extends Controller
 
     public function getItemByDocEmergency(Request $request)
     {
-        $doc = base64_decode($request->doc);        
+        $doc = base64_decode($request->doc);
         $data = DB::table('raw_material_labels')
             ->whereNull('deleted_at')
-            ->where('doc_code',  $doc)            
+            ->where('doc_code',  $doc)
             ->where('remark',  'emergency')
             ->orderBy('created_at')
             ->get(['code', 'lot_code', 'quantity', 'doc_code', 'item_code']);
