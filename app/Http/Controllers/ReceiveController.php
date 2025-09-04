@@ -489,12 +489,25 @@ class ReceiveController extends Controller
     public function getItemByDocEmergency(Request $request)
     {
         $doc = base64_decode($request->doc);
+
+        $dataRack = DB::table('ITMLOC_TBL')->groupBy('ITMLOC_ITM')->select('ITMLOC_ITM', DB::raw("RTRIM(max(ITMLOC_LOC)) RACK_CD"));
+
         $data = DB::table('raw_material_labels')
+            ->leftJoin('MITM_TBL', 'item_code', '=', 'MITM_ITMCD')
+            ->leftJoinSub($dataRack, 'RACK_TBL', 'item_code', '=', 'ITMLOC_ITM')
             ->whereNull('deleted_at')
             ->where('doc_code',  $doc)
             ->where('remark',  'emergency')
             ->orderBy('created_at')
-            ->get(['code', 'lot_code', 'quantity', 'doc_code', 'item_code']);
+            ->get([
+                'code',
+                'lot_code',
+                'quantity',
+                'doc_code',
+                'item_code',
+                DB::raw("RTRIM(MITM_SPTNO) SPTNO"),
+                'RACK_CD',
+            ]);
 
         return ['data' => $data];
     }
