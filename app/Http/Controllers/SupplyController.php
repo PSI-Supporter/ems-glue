@@ -1108,9 +1108,9 @@ class SupplyController extends Controller
                                     $this->fpdf->Text(3, $cury + 16, $cline);
                                     $clebar = $this->fpdf->GetStringWidth($cfedr) + 17;
                                     $this->fpdf->Code128(170, $cury + 9, $cfedr, $clebar, 4);
-                                    $this->fpdfText(170, $cury + 16, $cfedr);
-                                    $this->fpdfSetXY(90, $cury);
-                                    $this->fpdfSetFont('Arial', 'BU', 10);
+                                    $this->fpdf->Text(170, $cury + 16, $cfedr);
+                                    $this->fpdf->SetXY(90, $cury);
+                                    $this->fpdf->SetFont('Arial', 'BU', 10);
                                     $this->fpdf->Cell(35, 4, 'Picking Instruction', 0, 0, 'C');
                                     $this->fpdf->SetXY(100, $cury + 11);
                                     $this->fpdf->SetFont('Arial', '', 6);
