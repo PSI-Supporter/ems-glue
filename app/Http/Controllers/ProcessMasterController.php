@@ -6,6 +6,7 @@ use App\Models\ProcessMaster;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class ProcessMasterController extends Controller
@@ -235,5 +236,26 @@ class ProcessMasterController extends Controller
                 'deleted_by' => $request->user_id
             ]);
         return ['message' => $affectedRow ? 'Deleted successfully' : 'Could not be deleted'];
+    }
+
+    function uploadTypeCategory()
+    {
+        $base = json_decode(Storage::disk('public')->get('type_category.json'), FALSE);
+
+        $dataSave = [];
+        foreach ($base as $r) {
+            $dataSave[] = [
+                'created_at' => date('Y-m-d H:i:s'),
+                'type_code' => $r->TYPE,
+                'type_color' => $r->COLOR == 'HIJAU' ? '#9ACD32' : '#F4A460',
+                'created_by' => '1210034',
+            ];
+        }
+
+        // return $dataSave;
+
+        DB::table('type_categories')->insert($dataSave);
+
+        return ['message' => 'tersimpan dengan baik'];
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ProductionInput;
 use App\Models\ProductionTime;
+use App\Models\TypeCategory;
 use Exception;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
@@ -1814,17 +1815,20 @@ class WOController extends Controller
                     ->select('wo_code', 'process_code', 'seq_data', DB::raw('sum(ok_qty) ok_qty'));
             }
 
+            $dataTypeCategory = DB::table('type_categories')->whereNull('deleted_at')->select('type_code','type_color');
+
             $data = $request->line_code == '-' ? [] : DB::table('keikaku_data')
                 ->leftJoinSub($dataOutput, 'output', function ($join) {
                     $join->on('keikaku_data.wo_full_code', '=', 'output.wo_code')
                         ->on('keikaku_data.specs_side', '=', 'output.process_code')
                         ->on('keikaku_data.seq', '=', 'output.seq_data');
                 })
+                ->leftJoinSub($dataTypeCategory, 'dataTypeCategory', 'type_code', '=', 'specs')
                 ->whereNull('deleted_at')
                 ->where('production_date', $request->production_date)
                 ->where('line_code', $request->line_code)
                 ->orderBy('id')
-                ->get(['keikaku_data.*', DB::raw('ISNULL(ok_qty,0) ok_qty')]);
+                ->get(['keikaku_data.*', DB::raw('ISNULL(ok_qty,0) ok_qty'), 'type_color']);
 
             $previousData = [];
             $_uniqueItem = $request->line_code == '-' ? [] : $data->unique('item_code')->pluck('item_code')->toArray();
