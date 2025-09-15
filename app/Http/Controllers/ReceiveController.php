@@ -444,8 +444,7 @@ class ReceiveController extends Controller
             ->leftJoin('MITM_TBL', 'item_code', '=', 'MITM_ITMCD')
             ->leftJoinSub($dataRack, "vrack", "item_code", "=", "ITMLOC_ITM")
             ->leftJoinSub($ser_data, 'v2', function ($join) {
-                $join->on('item_code', '=', 'v2.lbl_item_code')
-                    ->on('pallet', '=', DB::raw("isnull(v2.lbl_pallet,'')"));
+                $join->on('item_code', '=', 'v2.lbl_item_code');
             })
             ->whereNull('deleted_at')
             ->where('delivery_doc',  $doc)
