@@ -1815,7 +1815,7 @@ class WOController extends Controller
                     ->select('wo_code', 'process_code', 'seq_data', DB::raw('sum(ok_qty) ok_qty'));
             }
 
-            $dataTypeCategory = DB::table('type_categories')->whereNull('deleted_at')->select('type_code','type_color');
+            $dataTypeCategory = DB::table('type_categories')->whereNull('deleted_at')->select('type_code', 'type_color');
 
             $data = $request->line_code == '-' ? [] : DB::table('keikaku_data')
                 ->leftJoinSub($dataOutput, 'output', function ($join) {
@@ -1904,6 +1904,7 @@ class WOController extends Controller
 
         $_procesMaster = DB::query()->fromSub($_procesMaster0, 'vp1')
             ->groupBy('assy_code', 'process_code', 'line_code')
+            ->where('process_seq', '>', 0)
             ->select(
                 'assy_code',
                 DB::raw('MAX(process_seq) process_seq'),
@@ -1934,6 +1935,7 @@ class WOController extends Controller
             $_output = DB::table('keikaku_outputs')->whereNull('deleted_at')
                 ->where('production_date', '<', $request->production_date)
                 ->whereIn('line_code', $relatedLines)
+                ->whereNot('line_code', 'LIKE', 'AL%')
                 ->whereIn('wo_code', $woFullCode)
                 ->select(
                     'production_date',
