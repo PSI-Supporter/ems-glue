@@ -424,6 +424,14 @@ class DeliveryController extends Controller
         $psnSub  = DB::table('XPPSN1')->groupBy('PPSN1_WONO', 'PPSN1_BOMRV')->select('PPSN1_WONO', 'PPSN1_BOMRV');
         $serd2A  = DB::table('SERD2_TBL');
         $serd2B  = DB::table('SERD2_TBL');
+        $MITM_TBLFG  = DB::table('MITM_TBL')
+            ->where('MITM_MODEL', '1')
+            ->select(
+                DB::raw('RTRIM(MITM_ITMCD) FGCD'),
+                DB::raw('RTRIM(MITM_ITMD1) SER_ITMNM'),
+                DB::raw('RTRIM(MITM_HSCD) SER_ITM_HSCODE'),
+                DB::raw('RTRIM(MITM_STKUOM) SER_ITM_UOM'),
+            );
 
         $data = DB::table('DLV_TBL')
             ->leftJoinSub($serd2A, 'A', 'DLV_SER', '=', 'A.SERD2_SER')
@@ -431,14 +439,33 @@ class DeliveryController extends Controller
             ->leftJoin('SERC_TBL', "DLV_SER", "=", "SERC_NEWID")
             ->leftJoinSub($serd2B, 'B', 'SERC_COMID', '=', 'B.SERD2_SER')
             ->leftJoin('MITM_TBL', 'B.SERD2_ITMCD', '=', 'MITM_ITMCD')
+            ->leftJoin('MITMGRP_TBL', 'B.SERD2_ITMCD', '=', 'MITMGRP_ITMCD_GRD')
             ->leftJoinSub($psnSub, 'VPSN', 'SERC_COMJOB', '=', 'PPSN1_WONO')
             ->whereIn('SER_ITMID', $arFG)
             ->whereIn('DLV_ZNOMOR_AJU', $arAJU)
             ->whereNull('A.SERD2_SER')
-            ->groupBy("DLV_ZNOMOR_AJU", "SER_ITMID", 'B.SERD2_ITMCD', 'PPSN1_BOMRV', 'MITM_ITMD1', 'DLV_SER', "DLV_QTY", "MITM_STKUOM")
-            ->selectRaw('DLV_ZNOMOR_AJU,SER_ITMID,B.SERD2_ITMCD,PPSN1_BOMRV,sum(B.SERD2_QTY) RMQT,DLV_QTY DLVQT,sum(B.SERD2_QTY)/DLV_QTY PER,RTRIM(MITM_ITMD1) PARTDESCRIPTION,DLV_SER, RTRIM(MITM_STKUOM) PART_UOM')
+            ->groupBy(
+                "DLV_ZNOMOR_AJU",
+                "SER_ITMID",
+                'B.SERD2_ITMCD',
+                'PPSN1_BOMRV',
+                'MITM_ITMD1',
+                'DLV_SER',
+                "DLV_QTY",
+                "MITM_STKUOM",
+                "MITMGRP_ITMCD",
+                "DLV_ID"
+            )
+            ->selectRaw('DLV_ID,DLV_ZNOMOR_AJU,SER_ITMID,B.SERD2_ITMCD,PPSN1_BOMRV,sum(B.SERD2_QTY) RMQT,DLV_QTY DLVQT,sum(B.SERD2_QTY)/DLV_QTY PER,RTRIM(MITM_ITMD1) PARTDESCRIPTION,DLV_SER, RTRIM(MITM_STKUOM) PART_UOM,MITMGRP_ITMCD');
+
+
+        $dataFinal = DB::query()->fromSub($data, 'VDEEP1')
+            ->leftJoinSub($MITM_TBLFG, 'MITM', 'SER_ITMID', '=', 'FGCD')
+            ->selectRaw('DLV_ID,DLV_ZNOMOR_AJU,SER_ITMID,SERD2_ITMCD,PPSN1_BOMRV,
+         RMQT, DLVQT, PER, PARTDESCRIPTION,DLV_SER, PART_UOM,
+         MITMGRP_ITMCD,SER_ITMNM,SER_ITM_HSCODE,SER_ITM_UOM')
             ->orderBy('DLV_ZNOMOR_AJU')->get();
-        return json_decode(json_encode($data), true);
+        return json_decode(json_encode($dataFinal), true);
     }
 
     function selectColumnsWhereRemarkIn($arrayDeliveryOrderNumber)
@@ -632,7 +659,7 @@ class DeliveryController extends Controller
 
                         $r['PART_PRICE'] = (float) $b['RCV_PRPRC'];
 
-                        $NewRSNull[] = [
+                        $NewRS[] = [
                             'DLV_ZNOMOR_AJU' => $r['DLV_ZNOMOR_AJU'],
                             'SER_ITMID' => $r['SER_ITMID'],
                             'DLVQT' => $r['DLVQT'],
@@ -653,6 +680,9 @@ class DeliveryController extends Controller
                             'BM' => $b['BM'],
                             'PPN' => $b['PPN'],
                             'PPH' => $b['PPH'],
+                            'SER_ITMNM' => $r['SER_ITMNM'],
+                            'SER_ITM_HSCODE' => $r['SER_ITM_HSCODE'],
+                            'SER_ITM_UOM' => $r['SER_ITM_UOM'],
                         ];
 
                         if ($r['RMQT'] == $r['PLOTQT']) {
@@ -677,7 +707,7 @@ class DeliveryController extends Controller
 
                         $r['PART_PRICE'] = (float) $b['RCV_PRPRC'];
 
-                        $NewRSNull[] = [
+                        $NewRS[] = [
                             'DLV_ZNOMOR_AJU' => $r['DLV_ZNOMOR_AJU'],
                             'SER_ITMID' => $r['SER_ITMID'],
                             'DLVQT' => $r['DLVQT'],
@@ -698,6 +728,9 @@ class DeliveryController extends Controller
                             'BM' => $b['BM'],
                             'PPN' => $b['PPN'],
                             'PPH' => $b['PPH'],
+                            'SER_ITMNM' => $r['SER_ITMNM'],
+                            'SER_ITM_HSCODE' => $r['SER_ITM_HSCODE'],
+                            'SER_ITM_UOM' => $r['SER_ITM_UOM'],
                         ];
 
                         if ($r['RMQT'] == $r['PLOTQT']) {
