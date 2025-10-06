@@ -94,6 +94,7 @@ Route::prefix('item')->group(function () {
     Route::get('upload-composite', [ItemController::class, 'uploadComposite']);
     Route::get('xray-sync-rack', [ItemController::class, 'updateLocationXray']);
     Route::get('category', [ItemController::class, 'getCategories']);
+    Route::get('rank-list', [ItemController::class, 'getItemRank']);
 });
 
 #Untuk Inventory

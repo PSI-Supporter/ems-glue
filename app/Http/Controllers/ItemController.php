@@ -766,4 +766,13 @@ class ItemController extends Controller
             ->get(DB::raw('RTRIM(MITM_NCAT) MITM_NCAT'));
         return ['data' => $data];
     }
+
+    function getItemRank()
+    {
+        $data = DB::table('MITMGRP_TBL')->get([
+            DB::raw('RTRIM(MITMGRP_ITMCD) ITMGRP'),
+            DB::raw('RTRIM(MITMGRP_ITMCD_GRD) ITMGRD')
+        ]);
+        return ['data' => $data];
+    }
 }

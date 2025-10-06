@@ -464,7 +464,43 @@ class ReceiveController extends Controller
         $dataBalance = $this->progressLabeling(['doc' => $doc]);
 
         $persentase = round($dataBalance->percentage ?? 0, 2);
-        $persentase = $persentase > 100 ? 100 : $persentase;
+        if ($persentase > 100) {
+            $persentase = 100;
+        } else {
+            $isDocRank = substr(strtoupper($doc), -2) == '-I' ? true : false;
+            $isDocContainRankItem = DB::table('raw_material_labels')
+                ->join('MITMGRP_TBL', 'item_code', '=', 'MITMGRP_ITMCD_GRD')
+                ->whereNull('deleted_at')
+                ->whereNotNull('MITMGRP_ITMCD_GRD')
+                ->where('doc_code', $doc)
+                ->groupBy('MITMGRP_ITMCD_GRD')
+                ->select('MITMGRP_ITMCD_GRD')->count();
+
+            if ($isDocContainRankItem) {
+            } else {
+                $anotherDoc = $isDocRank ? substr($doc, 0, -2) : $doc . "-I";
+                $lbl_data2 = DB::table('raw_material_labels')
+                    ->leftJoin('MITMGRP_TBL', 'item_code', '=', 'MITMGRP_ITMCD_GRD')
+                    ->whereNull('deleted_at')
+                    ->whereIn('doc_code', [$anotherDoc])
+                    ->groupByRaw("item_code,MITMGRP_ITMCD")
+                    ->select(
+                        DB::raw("UPPER(item_code) item_code"),
+                        DB::raw("UPPER(MITMGRP_ITMCD) MITMGRP_ITMCD"),
+                        DB::raw("SUM(org_quantity) lbl_qty")
+                    )->get();
+                foreach ($lbl_data2 as $r) {
+                    foreach ($data as $b) {
+                        if (in_array($b->item_code, [$r->item_code, $r->MITMGRP_ITMCD])) {
+                            $b->total_lbl_qty += $r->lbl_qty;
+                            $b->balance_qty = (($b->total_qty ?? 0) - ($b->total_lbl_qty ?? 0));
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
 
         return ['data' => $data, 'progress' => $persentase];
     }
@@ -473,14 +509,35 @@ class ReceiveController extends Controller
     {
         $doc = base64_decode($request->doc);
         $item = base64_decode($request->item);
+
+        $dataRack = DB::table('ITMLOC_TBL')->where('ITMLOC_ITM', $item)
+            ->groupBy('ITMLOC_ITM')
+            ->select('ITMLOC_ITM', DB::raw('MAX(ITMLOC_LOC) LOC'));
+
         $data = DB::table('raw_material_labels')
+            ->leftJoinSub($dataRack, 'VLOC', 'item_code', '=', 'ITMLOC_ITM')
             ->whereNull('deleted_at')
             ->where('doc_code',  $doc)
             ->where('item_code',  $item)
             ->orderBy('created_at')
-            ->get(['code', 'lot_code', 'quantity']);
+            ->get(['code', 'lot_code', 'quantity', 'item_code', 'doc_code', 'LOC']);
 
         $join_data = $this->balancingPerPallet(['doc' => $doc, 'item' => $item]);
+        if ($data->count() == 0) {
+            $isDocRank = substr(strtoupper($doc), -2) == '-I' ? true : false;
+            if ($isDocRank) {
+            } else {
+                $anotherDoc = $isDocRank ? substr($doc, 0, -2) : $doc . "-I";
+                $data = DB::table('raw_material_labels')
+                    ->leftJoin('MITMGRP_TBL', 'item_code', '=', 'MITMGRP_ITMCD_GRD')
+                    ->leftJoinSub($dataRack, 'VLOC', 'item_code', '=', 'ITMLOC_ITM')
+                    ->whereNull('deleted_at')
+                    ->where('doc_code',  $anotherDoc)
+                    ->where('MITMGRP_ITMCD',  $item)
+                    ->orderBy('created_at')
+                    ->get(['code', 'lot_code', 'quantity', 'item_code', 'doc_code', 'LOC']);
+            }
+        }
 
         return ['data' => $data, 'balance_data' => $join_data];
     }
@@ -574,10 +631,76 @@ class ReceiveController extends Controller
                 return response()->json(['message' => $e->getMessage()], 400);
             }
         } else {
-            return [
-                'message' => $receivingHeader->count() == 0 ? 'Not found' : 'too many documents',
-                'synchronized_items_count' => 0
-            ];
+            if ($receivingHeader->count() == 2) {
+                $receivingHeader2 = DB::table('XPGRN_VIEW')
+                    ->groupBy('PGRN_SUPNO')
+                    ->where('PGRN_SUPNO', $request->doc)
+                    ->get([
+                        DB::raw("RTRIM(PGRN_SUPNO) SUPNO"),
+                    ]);
+                if ($receivingHeader2->count() == 1) {
+                    $DONumber = $receivingHeader2->first()->SUPNO;
+
+                    $receiving = DB::table('XPGRN_VIEW')
+                        ->groupBy('PGRN_ITMCD', 'PGRN_SUPNO', 'PGRN_RCVDT')
+                        ->where('PGRN_SUPNO',  $DONumber)
+                        ->get([
+                            'PGRN_RCVDT',
+                            DB::raw("RTRIM(PGRN_ITMCD) ITMCD"),
+                            DB::raw("SUM(PGRN_ROKQT) QTY"),
+                        ]);
+
+                    logger("#memulai upload $DONumber atau " . $request->doc);
+
+                    $data = [];
+                    foreach ($receiving as $r) {
+                        logger($r->ITMCD . " total baris " . $receiving->where('ITMCD', $r->ITMCD)->count());
+                        $data[] = [
+                            'delivery_doc' => $DONumber,
+                            'created_by' => $request->user_id ?? 'ane.',
+                            'created_at' => date('Y-m-d H:i:s'),
+                            'item_code' => $r->ITMCD,
+                            'delivery_date' => $r->PGRN_RCVDT,
+                            'delivery_quantity' => $r->QTY,
+                            'ship_quantity' => $r->QTY,
+                            'pallet' => '',
+                            'item_name' => ''
+                        ];
+                    }
+
+                    try {
+                        DB::beginTransaction();
+                        DB::table('receive_p_l_s')
+                            ->whereNull('deleted_at')->where('delivery_doc', $DONumber)
+                            ->update(['deleted_by' => $request->user_id ?? 'ane.', 'deleted_at' => date('Y-m-d H:i:s')]);
+
+                        $TOTAL_COLUMN = 8;
+                        $insert_data = collect($data);
+                        $chunks = $insert_data->chunk(2000 / $TOTAL_COLUMN);
+                        foreach ($chunks as $chunk) {
+                            DB::table('receive_p_l_s')->insert($chunk->toArray());
+                        }
+                        DB::commit();
+
+                        logger("selesai upload $DONumber atau " . $request->doc);
+
+                        return ['message' => 'Synchronized', 'synchronized_items_count' => count($data)];
+                    } catch (Exception $e) {
+                        DB::rollBack();
+                        return response()->json(['message' => $e->getMessage()], 400);
+                    }
+                } else {
+                    return [
+                        'message' => $receivingHeader->count() == 0 ? 'Not found' : 'too many documents',
+                        'synchronized_items_count' => 0
+                    ];
+                }
+            } else {
+                return [
+                    'message' => $receivingHeader->count() == 0 ? 'Not found' : 'too many documents',
+                    'synchronized_items_count' => 0
+                ];
+            }
         }
     }
 }

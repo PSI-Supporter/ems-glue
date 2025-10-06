@@ -103,26 +103,130 @@ trait LabelingTrait
             })->get([
                 "v1.item_code",
                 "v1.pallet",
+                DB::raw("ISNULL(total_ship_qty,0) total_ship_qty"),
                 DB::raw("ISNULL(total_ship_qty,0)-ISNULL(total_lbl_qty,0) total_bal_qty"),
             ]);
+
+        $isAnyBalance = false;
+        foreach ($join_data as $r) {
+            if ($r->total_bal_qty > 0) {
+                $isAnyBalance = true;
+                break;
+            }
+        }
+
+        if ($isAnyBalance) {
+            $isDocRank = substr(strtoupper($data['doc']), -2) == '-I' ? true : false;
+            if ($isDocRank) {
+            } else {
+                $anotherDoc = $isDocRank ? substr($data['doc'], 0, -2) : $data['doc'] . "-I";
+                $lbl_data2 = DB::table('raw_material_labels')
+                    ->leftJoin('MITMGRP_TBL', 'item_code', '=', 'MITMGRP_ITMCD_GRD')
+                    ->whereNull('deleted_at')
+                    ->where('doc_code', $anotherDoc)
+                    ->where('MITMGRP_ITMCD', $data['item'])
+                    ->groupByRaw("isnull(MITMGRP_ITMCD, item_code)")
+                    ->select(
+                        DB::raw("UPPER(isnull(MITMGRP_ITMCD, item_code)) item_code"),
+                        DB::raw("SUM(org_quantity) lbl_qty")
+                    )->get();
+
+                foreach ($lbl_data2 as $r) {
+                    foreach ($join_data as $b) {
+                        if ($b->item_code == $r->item_code) {
+                            $b->total_bal_qty = $b->total_ship_qty - $r->lbl_qty;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
 
         return $join_data;
     }
 
     function progressLabeling($data = [])
     {
+        $isDocContainRankItem = DB::table('raw_material_labels')
+            ->join('MITMGRP_TBL', 'item_code', '=', 'MITMGRP_ITMCD_GRD')
+            ->whereNull('deleted_at')
+            ->whereNotNull('MITMGRP_ITMCD_GRD')
+            ->where('doc_code', $data['doc'])
+            ->groupBy('MITMGRP_ITMCD_GRD')
+            ->select('MITMGRP_ITMCD_GRD')->count();
+
         $rcv_data = DB::table('receive_p_l_s')->whereNull('deleted_at')->where('delivery_doc', $data['doc'])
-            ->groupBy('delivery_doc')
-            ->select('delivery_doc', DB::raw("SUM(ship_quantity) ship_qty"));
+            ->leftJoin('MITMGRP_TBL', 'item_code', '=', 'MITMGRP_ITMCD_GRD')
+            ->groupByRaw("isnull(MITMGRP_ITMCD, item_code)")
+            ->select(
+                DB::raw("isnull(MITMGRP_ITMCD, item_code) item_code"),
+                DB::raw("SUM(ship_quantity) ship_qty")
+            );
 
-        $lbl_data = DB::table('raw_material_labels')->whereNull('deleted_at')->where('doc_code', $data['doc'])
-            ->groupBy('doc_code')
-            ->select('doc_code', DB::raw("SUM(quantity) lbl_qty"));
+        $lbl_data = DB::table('raw_material_labels')
+            ->leftJoin('MITMGRP_TBL', 'item_code', '=', 'MITMGRP_ITMCD_GRD')
+            ->whereNull('deleted_at')->where('doc_code', $data['doc'])
+            ->groupByRaw("isnull(MITMGRP_ITMCD, item_code)")
+            ->select(
+                DB::raw("isnull(MITMGRP_ITMCD, item_code) item_code"),
+                DB::raw("SUM(org_quantity) lbl_qty")
+            );
 
-        $balance_data = DB::query()->fromSub($rcv_data, 'v1')->leftJoinSub($lbl_data, 'v2', 'v1.delivery_doc', '=', 'doc_code')
-            ->get(['v1.*', DB::raw("round(lbl_qty / ship_qty * 100, 2) percentage")]);
+        $balance_data = DB::query()->fromSub($rcv_data, 'v1')->leftJoinSub($lbl_data, 'v2', 'v1.item_code', '=', 'v2.item_code')
+            ->groupBy('v1.item_code')
+            ->get([
+                DB::raw('UPPER(v1.item_code) item_code'),
+                DB::raw("sum(lbl_qty) lbl_qty_sum"),
+                DB::raw("sum(ship_qty) ship_qty_sum"),
+                DB::raw("round(sum(lbl_qty) / sum(ship_qty) * 100, 2) percentage")
+            ]);
 
-        return $balance_data->first();
+        $grandPercentage = new \stdClass();
+        $grandPercentage->percentage = round($balance_data->sum("lbl_qty_sum") / $balance_data->sum("ship_qty_sum") * 100, 2);
+        $grandPercentage->percentage = round($balance_data->sum("lbl_qty_sum") / $balance_data->sum("ship_qty_sum") * 100, 2);
+        $grandPercentage->percentage = round($balance_data->sum("lbl_qty_sum") / $balance_data->sum("ship_qty_sum") * 100, 2);
+
+        $firstRow = $grandPercentage;
+
+        if ($grandPercentage->percentage < 100) {
+            // apakah DO tersebut terkait Rank
+            // ada 2 acuan 
+            // 1. di belakang nomorDO mengandung -I
+            // 2. di data mengandung item rank
+
+            $isDocRank = substr(strtoupper($data['doc']), -2) == '-I' ? true : false;
+
+            if ($isDocContainRankItem) {
+            } else {
+                $anotherDoc = $isDocRank ? substr($data['doc'], 0, -2) : $data['doc'] . "-I";
+                $lbl_data2 = DB::table('raw_material_labels')
+                    ->leftJoin('MITMGRP_TBL', 'item_code', '=', 'MITMGRP_ITMCD_GRD')
+                    ->whereNull('deleted_at')
+                    ->where('doc_code', $anotherDoc)
+                    ->groupByRaw("isnull(MITMGRP_ITMCD, item_code)")
+                    ->select(
+                        DB::raw("UPPER(isnull(MITMGRP_ITMCD, item_code)) item_code"),
+                        DB::raw("SUM(org_quantity) lbl_qty")
+                    )->get();
+
+                foreach ($lbl_data2 as $r) {
+                    foreach ($balance_data as $b) {
+                        if ($b->item_code == $r->item_code) {
+                            $b->lbl_qty_sum += $r->lbl_qty;
+                            break;
+                        }
+                    }
+                }
+
+                $grandPercentage = new \stdClass();
+                $grandPercentage->percentage = round($balance_data->sum("lbl_qty_sum") / $balance_data->sum("ship_qty_sum") * 100, 2);
+                $grandPercentage->percentage = round($balance_data->sum("lbl_qty_sum") / $balance_data->sum("ship_qty_sum") * 100, 2);
+                $grandPercentage->percentage = round($balance_data->sum("lbl_qty_sum") / $balance_data->sum("ship_qty_sum") * 100, 2);
+
+                $firstRow = $grandPercentage;
+            }
+        }
+        return $firstRow;
     }
 
     function deleteLabel($data = [])
