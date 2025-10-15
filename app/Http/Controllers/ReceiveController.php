@@ -502,7 +502,7 @@ class ReceiveController extends Controller
         }
 
 
-        return ['data' => $data, 'progress' => $persentase];
+        return ['data' => $data, 'progress' => floor($persentase)];
     }
 
     public function getItemByDoc(Request $request)
