@@ -484,6 +484,10 @@ class LabelController extends Controller
             return response()->json($validator->errors(), 406);
         }
 
+        if (strlen(trim($request->doc)) <= 2) {
+            return response()->json(['message' => 'DO Number is not valid'], 400);
+        }
+
         $itemMaster = DB::table('MITM_TBL')->where('MITM_ITMCD', $request->item_code)->get(['MITM_ITMCD', 'MITM_SPTNO']);
 
         if ($itemMaster->isEmpty()) {
