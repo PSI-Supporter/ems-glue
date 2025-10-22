@@ -2880,9 +2880,6 @@ class WOController extends Controller
 
         $spreadSheet = new Spreadsheet();
         $sheet = $spreadSheet->getActiveSheet();
-        $protection = $sheet->getProtection();
-        $protection->setSheet(true);               // mengunci sheet
-        $protection->setPassword('rahasia_#&');
 
         $sheet->setTitle('keikaku_mc');
         $sheet->setCellValue([1, 1], 'Production Date');
