@@ -1623,6 +1623,32 @@ class WOController extends Controller
             }
 
             DB::commit();
+
+            // start caching
+            $dataKeikakuData = DB::table('keikaku_data')
+                ->whereNull('deleted_at')
+                ->where('production_date', $data['production_date'])
+                ->where('line_code', $data['line_code'])
+                ->orderBy('id')
+                ->get(['*', DB::raw("cycle_time/3600*plan_qty as production_worktime"), DB::raw("cycle_time/3600 ct_hour")]);
+
+            $dataCalc = DB::table('keikaku_calcs')->whereNull('deleted_at')
+                ->where('production_date', $data['production_date'])
+                ->where('line_code', $data['line_code'])
+                ->orderBy('calculation_at')
+                ->get([
+                    'plan_worktime',
+                    'efficiency',
+                    'calculation_at',
+                    'flag_mot',
+                    DB::raw("plan_worktime*efficiency as effective_worktime"),
+                ]);
+
+            $dataSensor = $dataModelChanges = $inputHW = $outputHW = $input2HW = [];
+            $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc, $dataSensor, $dataModelChanges, $inputHW, $outputHW, $input2HW);
+            $this->_updateDataSimulation($asProdPlan[1], $data['production_date']);
+            // end caching
+
             return ['message' => 'Saved successfully', $data];
         } catch (Exception $e) {
             $message = $e->getMessage();
