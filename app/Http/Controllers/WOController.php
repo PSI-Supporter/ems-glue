@@ -907,7 +907,7 @@ class WOController extends Controller
 
         $morningEfficiency = 0;
         $nightEfficiency = 0;
-        $this->_updateDataSimulation($asProdPlan[1], $request->production_date);
+        $this->_updateDataSimulation($asProdPlan[1], $request->production_date, $request->line_code);
 
         foreach ($dataCalc as $r) {
             if (substr($r->calculation_at, 11, 2) == '07' && $morningEfficiency == 0) {
@@ -947,7 +947,7 @@ class WOController extends Controller
         ];
     }
 
-    function _updateDataSimulation($data, $productionDate)
+    function _updateDataSimulation($data, $productionDate, $productionLine)
     {
 
         $dataToUpdate = [];
@@ -978,6 +978,7 @@ class WOController extends Controller
             DB::table('keikaku_data')->whereNull('deleted_at')
                 ->where('wo_full_code', $r['wo'])
                 ->where('production_date', $productionDate)
+                ->where('line_code', $productionLine)
                 ->where('seq', $r['seq'])
                 ->update([
                     'plan_morning_qty' => $r['MORNING'],
@@ -1646,7 +1647,7 @@ class WOController extends Controller
 
             $dataSensor = $dataModelChanges = $inputHW = $outputHW = $input2HW = [];
             $asProdPlan = $this->plotProdPlan($dataKeikakuData, $dataCalc, $dataSensor, $dataModelChanges, $inputHW, $outputHW, $input2HW);
-            $this->_updateDataSimulation($asProdPlan[1], $data['production_date']);
+            $this->_updateDataSimulation($asProdPlan[1], $data['production_date'], $data['line_code']);
             // end caching
 
             return ['message' => 'Saved successfully', $data];
