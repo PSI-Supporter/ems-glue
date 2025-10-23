@@ -432,10 +432,10 @@ class ReceiveController extends Controller
         $ser_data = DB::table('raw_material_labels')
             ->whereNull('deleted_at')
             ->where('doc_code', $doc)
-            ->groupBy('item_code', 'pallet')
+            ->groupBy('item_code')
             ->select(
                 DB::raw('item_code as lbl_item_code'),
-                DB::raw('pallet as lbl_pallet'),
+                DB::raw('max(pallet) as lbl_pallet'),
                 DB::raw("SUM(quantity) total_lbl_qty")
             );
 
