@@ -206,6 +206,7 @@ Route::prefix('receive')->group(function () {
     Route::get('document/{doc}', [ReceiveController::class, 'getDocumentDetail']);
     Route::get('document/{doc}/{item}', [ReceiveController::class, 'getItemByDoc']);
     Route::get('document-emergency/{doc}', [ReceiveController::class, 'getItemByDocEmergency']);
+    Route::get('search-by-item-name', [ReceiveController::class, 'searchByItemName']);
 });
 
 Route::prefix('production-plan')->group(function () {

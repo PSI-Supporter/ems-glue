@@ -703,4 +703,20 @@ class ReceiveController extends Controller
             }
         }
     }
+
+    function searchByItemName(Request $request)
+    {
+        $tblPacking = DB::table('receive_p_l_s')->whereNull('deleted_at')
+            ->where('delivery_doc', $request->doc)
+            ->groupBy('delivery_doc', 'item_code')
+            ->select('delivery_doc', 'item_code');
+
+        $data = DB::table('MITM_TBL')
+            ->rightJoinSub($tblPacking, 'v1', 'MITM_ITMCD', '=', 'item_code')
+            ->where('MITM_SPTNO', $request->item_name)->get([
+                DB::raw("RTRIM(MITM_ITMCD) ITMCD"),
+                DB::raw("RTRIM(MITM_ITMD1) ITMD1"),
+            ]);
+        return ['data' => $data];
+    }
 }
