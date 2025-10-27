@@ -2969,17 +2969,20 @@ class WOController extends Controller
                 }
             }
 
+            $dataCalcAll = DB::table('keikaku_calcs')->whereNull('deleted_at')->where('production_date', $request->dateFrom)
+                ->whereIn('line_code', $uniqueLine)
+                ->orderBy('calculation_at')
+                ->get([
+                    'plan_worktime',
+                    'efficiency',
+                    'calculation_at',
+                    'flag_mot',
+                    DB::raw("plan_worktime*efficiency as effective_worktime"),
+                    'line_code'
+                ]);
+
             foreach ($uniqueLine as $r) {
-                $dataCalc = DB::table('keikaku_calcs')->whereNull('deleted_at')->where('production_date', $request->dateFrom)
-                    ->where('line_code', $r)
-                    ->orderBy('calculation_at')
-                    ->get([
-                        'plan_worktime',
-                        'efficiency',
-                        'calculation_at',
-                        'flag_mot',
-                        DB::raw("plan_worktime*efficiency as effective_worktime"),
-                    ]);
+                $dataCalc = $dataCalcAll->where('line_code', $r);
 
                 if (!$dataCalc->isEmpty()) {
                     $dataKeikakuData = DB::table('keikaku_data')
