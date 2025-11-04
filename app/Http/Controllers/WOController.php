@@ -1396,7 +1396,7 @@ class WOController extends Controller
 
         if ($ReleaseStatus) {
         } else {
-            if (!$isReleaser) {
+            if (!$isReleaser && !in_array($data['line_code'], ['AL 1'])) {
                 return response()->json(['message' => 'You are not a releaser'], 403);
             }
         }
@@ -1631,6 +1631,26 @@ class WOController extends Controller
                     'created_by' => $data['user_id'],
                     'total_plan_worktime_morning' => $data['totalWorkingTimeMorning'],
                     'total_plan_worktime_night' => $data['totalWorkingTimeNight'],
+                ]);
+            }
+
+            if (in_array($data['line_code'], ['AL 1'])) {
+                // reset permission
+                DB::table('keikaku_releases')
+                    ->where('line_code', $data['line_code'])
+                    ->where('production_date', $data['production_date'])
+                    ->whereNull('deleted_at')
+                    ->update([
+                        'deleted_at' => date('Y-m-d H:i:s'),
+                        'deleted_by' => $data['user_id']
+                    ]);
+
+                DB::table('keikaku_releases')->insert([
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'production_date' => $data['production_date'],
+                    'line_code' => $data['line_code'],
+                    'release_flag' => 'Y',
+                    'created_by' => $data['user_id']
                 ]);
             }
 
