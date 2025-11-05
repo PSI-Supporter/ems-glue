@@ -721,9 +721,7 @@ class InventoryController extends Controller
 
             $sheet->getStyle('F7:F' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
 
-            $rowAt++;
-
-            if ($rowAt == 500) break;
+            $rowAt++;            
         }
 
         $sheet->getStyle('A8:F' . $rowAt)->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
