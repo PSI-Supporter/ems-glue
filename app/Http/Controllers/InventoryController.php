@@ -721,8 +721,10 @@ class InventoryController extends Controller
 
             $sheet->getStyle('F7:F' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
 
-            $rowAt++;            
+            $rowAt++;
         }
+
+
 
         $sheet->getStyle('A8:F' . $rowAt)->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
 
@@ -735,6 +737,20 @@ class InventoryController extends Controller
         $sheet->getStyle('F7:F' . ($rowAt - 1))->getBorders()->getLeft()->setBorderStyle(Border::BORDER_THIN);
         $sheet->getStyle('F7:F' . ($rowAt - 1))->getBorders()->getRight()->setBorderStyle(Border::BORDER_THIN);
 
+        $rowAt++;
+
+        $sheet->setCellValue('D' . $rowAt, 'Count By');
+        $sheet->setCellValue('E' . $rowAt, 'Check By');
+        $sheet->setCellValue('F' . $rowAt, 'List Up By');
+        $sheet->getStyle('D' . $rowAt . ':F' . $rowAt)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        $sheet->getStyle('D' . $rowAt . ':F' . ($rowAt + 4))->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+
+        $rowAt++;
+
+        $sheet->mergeCells('D' . $rowAt . ':D' . ($rowAt + 3), $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('E' . $rowAt . ':E' . ($rowAt + 3), $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('F' . $rowAt . ':F' . ($rowAt + 3), $sheet::MERGE_CELL_CONTENT_HIDE);
 
         // Header Border
         $sheet->getStyle('A7:F7')->getBorders()->getTop()->setBorderStyle(Border::BORDER_THIN);
