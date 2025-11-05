@@ -8,8 +8,15 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use PhpOffice\PhpSpreadsheet\Writer\Xls;
+use PhpOffice\PhpSpreadsheet\Style\Protection;
+use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 
 class InventoryController extends Controller
 {
@@ -588,6 +595,184 @@ class InventoryController extends Controller
     function getWarehouse()
     {
         $data = DB::table('WMS_Inv')->groupBy('mstloc_grp')->get(['mstloc_grp']);
+        return ['data' => $data];
+    }
+
+    function generateReportInventoryISOFormat(Request $request)
+    {
+        ini_set('max_execution_time', '-1');
+        $Model = $request->bg;
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('FPI-04-05 R0');
+        $sheet->setCellValue('F1', 'Form : FPI-04-05');
+        $sheet->getStyle('F1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet->setCellValue('F2', 'Rev.00');
+        $sheet->getStyle('F2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet->setCellValue('A3', '(MONTH) INVENTORY REPORT');
+        $sheet->getStyle('A3')->getProtection()->setLocked(Protection::PROTECTION_UNPROTECTED);
+        $sheet->getStyle('A3')->getFont()->setSize(30)->setBold(true);
+        $sheet->getStyle('A3')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->setCellValue('A5', 'Model :');
+        $sheet->setCellValue('E5', 'Place :');
+        $sheet->setCellValue('C5', $Model);
+        $sheet->getStyle('C5:D5')->getBorders()->getOutline()->setBorderStyle(Border::BORDER_THICK);
+        $sheet->getStyle('F5')->getBorders()->getOutline()->setBorderStyle(Border::BORDER_THICK);
+
+        $sheet->setCellValue('F5', $request->loc);
+        $sheet->getStyle('A5:F5')->getFont()->setSize(12)->setBold(true);
+
+        $sheet->setCellValue('A7', 'Proc');
+        $sheet->setCellValue('B7', 'SN');
+        $sheet->setCellValue('C7', 'Part Code');
+        $sheet->setCellValue('D7', 'Part Name');
+        $sheet->setCellValue('E7', 'Load Figure');
+        $sheet->setCellValue('F7', 'Qty');
+        $sheet->getStyle('A7:F7')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+
+        $sheet->getStyle('A7:F7')->getFill()->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()->setARGB('D3D3D3');
+
+
+        $sheet->mergeCells('A3:F4', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('A5:B5', $sheet::MERGE_CELL_CONTENT_HIDE);
+        $sheet->mergeCells('C5:D5', $sheet::MERGE_CELL_CONTENT_HIDE);
+
+
+        $sheet->freezePane('A8');
+        $sheet->getColumnDimension('E')->setWidth(40);
+        $sheet->getColumnDimension('F')->setWidth(15);
+
+        $data = DB::table('WMS_INVRM')
+            ->leftJoin('MSTEMP_TBL', 'cPic', '=', 'MSTEMP_ID')
+            ->leftJoin('MITM_TBL', 'CPARTCODE', '=', 'MITM_ITMCD')
+            ->leftJoin('ITMLOC_TBL', function ($join) {
+                $join->on('CLOC', '=', 'ITMLOC_LOC')->on('CPARTCODE', '=', 'ITMLOC_ITM');
+            })->where('ITMLOC_BG', $request->bg)
+            ->orderBy('CPARTCODE')
+            ->get([
+                DB::raw("RTRIM(CPARTCODE) CPARTCODE"),
+                DB::raw("CONCAT(RTRIM(MSTEMP_FNM),' ', RTRIM(LTRIM(MSTEMP_LNM))) FULLNAME"),
+                DB::raw("RTRIM(MITM_SPTNO) MITM_SPTNO"),
+                'CLOTNO',
+                'CLOC',
+                'CQTY'
+            ]);
+
+        $data2 = $data
+            ->groupBy(function ($item) {
+                return $item->CLOC . '|' . $item->CPARTCODE . '|' . $item->MITM_SPTNO;
+            })
+            ->map(function ($items) {
+                $first = $items->first();
+                return [
+                    'CLOC'   => $first->CLOC,
+                    'CPARTCODE'   => $first->CPARTCODE,
+                    'MITM_SPTNO'  => $first->MITM_SPTNO,
+                    'FULLNAME'    => $first->FULLNAME, // optional kalau mau ambil                    
+                    'COUNT'       => $items->count(),
+                    'CQTY'       => $items->sum('CQTY'),
+                ];
+            })
+            ->values();
+
+        $rowAt = 8;
+        $maxCharPerLine = 45;
+        foreach ($data2 as $r) {
+            $filterData = $data->where('CPARTCODE', $r['CPARTCODE']);
+            $_data = $filterData->groupBy(function ($item) {
+                return $item->CQTY;
+            })->map(function ($items) {
+                $first = $items->first();
+                return [
+                    'CQTY' => $first->CQTY,
+                    'CQTY_COUNT' => $items->count()
+                ];
+            })->values();
+
+            $loadFigure = '';
+            foreach ($_data as $l) {
+                if ($l['CQTY_COUNT'] == 1) {
+                    $loadFigure .= $l['CQTY'] . ' + ';
+                } else {
+                    $loadFigure .= '(' . $l['CQTY'] . ' x ' . $l['CQTY_COUNT'] . ') + ';
+                }
+            }
+
+            $loadFigure = substr($loadFigure, 0, -2);
+            $loadFigureLength = strlen($loadFigure);
+            $_multipleRow = 1;
+
+            if ($loadFigureLength >= $maxCharPerLine) {
+                $_multipleRow = ceil($loadFigureLength / $maxCharPerLine);
+            }
+
+            $sheet->getRowDimension($rowAt)->setRowHeight(15 * $_multipleRow);
+
+            $sheet->setCellValue('A' . $rowAt, 'RM');
+            $sheet->setCellValue('B' . $rowAt, $r['CLOC']);
+            $sheet->setCellValue('C' . $rowAt, $r['CPARTCODE']);
+            $sheet->setCellValue('D' . $rowAt, $r['MITM_SPTNO']);
+            $sheet->setCellValue('E' . $rowAt, $loadFigure);
+            $sheet->setCellValue('F' . $rowAt, $r['CQTY']);
+
+            $sheet->getStyle('E' . $rowAt)->getAlignment()->setWrapText(true);
+
+            $sheet->getStyle('F7:F' . $rowAt)->getNumberFormat()->setFormatCode('#,##0');
+
+            $rowAt++;
+
+            if ($rowAt == 500) break;
+        }
+
+        $sheet->getStyle('A8:F' . $rowAt)->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
+
+
+        $sheet->getStyle('A7:A' . ($rowAt - 1))->getBorders()->getLeft()->setBorderStyle(Border::BORDER_THIN);
+        $sheet->getStyle('A7:A' . ($rowAt - 1))->getBorders()->getRight()->setBorderStyle(Border::BORDER_THIN);
+        $sheet->getStyle('B7:B' . ($rowAt - 1))->getBorders()->getRight()->setBorderStyle(Border::BORDER_THIN);
+        $sheet->getStyle('C7:C' . ($rowAt - 1))->getBorders()->getRight()->setBorderStyle(Border::BORDER_THIN);
+        $sheet->getStyle('D7:D' . ($rowAt - 1))->getBorders()->getRight()->setBorderStyle(Border::BORDER_THIN);
+        $sheet->getStyle('F7:F' . ($rowAt - 1))->getBorders()->getLeft()->setBorderStyle(Border::BORDER_THIN);
+        $sheet->getStyle('F7:F' . ($rowAt - 1))->getBorders()->getRight()->setBorderStyle(Border::BORDER_THIN);
+
+
+        // Header Border
+        $sheet->getStyle('A7:F7')->getBorders()->getTop()->setBorderStyle(Border::BORDER_THIN);
+        $sheet->getStyle('A7:F7')->getBorders()->getBottom()->setBorderStyle(Border::BORDER_THIN);
+
+
+        foreach (range('A', 'D') as $v) {
+            $sheet->getColumnDimension($v)->setAutoSize(true);
+        }
+
+        $sheet->getPageSetup()->setPaperSize(PageSetup::PAPERSIZE_A4);
+
+        $sheet->getPageMargins()->setTop(0.25);    // inci
+        $sheet->getPageMargins()->setBottom(0.25);
+        $sheet->getPageMargins()->setLeft(0.25);
+        $sheet->getPageMargins()->setRight(0.25);
+
+
+
+        $protection = $sheet->getProtection();
+        $protection->setPassword('k');  // Password proteksi sheet
+        $protection->setSheet(true);
+
+        $stringjudul = "Inventory Report";
+
+        $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
+        $filename = $stringjudul;
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
+        header('Cache-Control: max-age=0');
+        $writer->save('php://output');
+    }
+
+    function getWarehouseRM()
+    {
+        $data = DB::table('WMS_InvRM')->groupBy('CWH')->where('CWH', '!=', '')->get(['CWH']);
         return ['data' => $data];
     }
 }
