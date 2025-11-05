@@ -104,6 +104,8 @@ Route::get('/export/inventory-fg', [InventoryController::class, 'exportInv']);
 Route::prefix('inventory')->group(function () {
     Route::delete("keys/{id}", [InventoryController::class, 'removeLine']);
     Route::get("warehouse", [InventoryController::class, 'getWarehouse']);
+    Route::get("warehouse-rm", [InventoryController::class, 'getWarehouseRM']);
+    Route::get("iso-report", [InventoryController::class, 'generateReportInventoryISOFormat']);
 });
 
 
