@@ -651,6 +651,7 @@ class InventoryController extends Controller
                 $join->on('CLOC', '=', 'ITMLOC_LOC')->on('CPARTCODE', '=', 'ITMLOC_ITM');
             })->where('ITMLOC_BG', $request->bg)
             ->orderBy('CPARTCODE')
+            ->orderBy('CQTY')
             ->get([
                 DB::raw("RTRIM(CPARTCODE) CPARTCODE"),
                 DB::raw("CONCAT(RTRIM(MSTEMP_FNM),' ', RTRIM(LTRIM(MSTEMP_LNM))) FULLNAME"),
@@ -774,7 +775,7 @@ class InventoryController extends Controller
         $protection->setPassword('k');  // Password proteksi sheet
         $protection->setSheet(true);
 
-        $stringjudul = "Inventory Report";
+        $stringjudul = "Inventory Report " . $Model;
 
         $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
         $filename = $stringjudul;
