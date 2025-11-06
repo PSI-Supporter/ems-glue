@@ -643,23 +643,45 @@ class InventoryController extends Controller
         $sheet->freezePane('A8');
         $sheet->getColumnDimension('E')->setWidth(40);
         $sheet->getColumnDimension('F')->setWidth(15);
+        if (str_contains($request->rack, '**')) {
+            $arack = explode("**", $request->rack);
+            $data = DB::table('WMS_INVRM')
+                ->leftJoin('MSTEMP_TBL', 'cPic', '=', 'MSTEMP_ID')
+                ->leftJoin('MITM_TBL', 'CPARTCODE', '=', 'MITM_ITMCD')
+                ->leftJoin('ITMLOC_TBL', function ($join) {
+                    $join->on('CLOC', '=', 'ITMLOC_LOC')->on('CPARTCODE', '=', 'ITMLOC_ITM');
+                })->where('ITMLOC_BG', $request->bg)
+                ->where('CLOC', 'LIKE', $arack[0] . '%')
+                ->where('CLOC', 'LIKE', '%' . $arack[1])
+                ->orderBy('CPARTCODE')
+                ->orderBy('CQTY')
+                ->get([
+                    DB::raw("RTRIM(CPARTCODE) CPARTCODE"),
+                    DB::raw("CONCAT(RTRIM(MSTEMP_FNM),' ', RTRIM(LTRIM(MSTEMP_LNM))) FULLNAME"),
+                    DB::raw("RTRIM(MITM_SPTNO) MITM_SPTNO"),
+                    'CLOTNO',
+                    'CLOC',
+                    'CQTY'
+                ]);
+        } else {
+            $data = DB::table('WMS_INVRM')
+                ->leftJoin('MSTEMP_TBL', 'cPic', '=', 'MSTEMP_ID')
+                ->leftJoin('MITM_TBL', 'CPARTCODE', '=', 'MITM_ITMCD')
+                ->leftJoin('ITMLOC_TBL', function ($join) {
+                    $join->on('CLOC', '=', 'ITMLOC_LOC')->on('CPARTCODE', '=', 'ITMLOC_ITM');
+                })->where('ITMLOC_BG', $request->bg)
+                ->orderBy('CPARTCODE')
+                ->orderBy('CQTY')
+                ->get([
+                    DB::raw("RTRIM(CPARTCODE) CPARTCODE"),
+                    DB::raw("CONCAT(RTRIM(MSTEMP_FNM),' ', RTRIM(LTRIM(MSTEMP_LNM))) FULLNAME"),
+                    DB::raw("RTRIM(MITM_SPTNO) MITM_SPTNO"),
+                    'CLOTNO',
+                    'CLOC',
+                    'CQTY'
+                ]);
+        }
 
-        $data = DB::table('WMS_INVRM')
-            ->leftJoin('MSTEMP_TBL', 'cPic', '=', 'MSTEMP_ID')
-            ->leftJoin('MITM_TBL', 'CPARTCODE', '=', 'MITM_ITMCD')
-            ->leftJoin('ITMLOC_TBL', function ($join) {
-                $join->on('CLOC', '=', 'ITMLOC_LOC')->on('CPARTCODE', '=', 'ITMLOC_ITM');
-            })->where('ITMLOC_BG', $request->bg)
-            ->orderBy('CPARTCODE')
-            ->orderBy('CQTY')
-            ->get([
-                DB::raw("RTRIM(CPARTCODE) CPARTCODE"),
-                DB::raw("CONCAT(RTRIM(MSTEMP_FNM),' ', RTRIM(LTRIM(MSTEMP_LNM))) FULLNAME"),
-                DB::raw("RTRIM(MITM_SPTNO) MITM_SPTNO"),
-                'CLOTNO',
-                'CLOC',
-                'CQTY'
-            ]);
 
         $data2 = $data
             ->groupBy(function ($item) {
