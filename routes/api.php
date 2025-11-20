@@ -117,8 +117,9 @@ Route::prefix('label')->group(function () {
     Route::post('c3', [LabelController::class, 'registerLabel']);
     Route::post('c3-emergency', [LabelController::class, 'registerLabelWithoutReference']);
     Route::delete('c3', [LabelController::class, 'delete']);
-    Route::get('c3-active', [LabelController::class, 'getActiveLabel']);
+    Route::post('c3-active', [LabelController::class, 'getActiveLabel']);
     Route::post('log', [LabelController::class, 'logAction']);
+    Route::post('log-compare', [LabelController::class, 'logCompare']);
     Route::put('', [LabelController::class, 'updateLabelValue']);
 });
 

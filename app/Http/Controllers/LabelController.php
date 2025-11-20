@@ -298,11 +298,7 @@ class LabelController extends Controller
 
     function getActiveLabel(Request $request)
     {
-        $data = DB::table('raw_material_labels')
-            ->where('code', $request->id)
-            ->whereNull('splitted')
-            ->whereNull('combined')
-            ->first();
+        $data = $this->getPrintableLabel(['uniqueList' => $request->codes]);
 
         return ['data' => $data];
     }
@@ -551,5 +547,21 @@ class LabelController extends Controller
             'message' => $message,
             'affected_rows' => $respons['affected_rows']
         ];
+    }
+
+    function logCompare(Request $request)
+    {
+        $affectedRow = DB::table('recheck_c3_s')->insert([
+            'code' => $request->code,
+            'compare_poin' => $request->poin,
+            'compare_value_1' => $request->value_1,
+            'compare_value_2' => $request->value_2,
+            'compare_status' => $request->value_1 == $request->value_1 ? 1 : 0,
+            'created_at' => date('Y-m-d H:i:s'),
+            'created_by' => $request->user_id,
+            'client_ip' => $request->ip()
+        ]);
+
+        return ['message' => $affectedRow ? 'OK' : 'could not log'];
     }
 }
