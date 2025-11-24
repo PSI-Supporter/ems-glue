@@ -200,7 +200,12 @@ class ITHController extends Controller
 
             $SupplyWithUnconformedRTN = DB::table('SPLSCN_TBL')
                 ->whereIn('SPLSCN_UNQCODE', $returnJustCountingDetailData->unique('RETSCN_UNIQUEKEY')->pluck('RETSCN_UNIQUEKEY')->toArray())
-                ->get(['SPLSCN_DOC', 'SPLSCN_UNQCODE', 'SPLSCN_ITMCD']);
+                ->get([
+                    'SPLSCN_DOC',
+                    'SPLSCN_UNQCODE',
+                    'SPLSCN_ITMCD',
+                    DB::raw("'' RETSCN_SPLDOC")
+                ]);
 
             foreach ($SupplyWithUnconformedRTN as &$r) {
                 foreach ($returnJustCountingDetailData as $b) {
