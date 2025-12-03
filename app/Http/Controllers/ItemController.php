@@ -511,11 +511,11 @@ class ItemController extends Controller
                 return ['cd' => '0', 'msg' => 'item code must be same with item in database'];
             }
 
-            if (DB::table('WMS_SWPS_HIS')->where('SWPS_NUNQ', $request->uniqueBefore)->count()) {
+            if (DB::table('WMS_SWPS_HIS')->where('SWPS_NUNQ', $request->uniqueBefore)->where('SWPS_REMARK', 'OK')->count()) {
                 return ['cd' => '0', 'msg' => 'Already scanned in Traceability System'];
             }
 
-            if (DB::table('WMS_SWMP_HIS')->where('SWMP_UNQ', $request->uniqueBefore)->count()) {
+            if (DB::table('WMS_SWMP_HIS')->where('SWMP_UNQ', $request->uniqueBefore)->where('SWMP_REMARK', 'OK')->count()) {
                 return ['cd' => '0', 'msg' => 'Already scanned in Traceability System.'];
             }
         }
