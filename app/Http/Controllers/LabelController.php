@@ -76,11 +76,14 @@ class LabelController extends Controller
             }
 
             // pastikan beda PSN cegah
-            $countPSN = DB::table('V_SPLSCN_TBLC')->whereIn('SPLSCN_UNQCODE', $unique_com)
+            $PSNList = DB::table('V_SPLSCN_TBLC')->whereIn('SPLSCN_UNQCODE', $unique_com)
                 ->groupBy('SPLSCN_DOC')
                 ->select('SPLSCN_DOC')
-                ->get()
-                ->count();
+                ->get();
+
+            $countPSN = $PSNList->count();
+
+            $PSNContext = $PSNList->first()->SPLSCN_DOC ?? '';
 
             if ($countPSN > 1) {
                 $myar[] = ['cd' => '0', 'msg' => 'Combine Label should be in one PSN'];
@@ -113,7 +116,7 @@ class LabelController extends Controller
                         'C3LC_LUPTD' => $currrtime,
                         'C3LC_COMID' => $unique_com[$i],
                         'C3LC_NEWID' => $Response['data'],
-                        'C3LC_DOC' => $request->doc ?? NULL,
+                        'C3LC_DOC' => $request->doc ?? $PSNContext,
                         'C3LC_VALUE' => $itemValue[$i] ?? '',
                     ];
 
