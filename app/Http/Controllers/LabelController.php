@@ -75,6 +75,18 @@ class LabelController extends Controller
                 }
             }
 
+            // pastikan beda PSN cegah
+            $countPSN = DB::table('V_SPLSCN_TBLC')->whereIn('SPLSCN_UNQCODE', $unique_com)
+                ->groupBy('SPLSCN_DOC')
+                ->select('SPLSCN_DOC')
+                ->get()
+                ->count();
+
+            if ($countPSN > 1) {
+                $myar[] = ['cd' => '0', 'msg' => 'Combine Label should be in one PSN'];
+                return ['status' => $myar];
+            }
+
             try {
                 DB::beginTransaction();
                 $Response = $this->generateLabelId([
