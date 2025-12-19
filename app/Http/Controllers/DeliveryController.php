@@ -240,6 +240,7 @@ class DeliveryController extends Controller
             ->where('DLVPRC_TXID', $request->doc)
             ->get(['SER_ITMID', 'DLVPRC_PRC', DB::raw("SUM(DLVPRC_QTY) * DLVPRC_PRC HARGA_PENYERAHAN")]);
 
+
         $sheet->setCellValue('A6', 'No Aju : ' . $dataHead->DLV_ZNOMOR_AJU);
         $sheet->mergeCells('A6:C6', $sheet::MERGE_CELL_CONTENT_HIDE);
         $sheet->setCellValue('A7', 'No BC & Tgl BC : ' . $dataHead->DLV_NOPEN . ', ' . $dataHead->DLV_RPDATE);
@@ -254,21 +255,95 @@ class DeliveryController extends Controller
         $rmAt = 0;
         $tempFG = '';
         $suppliersCode = [];
-        foreach ($data['data'] as $r) {
+        foreach ($data['data'] as &$r) {
+            $r['DLVQTBAK'] = $r['DLVQT'];
             if (!in_array($r['SUPCD'], $suppliersCode)) {
                 $suppliersCode[] = $r['SUPCD'];
             }
         }
+        unset($r);
+
+        $rsitem_p_price = $this->setPriceRS(base64_encode($request->doc));
+        $rsplotrm_per_fgprice = $this->perprice($request->doc, $rsitem_p_price);
+
 
         $tempFgRmUse = '';
         $RMUsageDisplay = '';
 
         $suppliers = DB::table('MSUP_TBL')->whereIn('MSUP_SUPCD', $suppliersCode)
-            ->get([DB::raw("RTRIM(MSUP_SUPCD) SUPCD"), DB::raw("RTRIM(MSUP_SUPCR) SUPCR")]);
+            ->get([
+                DB::raw("RTRIM(MSUP_SUPCD) SUPCD"),
+                DB::raw("RTRIM(MSUP_SUPCR) SUPCR")
+            ]);
 
-        foreach ($data['data'] as $r) {
+        $newList = [];
+        usort($rsplotrm_per_fgprice, function ($a, $b) {
+            $cmp = strcmp($a['RASSYCODE'], $b['RASSYCODE']);
+            if ($cmp !== 0) {
+                return $cmp;
+            }
+
+            // 2. RPRICEGROUP (numeric)
+            if ($a['RPRICEGROUP'] != $b['RPRICEGROUP']) {
+                return $a['RPRICEGROUP'] <=> $b['RPRICEGROUP'];
+            }
+
+            // 3. RITEMCD
+            return strcmp($a['RITEMCD'], $b['RITEMCD']);
+        });
+        foreach ($rsplotrm_per_fgprice as $p) {
+            foreach ($data['data'] as &$r) {
+                if (
+                    $p['RASSYCODE'] == $r['SER_ITMID']
+                    && $p['RITEMCD'] == $r['SERD2_ITMCD']
+                    && $p['RQTY'] > 0 && $r['RMQT'] > 0
+                ) {
+                    $theQty = -2;
+                    if ($p['RQTY'] > $r['RMQT']) {
+                        $theQty = $r['RMQT'];
+                        $r['RMQT'] = 0;
+                    } else {
+                        $theQty = $p['RQTY'];
+                        $r['RMQT'] -= $p['RQTY'];
+                    }
+                    $p['RQTY'] -= $theQty;
+
+
+
+                    $newList[] = [
+                        'SER_ITM_HSCODE' => $r['SER_ITM_HSCODE'],
+                        'SER_ITMID' => $r['SER_ITMID'],
+                        'SER_ITMNM' => $r['SER_ITMNM'],
+                        'SER_ITM_UOM' => $r['SER_ITM_UOM'],
+                        'DLVQT' => $r['DLVQT'],
+                        'RCV_HSCD' => $r['RCV_HSCD'],
+                        'PARTDESCRIPTION' => $r['PARTDESCRIPTION'],
+                        'SERD2_ITMCD' => $r['SERD2_ITMCD'],
+                        'PER' => $r['PER'],
+                        'RMQT' => $theQty,
+                        'BCTYPE' => $r['BCTYPE'],
+                        'RPSTOCK_BCDATE' => $r['RPSTOCK_BCDATE'],
+                        'BM' => $r['BM'],
+                        'PART_UOM' => $r['PART_UOM'],
+                        'PART_PRICE' => $r['PART_PRICE'],
+                        'RPSTOCK_BCNUM' => $r['RPSTOCK_BCNUM'],
+                        'SUPCD' => $r['SUPCD'],
+                        'PPN' => $r['PPN'],
+                        'PPH' => $r['PPH'],
+                        'hargaFG' => $p['RPRICEGROUP'],
+                    ];
+                }
+                if ($p['RQTY'] == 0) {
+                    break;
+                }
+            }
+            unset($r);
+        }
+
+
+        foreach ($newList as $r) {
             $berat = 0;
-            $hargaFG = 0;
+            $hargaFG = $r['hargaFG'];
 
             foreach ($packaging as $p) {
                 if ($r['SER_ITMID'] == $p->SI_ITMCD) {
@@ -276,11 +351,12 @@ class DeliveryController extends Controller
                 }
             }
 
-            foreach ($prices as $p) {
-                if ($r['SER_ITMID'] == $p->SER_ITMID) {
-                    $hargaFG += $p->HARGA_PENYERAHAN;
+            foreach ($rsitem_p_price as $p) {
+                if ($r['SER_ITMID'] == $p['SSO2_MDLCD'] && $r['hargaFG'] == $p['CIF']) {
+                    $r['DLVQT'] = $p['SISOQTY'];
                 }
             }
+
 
             if ($tempFgRmUse != $r['SER_ITMID'] . $r['SERD2_ITMCD'] . $r['PER']) {
                 $tempFgRmUse = $r['SER_ITMID'] . $r['SERD2_ITMCD'] . $r['PER'];
@@ -292,9 +368,9 @@ class DeliveryController extends Controller
                 $sheet->getStyle('L' . $rowAt)->getFont()->getColor()->setARGB(Color::COLOR_WHITE);
             }
 
-            if ($tempFG != $r['SER_ITMID']) {
+            if ($tempFG != $r['SER_ITMID'] . $r['hargaFG']) {
                 $fgAt++;
-                $tempFG = $r['SER_ITMID'];
+                $tempFG = $r['SER_ITMID'] . $r['hargaFG'];
                 $rmAt = 1;
             } else {
                 $rmAt++;
@@ -829,14 +905,6 @@ class DeliveryController extends Controller
 
     public function setGateOut(Request $request)
     {
-        if (!$request->has('datetimeShip')) {
-            return response()->json(['message' => 'datetime is required'], 400);
-        } else {
-            if ($request->datetimeShip > date('Y-m-d H:i:s')) {
-                return response()->json(['message' => 'datetime is invalid'], 400);
-            }
-        }
-
         $vechicleRegNumber = base64_decode($request->regNumber);
         $documents = DB::table('DLVH_TBL')->where('DLVH_ACT_TRANS', $vechicleRegNumber)
             ->whereNull('DLVH_DRIVER_NAME')
@@ -848,7 +916,7 @@ class DeliveryController extends Controller
             ->leftJoin('SER_TBL', 'DLV_SER', '=', 'SER_ID')
             ->get(['DLV_ID', 'DLV_SER', 'SI_WH', DB::raw("RTRIM(SER_ITMID) SER_ITMID"), 'SISCN_SERQTY']);
 
-
+        $dateConfirmed = date('Y-m-d H:i:s');
         $datam = [];
         foreach ($dataSI as $r) {
             if (
@@ -865,13 +933,13 @@ class DeliveryController extends Controller
                 }
                 $datam[] = [
                     "ITH_ITMCD" => $r->SER_ITMID,
-                    "ITH_DATE" => $request->datetimeShip,
+                    "ITH_DATE" => $dateConfirmed,
                     "ITH_FORM" => "OUT-SHP-FG",
                     "ITH_DOC" => $r->DLV_ID,
                     "ITH_QTY" => -$r->SISCN_SERQTY,
                     "ITH_WH" => $thewh,
                     "ITH_SER" => $r->DLV_SER,
-                    "ITH_LUPDT" => $request->datetimeShip,
+                    "ITH_LUPDT" => $dateConfirmed,
                     "ITH_USRID" => $request->user_id,
                 ];
             }
@@ -899,7 +967,7 @@ class DeliveryController extends Controller
                     ->update([
                         'DLVH_DRIVER_NAME' => $request->driverName,
                         'DLVH_CODRIVER_NAME' => $request->codriverName,
-                        'gate_out_done_at' => date('Y-m-d H:i:s')
+                        'gate_out_done_at' => $dateConfirmed
                     ]);
                 DB::commit();
 
@@ -1038,5 +1106,485 @@ class DeliveryController extends Controller
         header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
         header('Cache-Control: max-age=0');
         $writer->save('php://output');
+    }
+
+    public function setPriceRS($pdoc = '')
+    {
+        $doc = base64_decode($pdoc);
+        $qry = "
+            SELECT 
+                DLV_ID,
+                DLVQTY AS SISOQTY,
+                UPPER(RTRIM(SI_ITMCD)) AS SSO2_MDLCD,
+                (DLVQTY * ISNULL(MITM_NWG, 0.123)) AS NWG,
+                (DLVQTY * ISNULL(MITM_GWG, 0.123)) AS GWG,
+                RTRIM(ISNULL(MITM_HSCD, '')) AS MITM_HSCD,
+                RTRIM(MITM_STKUOM) AS MITM_STKUOM,
+                0 AS SISOQTY_X,
+                RTRIM(MITM_ITMD1) AS MITM_ITMD1,
+                RTRIM(MITM_ITMD2) AS MITM_ITMD2,
+                SI_BSGRP,
+                SI_CUSCD,
+                MITM_BM,
+                MITM_PPN,
+                MITM_PPH,
+                ISNULL(MITM_NWG, 0.123) AS MITM_NWG
+            FROM (
+                SELECT 
+                    DLV_ID,
+                    SISCN_LINENO,
+                    SUM(DLV_QTY) AS DLVQTY
+                FROM DLV_TBL
+                INNER JOIN SISCN_TBL ON DLV_SER = SISCN_SER
+                WHERE DLV_ID = ?
+                GROUP BY DLV_ID, SISCN_LINENO
+            ) V1
+            LEFT JOIN SI_TBL ON SISCN_LINENO = SI_LINENO
+            LEFT JOIN MITM_TBL ON SI_ITMCD = MITM_ITMCD
+            ORDER BY SI_ITMCD
+            ";
+
+        $rs = DB::select($qry, [$doc]);
+        $rs = json_decode(json_encode($rs), true);
+
+        $qry = "
+            SELECT 
+                SISO_HLINE,
+                SSO2_SLPRC,
+                SUM(SISO_QTY) AS PLOTQTY,
+                SISO_SOLINE,
+                SISO_CPONO,
+                MAX(SCNQT) AS SCNQT,
+                RTRIM(MAX(ITMID)) AS ITMID,
+                MAX(SSO2_BSGRP) AS SSO2_BSGRP,
+                MAX(RTRIM(SSO2_CUSCD)) AS SSO2_CUSCD
+            FROM SISO_TBL
+            LEFT JOIN XSSO2 
+                ON SISO_CPONO = SSO2_CPONO 
+            AND SSO2_SOLNO = SISO_SOLINE
+            LEFT JOIN (
+                SELECT 
+                    SISCN_LINENO,
+                    SUM(SISCN_SERQTY) AS SCNQT,
+                    UPPER(MAX(SER_ITMID)) AS ITMID
+                FROM SISCN_TBL
+                LEFT JOIN SER_TBL ON SISCN_SER = SER_ID
+                WHERE SISCN_SER IN (
+                    SELECT DLV_SER 
+                    FROM DLV_TBL 
+                    WHERE DLV_ID = ?
+                )
+                GROUP BY SISCN_LINENO
+            ) VX ON SISO_HLINE = SISCN_LINENO
+            WHERE 
+                SISO_QTY > 0
+                AND SISO_HLINE IN (
+                    SELECT SISCN_LINENO 
+                    FROM SISCN_TBL 
+                    WHERE SISCN_SER IN (
+                        SELECT DLV_SER 
+                        FROM DLV_TBL 
+                        WHERE DLV_ID = ?
+                    )
+                    GROUP BY SISCN_LINENO
+                )
+            GROUP BY 
+                SISO_HLINE,
+                SSO2_SLPRC,
+                SSO2_MDLCD,
+                SISO_SOLINE,
+                SISO_CPONO
+            ";
+
+        $rscurrentPrice_plot = DB::select($qry, [$doc, $doc]);
+        $rscurrentPrice_plot = json_decode(json_encode($rscurrentPrice_plot), true);
+        // $rscurrentPrice_plot = $this->SISO_mod->select_currentPlot($doc);
+
+        $rsPriceItemSer = [];
+        $bsgrp = '';
+        $cuscd = '';
+        foreach ($rs as &$k) {
+            $k['PLOTPRCQTY'] = 0;
+            $bsgrp = $k['SI_BSGRP'];
+            $cuscd = $k['SI_CUSCD'];
+        }
+        unset($k);
+        $rsitem_iprice = []; //resume item|price|count
+        foreach ($rscurrentPrice_plot as &$k) {
+            if ($k['SISO_SOLINE'] == 'X') {
+                $qry = "
+                    SELECT
+                        A.MSPR_BSGRP,
+                        A.MSPR_CUSCD,
+                        A.MSPR_CURCD,
+                        MCUS_CUSNM,
+                        UPPER(RTRIM(A.MSPR_ITMCD)) AS MSPR_ITMCD,
+                        A.MSPR_BOMRV,
+                        A.MSPR_EFFDT,
+                        MITM_ITMD1 AS ITMCD_DESC,
+                        A.MSPR_SLPRC
+                    FROM SRVMEGA.PSI_MEGAEMS.dbo.MSPR_TBL A
+                    LEFT JOIN SRVMEGA.PSI_MEGAEMS.dbo.MCUS_TBL
+                        ON MCUS_CURCD = A.MSPR_CURCD
+                    AND MCUS_CUSCD = A.MSPR_CUSCD
+                    LEFT JOIN SRVMEGA.PSI_MEGAEMS.dbo.MITM_TBL
+                        ON MITM_ITMCD = A.MSPR_ITMCD
+                    LEFT JOIN SRVMEGA.PSI_MEGAEMS.dbo.MBSG_TBL
+                        ON MBSG_BSGRP = A.MSPR_BSGRP
+                    WHERE
+                        A.MSPR_BSGRP = ?
+                        AND A.MSPR_ITMCD = ?
+                        AND A.MSPR_CUSCD = ?
+                        AND A.MSPR_EFFDT = (
+                            SELECT MAX(B.MSPR_EFFDT)
+                            FROM SRVMEGA.PSI_MEGAEMS.dbo.MSPR_TBL B
+                            WHERE B.MSPR_BSGRP = A.MSPR_BSGRP
+                            AND B.MSPR_CUSCD = A.MSPR_CUSCD
+                            AND B.MSPR_CURCD = A.MSPR_CURCD
+                            AND B.MSPR_ITMCD = A.MSPR_ITMCD
+                            AND B.MSPR_BOMRV = A.MSPR_BOMRV
+                        )
+                    ORDER BY
+                        MSPR_BSGRP,
+                        MSPR_CUSCD,
+                        MSPR_CURCD,
+                        MSPR_ITMCD,
+                        MSPR_BOMRV,
+                        MSPR_EFFDT
+                    ";
+
+                $rs_mst_price = DB::select($qry, [$bsgrp, $k['ITMID'], $cuscd]);
+                $rs_mst_price = json_decode(json_encode($rs_mst_price), true);
+                // $rs_mst_price = $this->XSO_mod->select_latestprice($bsgrp, $cuscd, "'" . $k['ITMID'] . "'");
+
+                foreach ($rs_mst_price as $r) {
+                    $k['SSO2_SLPRC'] = substr($r['MSPR_SLPRC'], 0, 1) == '.' ? '0' . $r['MSPR_SLPRC'] : $r['MSPR_SLPRC'];
+                    $k['PLOTQTY'] = $k['SCNQT'];
+                }
+            } else {
+                if ($k['PLOTQTY'] < $k['SCNQT']) {
+                    $isfound = false;
+                    foreach ($rsitem_iprice as &$i) {
+                        if ($k['ITMID'] == $i['ITMID'] && $k['SSO2_SLPRC'] == $i['PRICE']) {
+                            $i['COUNTER']++;
+                            $isfound = true;
+                        }
+                    }
+                    unset($i);
+                    if (!$isfound) {
+                        $rsitem_iprice[] = [
+                            'ITMID' => $k['ITMID'],
+                            'PRICE' => $k['SSO2_SLPRC'],
+                            'COUNTER' => 1,
+                        ];
+                    }
+                }
+            }
+        }
+        unset($k);
+
+        //1.0 filter which item use >1 price
+        $rsitem_iprice_unique = [];
+        foreach ($rsitem_iprice as $i) {
+            $isfound = false;
+            foreach ($rsitem_iprice_unique as &$u) {
+                if ($i['ITMID'] == $u['ITMID']) {
+                    $u['COUNTER']++;
+                    $isfound = true;
+                }
+            }
+            unset($u);
+            if (!$isfound) {
+                $rsitem_iprice_unique[] = [
+                    'ITMID' => $i['ITMID'],
+                    'COUNTER' => 1,
+                ];
+            }
+        }
+        //1.1 if it has multiprice then do not autocomplete plot
+        foreach ($rscurrentPrice_plot as &$k) {
+            if ($k['PLOTQTY'] < $k['SCNQT']) {
+                $isfound = false;
+                foreach ($rsitem_iprice_unique as $n) {
+                    if ($k['ITMID'] === $n['ITMID']) {
+                        if ($n['COUNTER'] > 1) {
+                            $isfound = true;
+                            break;
+                        }
+                    }
+                }
+                if (!$isfound) {
+                    if ($k['SISO_SOLINE'] == 'X' || $k['SSO2_BSGRP'] == 'PSI1PPZIEP') {
+                        $k['PLOTQTY'] = $k['SCNQT'];
+                    }
+                }
+            }
+        }
+        unset($k);
+        foreach ($rs as &$k) {
+            foreach ($rscurrentPrice_plot as &$s) {
+                $bal = $k['SISOQTY'] - $k['SISOQTY_X'];
+                if ($k['SSO2_MDLCD'] === $s['ITMID'] && $bal > 0 && $s['PLOTQTY'] > 0) {
+                    $qtyuse = 0;
+                    if ($bal > $s['PLOTQTY']) {
+                        $qtyuse = $s['PLOTQTY'];
+                        $k['SISOQTY_X'] += $s['PLOTQTY'];
+                        $s['PLOTQTY'] = 0;
+                    } else {
+                        $qtyuse = $bal;
+                        $s['PLOTQTY'] -= $bal;
+                        $k['SISOQTY_X'] += $bal;
+                    }
+                    $isfound = false;
+                    foreach ($rsPriceItemSer as &$b) {
+                        if ($b['SSO2_MDLCD'] == $s['ITMID'] && $b['SSO2_SLPRC'] == $s['SSO2_SLPRC']) {
+                            $b['SISOQTY'] += $qtyuse;
+                            $b['NWG'] += ($qtyuse * $k['MITM_NWG']);
+                            $b['CIF'] = $b['SISOQTY'] * $s['SSO2_SLPRC'];
+                            $isfound = true;
+                            break;
+                        }
+                    }
+                    unset($b);
+                    if (!$isfound) {
+                        $rsPriceItemSer[] = [
+                            'DLV_ID' => $doc,
+                            'SISOQTY' => $qtyuse,
+                            'SSO2_SLPRC' => $s['SSO2_SLPRC'],
+                            'SSO2_MDLCD' => $s['ITMID'] #
+                            ,
+                            'CIF' => $qtyuse * $s['SSO2_SLPRC'],
+                            'NWG' => $qtyuse * $k['MITM_NWG'],
+                            'MITM_HSCD' => $k['MITM_HSCD'],
+                            'MITM_STKUOM' => $k['MITM_STKUOM'],
+                            'SISOQTY_X' => 0,
+                            'MITM_ITMD1' => $k['MITM_ITMD1'],
+                            'MITM_ITMD2' => $k['MITM_ITMD2'],
+                            'SISO_SOLINE' => $s['SISO_SOLINE'],
+                            'SI_BSGRP' => $k['SI_BSGRP'],
+                            'SI_CUSCD' => $k['SI_CUSCD'],
+                            'CPO' => $s['SISO_CPONO'],
+                            'BM' => $k['MITM_BM'],
+                            'PPN' => $k['MITM_PPN'],
+                            'PPH' => $k['MITM_PPH'],
+                        ];
+                    }
+                    if ($k['SISOQTY'] === $k['SISOQTY_X']) {
+                        break;
+                    }
+                }
+            }
+            unset($s);
+        }
+        unset($k);
+        return $rsPriceItemSer;
+    }
+
+    public function perprice($psj, $prs)
+    {
+        $sj = $psj;
+        $rsprice = $prs;
+        $qry = "
+                SELECT
+                    UPPER(SER_ITMID) AS SER_ITMID,
+                    SERD2_FGQTY,
+                    SERD2_SER,
+                    LOTNO,
+                    UPPER(RTRIM(SERD2_ITMCD)) AS SERD2_ITMCD,
+                    ISNULL(MITMGRP_ITMCD,'') AS ITMGR,
+                    CEILING(SERD2_QTPER * 2) / 2 AS SERD2_QTPER
+                FROM DLV_TBL
+                INNER JOIN (
+                    SELECT
+                        SERD2_SER,
+                        SERD2_ITMCD,
+                        SERD2_FGQTY,
+                        SUM(SERD2_QTY) / SERD2_FGQTY AS SERD2_QTPER,
+                        MAX(SERD2_LOTNO) AS LOTNO
+                    FROM SERD2_TBL
+                    GROUP BY SERD2_SER, SERD2_ITMCD, SERD2_FGQTY
+                ) V1 ON DLV_SER = SERD2_SER
+                LEFT JOIN SER_TBL ON DLV_SER = SER_ID
+                LEFT JOIN VFG_AS_BOM ON SERD2_ITMCD = PWOP_BOMPN
+                LEFT JOIN MITMGRP_TBL ON SERD2_ITMCD = MITMGRP_ITMCD_GRD
+                WHERE DLV_ID = ?
+                AND PWOP_BOMPN IS NULL
+                ORDER BY DLV_SER
+                ";
+        $rsrm = DB::select($qry, [$sj]);
+        $rsrm = json_decode(json_encode($rsrm), true);
+
+        $qry = "
+            SELECT
+                UPPER(SER_ITMID) AS SER_ITMID,
+                SERD2_FGQTY,
+                DLV_SER AS SERD2_SER,
+                LOTNO,
+                UPPER(RTRIM(SERD2_ITMCD)) AS SERD2_ITMCD,
+                ISNULL(MITMGRP_ITMCD,'') AS ITMGR,
+                SERD2_QTPER
+            FROM DLV_TBL
+            LEFT JOIN SERML_TBL ON DLV_SER = SERML_NEWID
+            INNER JOIN (
+                SELECT
+                    SERD2_SER,
+                    SERD2_ITMCD,
+                    SERD2_FGQTY,
+                    SUM(SERD2_QTY) / SERD2_FGQTY AS SERD2_QTPER,
+                    MAX(SERD2_LOTNO) AS LOTNO
+                FROM SERD2_TBL
+                GROUP BY SERD2_SER, SERD2_ITMCD, SERD2_FGQTY
+            ) V1 ON SERML_COMID = SERD2_SER
+            LEFT JOIN SER_TBL ON DLV_SER = SER_ID
+            LEFT JOIN MITMGRP_TBL ON SERD2_ITMCD = MITMGRP_ITMCD_GRD
+            WHERE DLV_ID = ?
+            ORDER BY DLV_SER
+            ";
+        $rssub = DB::select($qry, [$sj]);
+        $rssub = json_decode(json_encode($rssub), true);
+
+        $qry = "
+            SELECT DLV_SER, SER_REFNO
+            FROM DLV_TBL
+            LEFT JOIN SERD2_TBL ON DLV_SER = SERD2_SER
+            LEFT JOIN SER_TBL ON DLV_SER = SER_ID
+            WHERE DLV_ID = ?
+            AND SERD2_SER IS NULL
+            ORDER BY DLV_SER
+            ";
+        $rsnull =  DB::select($qry, [$sj]);
+        $rsnull = json_decode(json_encode($rsnull), true);
+
+        foreach ($rsnull as $r) {
+            $rscomb_d = DB::table('SERC_TBL')->where('SERC_NEWID', $r['DLV_SER'])
+                ->select('SERC_COMID')->get();
+            $rscomb_d = json_decode(json_encode($rscomb_d), true);
+
+            $serlist = [];
+            if (count($rscomb_d)) {
+                foreach ($rscomb_d as $n) {
+                    $serlist[] = $n['SERC_COMID'];
+                }
+
+                if (count($serlist) > 0) {
+                    $rscom = $this->select_dlv_ser_rm_byreff_forpost($serlist);
+                    $rsrm = array_merge($rsrm, $rscom);
+                }
+            } else {
+                $rscomb_d = DB::table('SERC_TBL')->where('SERC_NEWID', $r['SER_REFNO'])
+                    ->select('SERC_COMID')->get();
+                foreach ($rscomb_d as $n) {
+                    $serlist[] = $n['SERC_COMID'];
+                }
+                if (count($serlist) > 0) {
+                    $rscom = $this->select_dlv_ser_rm_byreff_forpost($serlist);
+                    $rsrm = array_merge($rsrm, $rscom);
+                }
+            }
+        }
+        $rsrm = array_merge($rsrm, $rssub);
+        $result = [];
+        foreach ($rsprice as &$r) {
+            foreach ($rsrm as &$ra) {
+                if ($r['SSO2_MDLCD'] == $ra['SER_ITMID']) {
+                    if (intval($ra['SERD2_FGQTY']) > 0) {
+                        $thereffno = $ra['SERD2_SER'];
+                        $osreq = $r['SISOQTY'] - $r['SISOQTY_X'];
+                        $plot = 0;
+                        if ($osreq > 0) {
+                            foreach ($rsrm as &$x) {
+                                if ($thereffno == $x['SERD2_SER']) {
+                                    if ($osreq > $x['SERD2_FGQTY']) {
+                                        $plot = $x['SERD2_FGQTY'];
+                                        $x['SERD2_FGQTY'] = 0;
+                                    } else {
+                                        $plot = $osreq;
+                                        $x['SERD2_FGQTY'] -= $osreq;
+                                    }
+                                    $x['PRICEFOR'] = $r['SSO2_SLPRC'];
+                                    $x['QTYFOR'] = $plot;
+                                    $x['PRICEGROUP'] = $r['SSO2_SLPRC'] * $r['SISOQTY'];
+                                    $result[] = $x;
+                                }
+                            }
+                            unset($x);
+                        }
+                        $r['SISOQTY_X'] += $plot;
+                    }
+                }
+            }
+            unset($ra);
+        }
+        unset($r);
+
+        $result_resume = [];
+        foreach ($result as $r) {
+            $isfound = false;
+            foreach ($result_resume as &$v) {
+                if (
+                    $v['RITEMCD'] == $r['SERD2_ITMCD'] && $v['RLOTNO'] == $r['LOTNO']
+                    && $v['RASSYCODE'] == $r['SER_ITMID'] && $v['RPRICEGROUP'] == round($r['PRICEGROUP'], 2)
+                ) {
+                    $v['RQTY'] += ($r['SERD2_QTPER'] * $r['QTYFOR']);
+                    $isfound = true;
+                    break;
+                }
+            }
+            if (!$isfound) {
+                $result_resume[] = [
+                    'RASSYCODE' => $r['SER_ITMID'],
+                    'RPRICEGROUP' => round($r['PRICEGROUP'], 2),
+                    'RITEMCD' => $r['SERD2_ITMCD'],
+                    'RITEMCDGR' => $r['ITMGR'],
+                    'RLOTNO' => $r['LOTNO'],
+                    'RQTY' => $r['SERD2_QTPER'] * $r['QTYFOR'],
+                ];
+            }
+            unset($v);
+        }
+        return $result_resume;
+    }
+
+    function select_dlv_ser_rm_byreff_forpost($serlist)
+    {
+        $placeholders = implode(',', array_fill(0, count($serlist), '?'));
+        $qry = "
+                        SELECT
+                            SERD2_SER,
+                            LOTNO,
+                            UPPER(RTRIM(SERD2_ITMCD)) AS SERD2_ITMCD,
+                            ISNULL(MITMGRP_ITMCD,'') AS ITMGR,
+                            SERD2_QTPER,
+                            SERD2_FGQTY,
+                            SERD2_FGQTY AS B4MINS,
+                            0 AS PRICEFOR,
+                            0 AS QTYFOR,
+                            CASE
+                                WHEN Z.SER_ITMID IS NOT NULL THEN Z.SER_ITMID
+                                ELSE ISNULL(Y.SER_ITMID, X.SER_ITMID)
+                            END AS SER_ITMID,
+                            0 AS PRICEGROUP
+                        FROM (
+                            SELECT
+                                SERD2_SER,
+                                SERD2_ITMCD,
+                                SERD2_FGQTY,
+                                SUM(SERD2_QTY) / SERD2_FGQTY AS SERD2_QTPER,
+                                MAX(SERD2_LOTNO) AS LOTNO
+                            FROM SERD2_TBL
+                            GROUP BY SERD2_SER, SERD2_ITMCD, SERD2_FGQTY
+                        ) V1
+                        LEFT JOIN SER_TBL X ON SERD2_SER = X.SER_ID
+                        LEFT JOIN MITMGRP_TBL ON SERD2_ITMCD = MITMGRP_ITMCD_GRD
+                        LEFT JOIN SERC_TBL ON SERD2_SER = SERC_COMID
+                        LEFT JOIN SER_TBL Y ON SERC_NEWID = Y.SER_ID
+                        LEFT JOIN SER_TBL Z ON SERC_NEWID = Z.SER_REFNO
+                        WHERE SERD2_SER IN ($placeholders)
+                        ORDER BY SERD2_SER
+                        ";
+
+        $rscom = DB::select($qry, $serlist);
+        $rscom = json_decode(json_encode($rscom), true);
+        return $rscom;
     }
 }
