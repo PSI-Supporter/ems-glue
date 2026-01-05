@@ -1039,7 +1039,7 @@ class SupplyController extends Controller
                 foreach ($rs as $r) {
                     #Print Outstanding QTY Only
                     if ($r['TTLREQ'] > 0) {
-                        $ccat = $r['SPL_CAT'];
+                        $ccat = trim($r['SPL_CAT']);
                         $cline = $r['SPL_LINE'];
                         $cfedr = $r['SPL_FEDR'];
                         #print header
@@ -1073,7 +1073,7 @@ class SupplyController extends Controller
                             $this->fpdf->Code128(3, $cury, $cpsn, $clebar, 4);
                             $this->fpdf->Text(3, $cury + 7, $cpsn);
                             $clebar = $this->fpdf->GetStringWidth($ccat) + 17;
-                            $this->fpdf->Code128(170, $cury, trim($ccat), $clebar, 4);
+                            $this->fpdf->Code128(170, $cury, $ccat == "" ? "-" : $ccat, $clebar, 4);
                             $this->fpdf->Text(170, $cury + 7, $ccat);
                             $clebar = $this->fpdf->GetStringWidth($cline) + 17;
                             $this->fpdf->Code128(3, $cury + 9, $cline, $clebar, 4);
