@@ -436,7 +436,7 @@ class ReceiveController extends Controller
             ->select(
                 DB::raw('item_code as lbl_item_code'),
                 DB::raw('max(pallet) as lbl_pallet'),
-                DB::raw("SUM(quantity) total_lbl_qty")
+                DB::raw("SUM(org_quantity) total_lbl_qty")
             );
 
         $dataRack = DB::table('ITMLOC_TBL')->groupBy('ITMLOC_ITM')->select('ITMLOC_ITM', DB::raw("max(ITMLOC_LOC) RACK_CD"));
