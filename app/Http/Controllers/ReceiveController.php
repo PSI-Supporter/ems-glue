@@ -520,7 +520,7 @@ class ReceiveController extends Controller
             ->where('doc_code',  $doc)
             ->where('item_code',  $item)
             ->orderBy('created_at')
-            ->get(['code', 'lot_code', 'quantity', 'item_code', 'doc_code', 'LOC']);
+            ->get(['code', 'lot_code', DB::raw("org_quantity quantity"), 'item_code', 'doc_code', 'LOC']);
 
         $join_data = $this->balancingPerPallet(['doc' => $doc, 'item' => $item]);
         if ($data->count() == 0) {
@@ -535,7 +535,7 @@ class ReceiveController extends Controller
                     ->where('doc_code',  $anotherDoc)
                     ->where('MITMGRP_ITMCD',  $item)
                     ->orderBy('created_at')
-                    ->get(['code', 'lot_code', 'quantity', 'item_code', 'doc_code', 'LOC']);
+                    ->get(['code', 'lot_code', DB::raw("org_quantity quantity"), 'item_code', 'doc_code', 'LOC']);
             }
         }
 
