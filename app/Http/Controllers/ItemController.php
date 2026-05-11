@@ -690,7 +690,7 @@ class ItemController extends Controller
                 ->orderBy('created_at')
                 ->get([
                     'code',
-                    DB::raw('RTRIM(MITM_SPTNO) SPTNO'),
+                    DB::raw("RTRIM(REPLACE(REPLACE(MITM_SPTNO, CHAR(13), ''), CHAR(10), '')) AS SPTNO"),
                     DB::raw('CONVERT(INT,quantity) quantity'),
                     DB::raw('RTRIM(ITMLOC_LOC) LOC'),
                     'item_value',
