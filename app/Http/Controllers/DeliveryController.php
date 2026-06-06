@@ -266,7 +266,6 @@ class DeliveryController extends Controller
         $rsitem_p_price = $this->setPriceRS(base64_encode($request->doc));
         $rsplotrm_per_fgprice = $this->perprice($request->doc, $rsitem_p_price);
 
-
         $tempFgRmUse = '';
         $RMUsageDisplay = '';
 
@@ -705,7 +704,9 @@ class DeliveryController extends Controller
                 $sort['DLV_ZNOMOR_AJU'][$k] = $v['DLV_ZNOMOR_AJU'];
                 $sort['SER_ITMID'][$k] = $v['SER_ITMID'];
             }
-            array_multisort($sort['DLV_ZNOMOR_AJU'], SORT_ASC, $sort['SER_ITMID'], SORT_ASC, $NewRS);
+            if (count($NewRS) > 0) {
+                array_multisort($sort['DLV_ZNOMOR_AJU'], SORT_ASC, $sort['SER_ITMID'], SORT_ASC, $NewRS);
+            }
         }
 
         $NewRSNull = [];
@@ -1545,7 +1546,7 @@ class DeliveryController extends Controller
         return $result_resume;
     }
 
-    function select_dlv_ser_rm_byreff_forpost($serlist)
+    function select_dlv_ser_rm_byreff_forpost(array $serlist)
     {
         $placeholders = implode(',', array_fill(0, count($serlist), '?'));
         $qry = "
