@@ -231,6 +231,13 @@ trait LabelingTrait
 
     function deleteLabel($data = [])
     {
+        $splscnCount = DB::table('SPLSCN_TBL')->where('SPLSCN_UNQCODE', $data['code'])->exists();
+        $rcvscnCount = DB::table('RCVSCN_TBL')->where('RCVSCN_UNQCODE', $data['code'])->exists();
+
+        if ($splscnCount || $rcvscnCount) {
+            return ['affected_rows' => 0];
+        }
+
         $AffectedRows = DB::table('raw_material_labels')->whereNull('deleted_at')
             ->where('code', $data['code'])
             ->update([
