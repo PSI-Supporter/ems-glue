@@ -255,10 +255,14 @@ class DeliveryController extends Controller
         $rmAt = 0;
         $tempFG = '';
         $suppliersCode = [];
+        $DOsCode = [];
         foreach ($data['data'] as &$r) {
             $r['DLVQTBAK'] = $r['DLVQT'];
             if (!in_array($r['SUPCD'], $suppliersCode)) {
                 $suppliersCode[] = $r['SUPCD'];
+            }
+            if (!in_array($r['DONO'], $DOsCode) && $r['SUPCD'] == 'DUMMY') {
+                $DOsCode[] = $r['DONO'];
             }
         }
         unset($r);
@@ -269,11 +273,19 @@ class DeliveryController extends Controller
         $tempFgRmUse = '';
         $RMUsageDisplay = '';
 
-        $suppliers = DB::table('MSUP_TBL')->whereIn('MSUP_SUPCD', $suppliersCode)
-            ->get([
+        $supplier = DB::table('MSUP_TBL')->whereIn('MSUP_SUPCD', $suppliersCode)
+            ->select([
                 DB::raw("RTRIM(MSUP_SUPCD) SUPCD"),
                 DB::raw("RTRIM(MSUP_SUPCR) SUPCR")
             ]);
+        $supplierX = DB::table('XPGRN_TBL')->whereIn('PGRN_SUPNO', $DOsCode)
+            ->groupBy('PGRN_SUPCD', 'PGRN_SUPCR')
+            ->select(
+                DB::raw("RTRIM(PGRN_SUPCD) SUPCD"),
+                DB::raw("RTRIM(PGRN_SUPCR) SUPCR")
+            );
+
+        $suppliers = $supplier->union($supplierX)->get();
 
         $newList = [];
         usort($rsplotrm_per_fgprice, function ($a, $b) {
@@ -553,9 +565,9 @@ class DeliveryController extends Controller
                     ->on('RPSTOCK_DOC', '=', 'RCV_DONO')
                     ->on('RPSTOCK_ITMNUM', '=', 'RCV_ITMCD');
             })
-            ->selectRaw('RPSTOCK_REMARK,RPSTOCK_DOC,RPSTOCK_NOAJU,UPPER(RTRIM(RPSTOCK_ITMNUM)) RPSTOCK_ITMNUM,RCV_PRPRC,RPSTOCK_BCTYPE, ABS(SUM(RPSTOCK_QTY)) BCQT, RCV_HSCD, RPSTOCK_BCNUM, BM, PPN, PPH, RPSTOCK_BCDATE, SUPCD')
+            ->selectRaw('RPSTOCK_REMARK,RPSTOCK_DOC,RPSTOCK_NOAJU,UPPER(RTRIM(RPSTOCK_ITMNUM)) RPSTOCK_ITMNUM,RCV_PRPRC,RPSTOCK_BCTYPE, ABS(SUM(RPSTOCK_QTY)) BCQT, RCV_HSCD, RPSTOCK_BCNUM, BM, PPN, PPH, RPSTOCK_BCDATE, SUPCD,RTRIM(RCV_DONO) RCV_DONO')
             ->whereIn('RPSTOCK_REMARK', $arrayDeliveryOrderNumber)
-            ->groupByRaw('RPSTOCK_REMARK,RPSTOCK_DOC,RPSTOCK_NOAJU,RPSTOCK_ITMNUM,RCV_PRPRC, RPSTOCK_BCTYPE, RCV_HSCD, RPSTOCK_BCNUM, BM, PPN, PPH,RPSTOCK_BCDATE,SUPCD')
+            ->groupByRaw('RPSTOCK_REMARK,RPSTOCK_DOC,RPSTOCK_NOAJU,RPSTOCK_ITMNUM,RCV_PRPRC, RPSTOCK_BCTYPE, RCV_HSCD, RPSTOCK_BCNUM, BM, PPN, PPH,RPSTOCK_BCDATE,SUPCD,RCV_DONO')
             ->orderBy('RPSTOCK_BCDATE')->get();
         return json_decode(json_encode($data), true);
     }
@@ -640,6 +652,7 @@ class DeliveryController extends Controller
                                 'SER_ITMNM' => $r['SER_ITMNM'],
                                 'SER_ITM_HSCODE' => $r['SER_ITM_HSCODE'],
                                 'SER_ITM_UOM' => $r['SER_ITM_UOM'],
+                                'DONO' => $b['RCV_DONO'],
                             ];
 
                             if ($r['RMQT'] == $r['PLOTQT']) {
@@ -687,6 +700,7 @@ class DeliveryController extends Controller
                                 'SER_ITMNM' => $r['SER_ITMNM'],
                                 'SER_ITM_HSCODE' => $r['SER_ITM_HSCODE'],
                                 'SER_ITM_UOM' => $r['SER_ITM_UOM'],
+                                'DONO' => $b['RCV_DONO'],
                             ];
 
                             if ($r['RMQT'] == $r['PLOTQT']) {
@@ -760,6 +774,7 @@ class DeliveryController extends Controller
                             'SER_ITMNM' => $r['SER_ITMNM'],
                             'SER_ITM_HSCODE' => $r['SER_ITM_HSCODE'],
                             'SER_ITM_UOM' => $r['SER_ITM_UOM'],
+                            'DONO' => $b['RCV_DONO'],
                         ];
 
                         if ($r['RMQT'] == $r['PLOTQT']) {
@@ -808,6 +823,7 @@ class DeliveryController extends Controller
                             'SER_ITMNM' => $r['SER_ITMNM'],
                             'SER_ITM_HSCODE' => $r['SER_ITM_HSCODE'],
                             'SER_ITM_UOM' => $r['SER_ITM_UOM'],
+                            'DONO' => $b['RCV_DONO'],
                         ];
 
                         if ($r['RMQT'] == $r['PLOTQT']) {
